@@ -76,8 +76,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 #view-feed .tabs{position:sticky;top:52px;z-index:9;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);}
 
 /* ── New posts banner ── */
-.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:fixed;top:104px;left:0;right:0;z-index:20;}
-.new-posts-bar:hover{background:var(--ah);}
+/* .new-posts-bar は body直下のinline styleで管理 */
+#new-posts-bar:hover{background:var(--ah) !important;}
 
 /* ── Name banner ── */
 .name-banner{background:rgba(29,155,240,.08);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -411,7 +411,6 @@ body.modal-open{overflow:hidden;}
       <div class="tab active" id="tab-latest" onclick="switchTab('latest')">最新</div>
       <div class="tab" id="tab-rec" onclick="switchTab('recommend')">おすすめ</div>
     </div>
-    <div class="new-posts-bar" id="new-posts-bar" onclick="showNewPosts()">0件の新しいポストを表示</div>
     <div class="name-banner" id="name-banner">
       <p>👋 ユーザー名を設定してツイートしよう</p>
       <input class="txt-sm" id="name-banner-input" placeholder="表示名…" maxlength="20" style="width:120px;" onkeydown="if(event.key==='Enter')saveBanner()">
@@ -932,13 +931,7 @@ function startRealtime(){
         }
       } else {
         pendingNewTweets.push(1);
-        const bar=document.getElementById('new-posts-bar');
-        const main=document.getElementById('main-col');
-        const rect=main.getBoundingClientRect();
-        bar.style.left=rect.left+'px';
-        bar.style.right=(window.innerWidth-rect.right)+'px';
-        bar.style.display='block';
-        bar.textContent=`${pendingNewTweets.length}件の新しいポストを表示`;
+        _showNewBar();
       }
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'tweets'},payload=>{
@@ -1027,6 +1020,20 @@ let newPostsInterval=null;
 function startNewPostSim(){
   // デモでは実ツイートの自動追加がないため、擬似通知は無効化
   // 実際に新着ツイートが追加された場合のみバーを表示する
+}
+function _showNewBar(){
+  const bar=document.getElementById('new-posts-bar');
+  const main=document.getElementById('main-col');
+  const rect=main.getBoundingClientRect();
+  // タブ下端に合わせる：ヘッダー約52px + タブ約52px = 104px をmain上端基準で
+  const tabsEl=document.querySelector('#view-feed .tabs');
+  const tabsBottom=tabsEl?tabsEl.getBoundingClientRect().bottom:104;
+  bar.style.top=tabsBottom+'px';
+  bar.style.left=rect.left+'px';
+  bar.style.width=rect.width+'px';
+  bar.style.right='';
+  bar.style.display='block';
+  bar.textContent=pendingNewTweets.length+'件の新しいポストを表示';
 }
 function showNewPosts(){
   pendingNewTweets=[];
@@ -1295,7 +1302,7 @@ async function submitReply(parentId){
   ta.value='';
   showThread(parentId);
   showToast('返信しました！');
-  dbPostTweet(t); // DB保存（非同期・待機しない）
+  await dbPostTweet(t); // DB保存
 }
 
 // ══════════════════════════════════════
@@ -1977,5 +1984,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
   o.addEventListener('click',e=>{if(e.target===o){o.classList.remove('open');document.body.classList.remove('modal-open');}});
 });
 </script>
+<!-- ── New posts banner (body直下・fixed) ── -->
+<div id="new-posts-bar" onclick="showNewPosts()" style="display:none;position:fixed;z-index:9999;background:#1d9bf0;color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);">0件の新しいポストを表示</div>
 </body>
 </html>

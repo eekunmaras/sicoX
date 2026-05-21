@@ -709,7 +709,7 @@ let sbChannel = null; // realtime channel
 // ══════════════════════════════════════
 // Utils
 // ══════════════════════════════════════
-function uid(){ return 't'+(nextId++); }
+function uid(){ return 't'+Date.now()+Math.random().toString(36).slice(2,6); }
 function userColor(s){ if(!s)return'#444'; const c=['#1d9bf0','#f91880','#00ba7c','#ff7747','#794bc4','#ffa500','#00b4d8','#e63946']; let h=0; for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0; return c[Math.abs(h)%c.length]; }
 function initials(n){ return n?n.slice(0,2):'?'; }
 function timeAgo(ms){ const s=Math.floor((Date.now()-ms)/1000); if(s<60)return s+'秒前'; if(s<3600)return Math.floor(s/60)+'分前'; if(s<86400)return Math.floor(s/3600)+'時間前'; return Math.floor(s/86400)+'日前'; }
@@ -741,6 +741,8 @@ function goView(id){
 function goFeed(){
   viewStack=['feed'];
   _activate('feed');
+  // 別ビュー滞在中に溜まった新着があれば正しい位置でバーを再表示
+  if(pendingNewTweets.length>0) setTimeout(_showNewBar,50);
 }
 function goBack(){
   if(viewStack.length>1) viewStack.pop();
@@ -1022,12 +1024,20 @@ function startNewPostSim(){
   // 実際に新着ツイートが追加された場合のみバーを表示する
 }
 function _showNewBar(){
+  // フィードビューが表示中のときだけバーを出す
+  // （スレッド・DM等の別ビューでは位置計算が狂うため表示しない→goFeedで再表示）
+  const feedActive=document.getElementById('view-feed').classList.contains('active');
+  if(!feedActive) return;
   const bar=document.getElementById('new-posts-bar');
   const main=document.getElementById('main-col');
   const rect=main.getBoundingClientRect();
   // タブ下端に合わせる：ヘッダー約52px + タブ約52px = 104px をmain上端基準で
   const tabsEl=document.querySelector('#view-feed .tabs');
-  const tabsBottom=tabsEl?tabsEl.getBoundingClientRect().bottom:104;
+  let tabsBottom=104;
+  if(tabsEl){
+    const tr=tabsEl.getBoundingClientRect();
+    if(tr.bottom>0) tabsBottom=tr.bottom; // hidden(0)なら固定値フォールバック
+  }
   bar.style.top=tabsBottom+'px';
   bar.style.left=rect.left+'px';
   bar.style.width=rect.width+'px';
@@ -1781,11 +1791,14 @@ function _appendDmBubble(msg){
     // 自分の送信 → 常に最下部へ
     el.scrollTop=el.scrollHeight;
   } else {
-    // 相手からの新着 → バナーを表示して最下部へスクロール
-    const bar=document.getElementById('dm-new-msg-bar');
-    if(bar){ bar.style.display='block'; }
-    // 少し遅延させて要素が追加された後にスクロール
-    setTimeout(()=>{ el.scrollTop=el.scrollHeight; }, 50);
+    // 相手からの新着 → すでに最下部にいるならそのままスクロール、上に戻っているならバナー表示
+    const atBottom=el.scrollHeight-el.scrollTop-el.clientHeight<50;
+    if(atBottom){
+      setTimeout(()=>{ el.scrollTop=el.scrollHeight; },50);
+    } else {
+      const bar=document.getElementById('dm-new-msg-bar');
+      if(bar) bar.style.display='block';
+    }
   }
 }
 function dismissDmNewBar(){

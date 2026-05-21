@@ -2090,16 +2090,16 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a0f00;font-family:
 </div>
 <script>
 const CREATURES=[
-  {name:'現代人',emoji:'🧑',radius:16,score:1,color:'#e8c4a0'},
-  {name:'原始人',emoji:'🧔',radius:22,score:3,color:'#c8a070'},
-  {name:'猿人',emoji:'🦴',radius:28,score:6,color:'#b08050'},
-  {name:'チンパン',emoji:'🦧',radius:36,score:10,color:'#9a6a30'},
-  {name:'サル',emoji:'🐒',radius:44,score:15,color:'#8a5020'},
-  {name:'リス',emoji:'🐿',radius:54,score:21,color:'#a07040'},
-  {name:'ネズミ',emoji:'🐭',radius:64,score:28,color:'#888888'},
-  {name:'トカゲ',emoji:'🦎',radius:76,score:36,color:'#5a8a40'},
-  {name:'魚',emoji:'🐟',radius:90,score:45,color:'#4080b0'},
-  {name:'微生物',emoji:'🦠',radius:108,score:55,color:'#80c040'},
+  {name:'現代人',emoji:'🧑',radius:12,score:1,color:'#e8c4a0'},
+  {name:'原始人',emoji:'🧔',radius:17,score:3,color:'#c8a070'},
+  {name:'猿人',emoji:'🦴',radius:24,score:6,color:'#b08050'},
+  {name:'チンパン',emoji:'🦧',radius:33,score:10,color:'#9a6a30'},
+  {name:'サル',emoji:'🐒',radius:45,score:15,color:'#8a5020'},
+  {name:'リス',emoji:'🐿',radius:60,score:21,color:'#a07040'},
+  {name:'ネズミ',emoji:'🐭',radius:78,score:28,color:'#888888'},
+  {name:'トカゲ',emoji:'🦎',radius:98,score:36,color:'#5a8a40'},
+  {name:'魚',emoji:'🐟',radius:122,score:45,color:'#4080b0'},
+  {name:'微生物',emoji:'🦠',radius:150,score:55,color:'#80c040'},
 ];
 const canvas=document.getElementById('game-canvas');
 const ctx=canvas.getContext('2d');
@@ -2126,7 +2126,7 @@ let bodies=[],mq=[],score=0,gameActive=false,af;
 let curType=0,nxtType=0,dropNorm=0.5,canDrop=true,lastDrop=0,dTimer=0;
 function randType(){return Math.floor(Math.random()*4);}
 function sc(){return CW/360;}
-function sr(t){return Math.max(6,Math.round(CREATURES[t].radius*sc()));}
+function sr(t){return Math.max(8,Math.round(CREATURES[t].radius*sc()));}
 function makeBody(t,x,y){return{t,x,y,vx:(Math.random()-0.5)*0.3,vy:0,a:0,av:0,mg:false};}
 function initBodies(){bodies=[];mq=[];score=0;scoreEl.textContent='0';canDrop=true;dTimer=0;}
 function stepPhysics(){

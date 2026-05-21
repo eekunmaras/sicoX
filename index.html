@@ -58,7 +58,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .view.active{display:flex;min-height:100%;}
 #view-dm-chat{display:none;flex-direction:column;}
 #view-dm-chat.active{display:flex;flex-direction:column;min-height:unset;height:100%;overflow:hidden;}
-#view-dm-chat.active #dm-new-msg-bar{flex-shrink:0;}
+#view-dm-chat #dm-new-msg-bar{flex-shrink:0;}
 #view-dm-chat.active .dm-chat-wrap{flex:1;min-height:0;}
 
 /* ── Feed header ── */
@@ -76,7 +76,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 #view-feed .tabs{position:sticky;top:52px;z-index:9;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);}
 
 /* ── New posts banner ── */
-.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:sticky;top:101px;z-index:11;}
+.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:fixed;top:0;left:0;right:0;z-index:100;}
 .new-posts-bar:hover{background:var(--ah);}
 
 /* ── Name banner ── */
@@ -524,8 +524,8 @@ body.modal-open{overflow:hidden;}
       <div class="av av-32" id="dm-chat-av" style="background:#444">?</div>
       <div><div id="dm-chat-name" style="font-size:14px;font-weight:700;"></div><div id="dm-chat-handle" style="font-size:11px;color:var(--text2);"></div></div>
     </div>
+    <div id="dm-new-msg-bar" onclick="dismissDmNewBar()" style="display:none;background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">▼ 新着メッセージがあります</div>
     <div class="dm-chat-wrap">
-      <div id="dm-new-msg-bar" onclick="dismissDmNewBar()" style="display:none;background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">▼ 新着メッセージがあります</div>
       <div class="dm-messages" id="dm-messages"></div>
       <div class="dm-input-row">
         <textarea class="dm-ta" id="dm-input" placeholder="メッセージを入力…" rows="1" onkeydown="onDmKey(event)" oninput="onDmInput()"></textarea>
@@ -1268,15 +1268,16 @@ function onThreadInput(){
   const cc=document.getElementById('thread-reply-char'); if(cc){cc.textContent=rem;cc.className='char-count'+(rem<20?(rem<0?' danger':' warn'):'');}
   const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=!v.trim();
 }
-function submitReply(parentId){
+async function submitReply(parentId){
   const ta=document.getElementById('thread-reply-ta'); if(!ta)return;
   const text=ta.value.trim(); if(!text)return;
   const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
   tweets.push(t);
+  ta.value='';
   showThread(parentId);
   renderFeed(document.getElementById('search-input').value.toLowerCase());
   showToast('返信しました！');
-  dbPostTweet(t); // DB保存
+  await dbPostTweet(t); // DB保存
 }
 
 // ══════════════════════════════════════

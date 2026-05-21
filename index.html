@@ -1975,76 +1975,81 @@ const GAMES={
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>タイカゲーム 🦍</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>タイカゲーム</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Reggae+One&display=swap');
-  *{margin:0;padding:0;box-sizing:border-box;}
-  body{background:#1a0f00;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;font-family:'Reggae One',cursive;overflow-y:auto;overflow-x:hidden;}
-  #wrapper{display:flex;gap:20px;align-items:flex-start;padding:12px;}
-  #left-panel{width:140px;flex-shrink:0;color:#d4a55a;text-align:center;}
-  #left-panel h1{font-size:26px;color:#f0c040;text-shadow:0 0 12px #a06000;margin-bottom:8px;line-height:1.2;}
-  #score-box{background:#2a1800;border:2px solid #7a4a10;border-radius:8px;padding:10px;margin-bottom:12px;}
-  #score-label{font-size:11px;color:#a07040;}
-  #score{font-size:28px;color:#f0c040;}
-  #best-label{font-size:10px;color:#a07040;margin-top:4px;}
-  #best{font-size:16px;color:#d4a55a;}
-  #next-box{background:#2a1800;border:2px solid #7a4a10;border-radius:8px;padding:10px;margin-bottom:12px;}
-  #next-label{font-size:11px;color:#a07040;margin-bottom:6px;}
-  #next-canvas{width:80px;height:80px;display:block;margin:0 auto;}
-  #evolution-list{background:#2a1800;border:2px solid #7a4a10;border-radius:8px;padding:8px;font-size:10px;color:#a07040;text-align:left;}
-  #evolution-list div{margin:3px 0;}
-  #evolution-list span{float:right;color:#d4a55a;}
-  #game-container{position:relative;width:360px;height:520px;flex-shrink:0;}
-  #game-canvas{display:block;width:100%;height:100%;border:3px solid #7a4a10;border-radius:4px;background:#0d0700;cursor:crosshair;box-shadow:0 0 30px #5a300088,inset 0 0 40px #00000088;}
-  #overlay{position:absolute;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;border-radius:2px;}
-  #overlay h2{font-size:30px;color:#f0c040;text-shadow:0 0 16px #a06000;}
-  #overlay p{color:#d4a55a;font-size:14px;text-align:center;line-height:1.6;}
-  #overlay .final-score{font-size:22px;color:#f0c040;}
-  #start-btn,#restart-btn{background:#5a2a00;color:#f0c040;border:2px solid #a05a10;border-radius:8px;padding:10px 28px;font-size:16px;font-family:'Reggae One',cursive;cursor:pointer;transition:background 0.2s;}
-  #start-btn:hover,#restart-btn:hover{background:#7a3a00;}
-  #danger-bar{position:absolute;top:60px;left:0;right:0;height:2px;background:rgba(255,80,0,0.4);pointer-events:none;}
-  #message{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#f0c040;font-size:20px;text-shadow:0 0 10px #000;pointer-events:none;opacity:0;transition:opacity 0.5s;white-space:nowrap;}
-  @media(max-width:560px){
-    body{align-items:flex-start;}
-    #wrapper{flex-direction:column;align-items:center;gap:10px;padding:8px;}
-    #left-panel{width:100%;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
-    #left-panel h1{display:none;}
-    #score-box,#next-box{flex:1;min-width:100px;margin-bottom:0;}
-    #evolution-list{width:100%;order:3;}
-    #game-container{width:min(360px,calc(100vw - 16px));height:calc(min(360px,calc(100vw - 16px)) * 520 / 360);}
-  }
+@import url('https://fonts.googleapis.com/css2?family=Reggae+One&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a0f00;font-family:'Reggae One',cursive;}
+#ui{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;}
+#top-bar{width:100%;display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#2a1800;border-bottom:2px solid #7a4a10;flex-shrink:0;}
+#score-wrap{display:flex;gap:14px;align-items:center;}
+.lbl{font-size:10px;color:#a07040;}.val{font-size:22px;color:#f0c040;line-height:1;}
+#next-wrap{display:flex;align-items:center;gap:6px;}
+#next-lbl{font-size:10px;color:#a07040;}
+#next-canvas{width:44px;height:44px;}
+#chart-btn{background:#3a2000;border:1px solid #7a4a10;color:#d4a55a;border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:'Reggae One',cursive;}
+#chart-btn:active{background:#5a3000;}
+#game-wrap{position:relative;flex:1;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#game-canvas{display:block;cursor:crosshair;border:2px solid #7a4a10;border-radius:4px;box-shadow:0 0 24px #5a300066;}
+#overlay{position:absolute;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+#overlay h2{font-size:26px;color:#f0c040;text-shadow:0 0 12px #a06000;}
+#overlay p{color:#d4a55a;font-size:13px;text-align:center;line-height:1.7;}
+.fs{font-size:20px;color:#f0c040;}
+#start-btn,#restart-btn{background:#5a2a00;color:#f0c040;border:2px solid #a05a10;border-radius:8px;padding:10px 28px;font-size:16px;font-family:'Reggae One',cursive;cursor:pointer;}
+#message{position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);color:#f0c040;font-size:18px;text-shadow:0 0 8px #000;pointer-events:none;opacity:0;transition:opacity 0.4s;white-space:nowrap;}
+#danger-line{position:absolute;left:0;right:0;height:2px;pointer-events:none;transition:background 0.3s;}
+#chart-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:100;align-items:center;justify-content:center;}
+#chart-modal.open{display:flex;}
+#chart-box{background:#2a1800;border:2px solid #7a4a10;border-radius:14px;padding:16px 20px;min-width:200px;max-height:80vh;overflow-y:auto;}
+#chart-box h3{font-size:14px;color:#f0c040;margin-bottom:10px;text-align:center;}
+.cr{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(122,74,16,0.3);font-size:13px;color:#d4a55a;gap:16px;}
+.cr:last-child{border-bottom:none;}
+.cr span:last-child{color:#a07040;}
+#chart-close{display:block;width:100%;margin-top:12px;background:#3a2000;border:1px solid #7a4a10;color:#d4a55a;border-radius:8px;padding:7px;font-size:13px;cursor:pointer;font-family:'Reggae One',cursive;}
 </style>
 </head>
 <body>
-<div id="wrapper">
-  <div id="left-panel">
-    <h1>タイカ<br>ゲーム</h1>
-    <div id="score-box"><div id="score-label">スコア</div><div id="score">0</div><div id="best-label">ベスト</div><div id="best">0</div></div>
-    <div id="next-box"><div id="next-label">次の生物</div><canvas id="next-canvas" width="80" height="80"></canvas></div>
-    <div id="evolution-list">
-      <div style="color:#d4a55a;margin-bottom:4px;">退化チャート</div>
-      <div>🧑 現代人 <span>1pt</span></div><div>🧔 原始人 <span>3pt</span></div><div>🦴 直立猿人 <span>6pt</span></div>
-      <div>🦧 チンパン <span>10pt</span></div><div>🐒 サル <span>15pt</span></div><div>🐿 リス <span>21pt</span></div>
-      <div>🐭 ネズミ <span>28pt</span></div><div>🦎 トカゲ <span>36pt</span></div><div>🐟 魚 <span>45pt</span></div>
-      <div>🦠 微生物 <span>55pt</span></div>
+<div id="ui">
+  <div id="top-bar">
+    <div id="score-wrap">
+      <div><div class="lbl">スコア</div><div class="val" id="score">0</div></div>
+      <div><div class="lbl">ベスト</div><div class="val" id="best">0</div></div>
     </div>
+    <div id="next-wrap">
+      <span id="next-lbl">次</span>
+      <canvas id="next-canvas" width="44" height="44"></canvas>
+    </div>
+    <button id="chart-btn">退化チャート</button>
   </div>
-  <div id="game-container">
-    <canvas id="game-canvas" width="360" height="520"></canvas>
-    <div id="danger-bar"></div>
+  <div id="game-wrap">
+    <canvas id="game-canvas"></canvas>
+    <div id="danger-line"></div>
     <div id="message"></div>
     <div id="overlay">
       <h2>🦍 タイカゲーム</h2>
-      <p>同じ生物をくっつけて<br>さらに退化させよう！<br>クリックで落とす</p>
+      <p>同じ生物をくっつけて<br>さらに退化させよう！<br>タップorクリックで落とす</p>
       <button id="start-btn">ゲームスタート</button>
     </div>
   </div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"><\\/script>
+<div id="chart-modal">
+  <div id="chart-box">
+    <h3>📊 退化チャート</h3>
+    <div class="cr"><span>🧑 現代人</span><span>1pt</span></div>
+    <div class="cr"><span>🧔 原始人</span><span>3pt</span></div>
+    <div class="cr"><span>🦴 直立猿人</span><span>6pt</span></div>
+    <div class="cr"><span>🦧 チンパン</span><span>10pt</span></div>
+    <div class="cr"><span>🐒 サル</span><span>15pt</span></div>
+    <div class="cr"><span>🐿 リス</span><span>21pt</span></div>
+    <div class="cr"><span>🐭 ネズミ</span><span>28pt</span></div>
+    <div class="cr"><span>🦎 トカゲ</span><span>36pt</span></div>
+    <div class="cr"><span>🐟 魚</span><span>45pt</span></div>
+    <div class="cr"><span>🦠 微生物</span><span>55pt</span></div>
+    <button id="chart-close">閉じる</button>
+  </div>
+</div>
 <script>
-const{Engine,World,Bodies,Body,Events,Runner}=Matter;
-const CANVAS_W=360,CANVAS_H=520,WALL_T=20,DROP_Y=40;
 const CREATURES=[
   {name:'現代人',emoji:'🧑',radius:18,score:1,color:'#e8c4a0'},
   {name:'原始人',emoji:'🧔',radius:24,score:3,color:'#c8a070'},
@@ -2065,122 +2070,143 @@ const overlay=document.getElementById('overlay');
 const scoreEl=document.getElementById('score');
 const bestEl=document.getElementById('best');
 const msgEl=document.getElementById('message');
-let engine,runner,world,bodies=[],score=0,best=0;
-try{best=parseInt(localStorage.getItem('taikaBest')||'0');}catch(e){best=0;}
-let currentType=0,nextType=0,dropX=CANVAS_W/2,canDrop=true,gameActive=false,dangerTimer=0,mergeQueue=[],lastDropTime=0,animFrame;
+const dangerLine=document.getElementById('danger-line');
+const gameWrap=document.getElementById('game-wrap');
+let CW=360,CH=520,WALL=8,DROP_Y=40;
+let best=0;try{best=parseInt(localStorage.getItem('taikaBest')||'0');}catch(e){}
 bestEl.textContent=best;
+function resize(){
+  CW=gameWrap.clientWidth;CH=gameWrap.clientHeight;
+  const aspect=360/520;
+  if(CW/CH>aspect){CW=Math.round(CH*aspect);}else{CH=Math.round(CW/aspect);}
+  canvas.width=CW;canvas.height=CH;
+  DROP_Y=Math.round(CH*0.08);
+}
+const GRAV=0.55,FRIC=0.62,BOUNCE=0.2,AIR=0.994;
+let bodies=[],mq=[],score=0,gameActive=false,af;
+let curType=0,nxtType=0,dropNorm=0.5,canDrop=true,lastDrop=0,dTimer=0;
 function randType(){return Math.floor(Math.random()*4);}
-function initEngine(){
-  if(runner)Runner.stop(runner);
-  if(engine){World.clear(world);Engine.clear(engine);}
-  bodies=[];mergeQueue=[];score=0;scoreEl.textContent='0';canDrop=true;dangerTimer=0;
-  engine=Engine.create({gravity:{y:1.8}});world=engine.world;runner=Runner.create();
-  const wo={isStatic:true,friction:0.8,restitution:0.2};
-  World.add(world,[
-    Bodies.rectangle(CANVAS_W/2,CANVAS_H+WALL_T/2,CANVAS_W,WALL_T,wo),
-    Bodies.rectangle(-WALL_T/2,CANVAS_H/2,WALL_T,CANVAS_H*2,wo),
-    Bodies.rectangle(CANVAS_W+WALL_T/2,CANVAS_H/2,WALL_T,CANVAS_H*2,wo),
-  ]);
-  Events.on(engine,'collisionStart',handleCollisions);
-  Runner.run(runner,engine);
-}
-function handleCollisions(evt){
-  const toMerge=[];
-  evt.pairs.forEach(pair=>{
-    const a=bodies.find(b=>b.body===pair.bodyA),b=bodies.find(b=>b.body===pair.bodyB);
-    if(!a||!b)return;
-    if(a.type===b.type&&a.type<CREATURES.length-1&&!a.merging&&!b.merging){
-      a.merging=true;b.merging=true;toMerge.push({a,b});
+function sc(){return CW/360;}
+function sr(t){return Math.max(6,Math.round(CREATURES[t].radius*sc()));}
+function makeBody(t,x,y){return{t,x,y,vx:(Math.random()-0.5)*0.3,vy:0,a:0,av:0,mg:false};}
+function initBodies(){bodies=[];mq=[];score=0;scoreEl.textContent='0';canDrop=true;dTimer=0;}
+function stepPhysics(){
+  for(const b of bodies){
+    b.vy+=GRAV;b.vx*=AIR;b.vy*=AIR;
+    b.x+=b.vx;b.y+=b.vy;b.a+=b.av;b.av*=0.92;
+    const r=sr(b.t);
+    if(b.y+r>CH){b.y=CH-r;b.vy*=-BOUNCE;b.vx*=FRIC;b.av+=b.vx*0.04;}
+    if(b.x-r<WALL){b.x=WALL+r;b.vx=Math.abs(b.vx)*BOUNCE;}
+    if(b.x+r>CW-WALL){b.x=CW-WALL-r;b.vx=-Math.abs(b.vx)*BOUNCE;}
+  }
+  for(let i=0;i<bodies.length;i++){
+    for(let j=i+1;j<bodies.length;j++){
+      const a=bodies[i],b=bodies[j];
+      const ra=sr(a.t),rb=sr(b.t);
+      const dx=b.x-a.x,dy=b.y-a.y;
+      const d=Math.sqrt(dx*dx+dy*dy)||0.001;
+      const md=ra+rb;
+      if(d<md){
+        if(a.t===b.t&&a.t<CREATURES.length-1&&!a.mg&&!b.mg){
+          a.mg=true;b.mg=true;mq.push({nt:a.t+1,x:(a.x+b.x)/2,y:(a.y+b.y)/2,ia:i,ib:j});
+          continue;
+        }
+        const ov=(md-d)/2,nx=dx/d,ny=dy/d;
+        a.x-=nx*ov;a.y-=ny*ov;b.x+=nx*ov;b.y+=ny*ov;
+        const rv=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+        if(rv>0){const im=rv*(1+BOUNCE);a.vx-=im*nx*0.5;a.vy-=im*ny*0.5;b.vx+=im*nx*0.5;b.vy+=im*ny*0.5;}
+      }
     }
-  });
-  toMerge.forEach(({a,b})=>{
-    const mx=(a.body.position.x+b.body.position.x)/2,my=(a.body.position.y+b.body.position.y)/2;
-    mergeQueue.push({type:a.type+1,x:mx,y:my,removeA:a,removeB:b});
-  });
+  }
 }
-function processQueue(){
-  mergeQueue.forEach(({type,x,y,removeA,removeB})=>{
-    removeCreature(removeA);removeCreature(removeB);addCreature(type,x,y,true);
-    score+=CREATURES[type].score;scoreEl.textContent=score;
+function processMQ(){
+  if(!mq.length)return;
+  const idx=new Set();mq.forEach(m=>{idx.add(m.ia);idx.add(m.ib);});
+  bodies=bodies.filter((_,i)=>!idx.has(i));
+  mq.forEach(m=>{
+    const nb=makeBody(m.nt,m.x,m.y);nb.vy=-4;nb.vx=(Math.random()-0.5)*5;
+    bodies.push(nb);
+    score+=CREATURES[m.nt].score;scoreEl.textContent=score;
     if(score>best){best=score;bestEl.textContent=best;try{localStorage.setItem('taikaBest',best);}catch(e){}}
-    showMessage(CREATURES[type].emoji+' 退化した！');
+    showMsg(CREATURES[m.nt].emoji+' 退化した！');
   });
-  mergeQueue=[];
-}
-function removeCreature(c){World.remove(world,c.body);const i=bodies.indexOf(c);if(i!==-1)bodies.splice(i,1);}
-function addCreature(type,x,y,merged){
-  const r=CREATURES[type].radius;
-  x=Math.max(r+WALL_T,Math.min(CANVAS_W-r-WALL_T,x));
-  const body=Bodies.circle(x,y,r,{restitution:0.2,friction:0.8,frictionAir:0.01,density:0.002});
-  if(merged)Body.setVelocity(body,{x:(Math.random()-0.5)*3,y:-3});
-  World.add(world,body);bodies.push({body,type,merging:false});return body;
-}
-function drop(){
-  if(!canDrop||!gameActive)return;
-  const now=Date.now();if(now-lastDropTime<400)return;lastDropTime=now;
-  addCreature(currentType,dropX,DROP_Y);
-  currentType=nextType;nextType=randType();drawNext();canDrop=false;
-  setTimeout(()=>{canDrop=true;},700);
-}
-function lighten(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return\`rgb(\${Math.min(255,r+60)},\${Math.min(255,g+60)},\${Math.min(255,b+60)})\`;}
-function darken(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return\`rgb(\${Math.max(0,r-30)},\${Math.max(0,g-30)},\${Math.max(0,b-30)})\`;}
-function drawCreature(c2d,type,x,y,scale){
-  const c=CREATURES[type],r=c.radius*scale;
-  c2d.save();c2d.beginPath();c2d.arc(x,y,r,0,Math.PI*2);
-  const g=c2d.createRadialGradient(x-r*0.3,y-r*0.3,r*0.1,x,y,r);
-  g.addColorStop(0,lighten(c.color));g.addColorStop(1,darken(c.color));
-  c2d.fillStyle=g;c2d.fill();
-  c2d.strokeStyle='rgba(255,200,100,0.3)';c2d.lineWidth=1.5*scale;c2d.stroke();
-  c2d.font=\`\${Math.floor(r*1.1)}px serif\`;c2d.textAlign='center';c2d.textBaseline='middle';
-  c2d.fillText(c.emoji,x,y+r*0.05);c2d.restore();
-}
-function drawNext(){nextCtx.clearRect(0,0,80,80);drawCreature(nextCtx,nextType,40,40,0.65);}
-function drawGhost(){if(!gameActive||!canDrop)return;ctx.save();ctx.globalAlpha=0.35;drawCreature(ctx,currentType,dropX,DROP_Y,1);ctx.restore();}
-function drawDropIndicator(){
-  if(!gameActive||!canDrop)return;
-  ctx.save();ctx.strokeStyle='rgba(240,192,64,0.25)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
-  ctx.beginPath();ctx.moveTo(dropX,DROP_Y+CREATURES[currentType].radius);ctx.lineTo(dropX,CANVAS_H);ctx.stroke();ctx.restore();
+  mq=[];
 }
 function checkDanger(){
-  for(const b of bodies){if(b.body.position.y<DROP_Y+20&&!b.merging){dangerTimer++;if(dangerTimer>120)gameOver();return;}}
-  dangerTimer=Math.max(0,dangerTimer-2);
+  let inDanger=false;
+  for(const b of bodies){if(!b.mg&&b.y-sr(b.t)<DROP_Y+12){inDanger=true;break;}}
+  if(inDanger){dTimer++;dangerLine.style.background='rgba(255,'+Math.max(0,100-dTimer)+',0,0.6)';if(dTimer>200)gameOver();}
+  else{dTimer=Math.max(0,dTimer-1);dangerLine.style.background=dTimer>30?'rgba(255,140,0,0.3)':'transparent';}
 }
 function gameOver(){
-  gameActive=false;Runner.stop(runner);cancelAnimationFrame(animFrame);
-  overlay.innerHTML=\`<h2>⚰️ 絶滅した！</h2><p class="final-score">スコア: \${score}</p><p>最高記録: \${best}</p><button id="restart-btn" onclick="startGame()">もう一度</button>\`;
+  gameActive=false;cancelAnimationFrame(af);
+  overlay.innerHTML='<h2>⚰️ 絶滅した！</h2><p class="fs">スコア: '+score+'</p><p>最高記録: '+best+'</p><button id="restart-btn">もう一度</button>';
   overlay.style.display='flex';
-  document.getElementById('restart-btn').onclick=startGame;
+  document.getElementById('restart-btn').addEventListener('click',startGame);
 }
-function showMessage(text){msgEl.textContent=text;msgEl.style.opacity='1';setTimeout(()=>{msgEl.style.opacity='0';},900);}
-function gameLoop(){
-  if(!gameActive)return;animFrame=requestAnimationFrame(gameLoop);
-  processQueue();checkDanger();
-  ctx.clearRect(0,0,CANVAS_W,CANVAS_H);ctx.fillStyle='#0d0700';ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
-  ctx.strokeStyle='rgba(120,60,10,0.4)';ctx.lineWidth=1;
-  for(let i=0;i<CANVAS_W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,CANVAS_H);ctx.stroke();}
-  for(let j=0;j<CANVAS_H;j+=40){ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(CANVAS_W,j);ctx.stroke();}
-  ctx.fillStyle=dangerTimer>60?\`rgba(255,\${Math.max(0,80-dangerTimer)},0,0.15)\`:'rgba(255,200,60,0.04)';
-  ctx.fillRect(0,0,CANVAS_W,DROP_Y+20);
-  drawDropIndicator();drawGhost();
-  bodies.forEach(b=>{
-    const pos=b.body.position,angle=b.body.angle;
-    ctx.save();ctx.translate(pos.x,pos.y);ctx.rotate(angle);drawCreature(ctx,b.type,0,0,1);ctx.restore();
-  });
-  ctx.fillStyle='#1a0f00';ctx.fillRect(0,0,CANVAS_W,8);
+function lt(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return'rgb('+Math.min(255,r+55)+','+Math.min(255,g+55)+','+Math.min(255,b+55)+')';}
+function dk(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return'rgb('+Math.max(0,r-25)+','+Math.max(0,g-25)+','+Math.max(0,b-25)+')';}
+function drawC(c2d,t,x,y,r){
+  const c=CREATURES[t];
+  c2d.save();c2d.beginPath();c2d.arc(x,y,r,0,Math.PI*2);
+  const g=c2d.createRadialGradient(x-r*0.3,y-r*0.3,r*0.1,x,y,r);
+  g.addColorStop(0,lt(c.color));g.addColorStop(1,dk(c.color));
+  c2d.fillStyle=g;c2d.fill();
+  c2d.strokeStyle='rgba(255,200,100,0.3)';c2d.lineWidth=1.5;c2d.stroke();
+  c2d.font=Math.floor(r*1.15)+'px serif';c2d.textAlign='center';c2d.textBaseline='middle';
+  c2d.fillText(c.emoji,x,y+r*0.06);c2d.restore();
+}
+function drawNext(){
+  nextCtx.clearRect(0,0,44,44);
+  drawC(nextCtx,nxtType,22,22,Math.max(6,Math.round(CREATURES[nxtType].radius*0.44)));
+}
+function drawFrame(){
+  ctx.clearRect(0,0,CW,CH);ctx.fillStyle='#0d0700';ctx.fillRect(0,0,CW,CH);
+  ctx.strokeStyle='rgba(120,60,10,0.25)';ctx.lineWidth=1;
+  for(let i=0;i<CW;i+=36){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,CH);ctx.stroke();}
+  for(let j=0;j<CH;j+=36){ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(CW,j);ctx.stroke();}
+  if(dTimer>30){ctx.fillStyle='rgba(255,'+Math.max(0,100-dTimer)+',0,0.08)';ctx.fillRect(0,0,CW,DROP_Y+20);}
+  if(gameActive&&canDrop){
+    const dx=Math.round(dropNorm*CW);
+    ctx.save();ctx.strokeStyle='rgba(240,192,64,0.2)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
+    ctx.beginPath();ctx.moveTo(dx,DROP_Y+sr(curType));ctx.lineTo(dx,CH);ctx.stroke();ctx.restore();
+    ctx.save();ctx.globalAlpha=0.28;drawC(ctx,curType,dx,DROP_Y,sr(curType));ctx.restore();
+  }
+  bodies.forEach(b=>{ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.a);drawC(ctx,b.t,0,0,sr(b.t));ctx.restore();});
+  ctx.fillStyle='#0d0700';ctx.fillRect(0,0,CW,6);
+  const dl=document.getElementById('top-bar');
+  dangerLine.style.top=(dl?dl.offsetHeight:0)+DROP_Y+'px';
+}
+function gameLoop(){if(!gameActive)return;af=requestAnimationFrame(gameLoop);stepPhysics();processMQ();checkDanger();drawFrame();}
+function drop(){
+  if(!canDrop||!gameActive)return;
+  const now=Date.now();if(now-lastDrop<380)return;lastDrop=now;
+  const dx=Math.round(dropNorm*CW),r=sr(curType);
+  bodies.push(makeBody(curType,Math.max(WALL+r,Math.min(CW-WALL-r,dx)),DROP_Y));
+  curType=nxtType;nxtType=randType();drawNext();canDrop=false;setTimeout(()=>{canDrop=true;},650);
 }
 function startGame(){
-  overlay.style.display='none';initEngine();currentType=randType();nextType=randType();drawNext();gameActive=true;gameLoop();
+  resize();overlay.style.display='none';initBodies();
+  curType=randType();nxtType=randType();drawNext();dropNorm=0.5;gameActive=true;gameLoop();
 }
-canvas.addEventListener('mousemove',e=>{if(!gameActive)return;const rect=canvas.getBoundingClientRect();const scaleX=CANVAS_W/rect.width;dropX=Math.max(30,Math.min(CANVAS_W-30,(e.clientX-rect.left)*scaleX));});
-canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!gameActive)return;const rect=canvas.getBoundingClientRect();const scaleX=CANVAS_W/rect.width;dropX=Math.max(30,Math.min(CANVAS_W-30,(e.touches[0].clientX-rect.left)*scaleX));},{passive:false});
+function showMsg(t){msgEl.textContent=t;msgEl.style.opacity='1';setTimeout(()=>{msgEl.style.opacity='0';},850);}
+function openChart(){document.getElementById('chart-modal').classList.add('open');}
+function closeChart(){document.getElementById('chart-modal').classList.remove('open');}
+document.getElementById('chart-modal').addEventListener('click',e=>{if(e.target===document.getElementById('chart-modal'))closeChart();});
+document.getElementById('chart-btn').addEventListener('click',openChart);
+document.getElementById('chart-close').addEventListener('click',closeChart);
+canvas.addEventListener('mousemove',e=>{if(!gameActive)return;const rect=canvas.getBoundingClientRect();dropNorm=Math.max(0.05,Math.min(0.95,(e.clientX-rect.left)/rect.width));});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!gameActive)return;const rect=canvas.getBoundingClientRect();dropNorm=Math.max(0.05,Math.min(0.95,(e.touches[0].clientX-rect.left)/rect.width));},{passive:false});
 canvas.addEventListener('click',drop);
-canvas.addEventListener('touchend',e=>{e.preventDefault();drop();});
-document.getElementById('start-btn').onclick=startGame;
+canvas.addEventListener('touchend',e=>{e.preventDefault();drop();},{passive:false});
+document.getElementById('start-btn').addEventListener('click',startGame);
+window.addEventListener('resize',()=>{if(gameActive)resize();});
+resize();
 <\/script>
 </body>
 </html>`
   }
-};
+}
 
 function openGame(gameId){
   closeGameSelect();

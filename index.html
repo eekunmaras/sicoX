@@ -524,9 +524,11 @@ body.modal-open{overflow:hidden;}
       <div class="av av-32" id="dm-chat-av" style="background:#444">?</div>
       <div><div id="dm-chat-name" style="font-size:14px;font-weight:700;"></div><div id="dm-chat-handle" style="font-size:11px;color:var(--text2);"></div></div>
     </div>
-    <div id="dm-new-msg-bar" onclick="dismissDmNewBar()" style="display:none;background:var(--accent);color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">▼ 新着メッセージがあります</div>
     <div class="dm-chat-wrap">
-      <div class="dm-messages" id="dm-messages"></div>
+      <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;">
+        <div id="dm-new-msg-bar" onclick="dismissDmNewBar()" style="display:none;position:sticky;top:0;left:0;right:0;z-index:5;background:var(--accent);color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">▼ 新着メッセージがあります</div>
+        <div class="dm-messages" id="dm-messages" style="flex:1;overflow-y:auto;"></div>
+      </div>
       <div class="dm-input-row">
         <textarea class="dm-ta" id="dm-input" placeholder="メッセージを入力…" rows="1" onkeydown="onDmKey(event)" oninput="onDmInput()"></textarea>
         <button class="dm-send-btn" id="dm-send-btn" onclick="sendDm()" disabled>
@@ -701,6 +703,7 @@ let pendingNewTweets = [];
 let selectedImages = [];
 let quoteTargetId = null;
 let pollActive = false;
+let pollVotedMap = JSON.parse(localStorage.getItem('mn_poll_voted')||'{}'); // {tweetId: optIndex}
 let repostTargetId = null;
 let ctxTargetHandle = null, ctxTargetTweetId = null;
 let viewStack = ['feed'];
@@ -1053,17 +1056,18 @@ function bodyWithLinks(text){
 // ══════════════════════════════════════
 function pollHTML(poll,tweetId){
   if(!poll)return'';
-  const voted=poll.votedIndex!==null;
+  const myVotedIndex=pollVotedMap[tweetId]!==undefined?pollVotedMap[tweetId]:null;
+  const voted=myVotedIndex!==null;
   const max=Math.max(...poll.options.map(o=>o.votes),1);
   const winner=poll.options.indexOf(poll.options.reduce((a,b)=>a.votes>b.votes?a:b));
   return`<div class="poll" onclick="event.stopPropagation();">
     ${poll.options.map((o,i)=>{
       const pct=poll.totalVotes?Math.round(o.votes/poll.totalVotes*100):0;
       const isW=voted&&i===winner;
-      return`<div class="poll-option${voted?' voted':''}${isW?' poll-winner':''}" onclick="${voted?'':'votePoll(\''+tweetId+'\','+i+')'}">
+      return`<div class="poll-option${voted?' voted':''}${isW?' poll-winner':''}" onclick="${voted?'':'votePoll(''+tweetId+'','+i+')'}">
         ${voted?`<div class="poll-bar" style="width:${pct}%"></div>`:''}
         <div class="poll-option-inner">
-          <span>${esc(o.text)}${poll.votedIndex===i?' ✓':''}</span>
+          <span>${esc(o.text)}${myVotedIndex===i?' ✓':''}</span>
           ${voted?`<span class="poll-pct">${pct}%</span>`:''}
         </div>
       </div>`;
@@ -1073,13 +1077,18 @@ function pollHTML(poll,tweetId){
 }
 
 function votePoll(tweetId,optIndex){
-  const t=tweets.find(x=>x.id===tweetId); if(!t||!t.poll||t.poll.votedIndex!==null)return;
+  const t=tweets.find(x=>x.id===tweetId); if(!t||!t.poll)return;
+  // 自分がすでに投票済みなら無視
+  if(pollVotedMap[tweetId]!==undefined) return;
   t.poll.options[optIndex].votes++;
   t.poll.totalVotes++;
-  t.poll.votedIndex=optIndex;
+  // 投票済みをlocalStorageに保存（DBのvotedIndexは書き換えない）
+  pollVotedMap[tweetId]=optIndex;
+  localStorage.setItem('mn_poll_voted',JSON.stringify(pollVotedMap));
   refreshCard(tweetId);
-  // DB保存（投票結果をpollカラムに更新）
-  dbUpdatePoll(tweetId,t.poll);
+  // DB保存（票数のみ更新。votedIndexはnullのまま）
+  const pollForDB={...t.poll, votedIndex:null};
+  dbUpdatePoll(tweetId,pollForDB);
 }
 async function dbUpdatePoll(tweetId,poll){
   await sb.from('tweets').update({poll:JSON.stringify(poll)}).eq('id',tweetId);

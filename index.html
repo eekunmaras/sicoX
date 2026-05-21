@@ -57,7 +57,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .view{display:none;flex-direction:column;}
 .view.active{display:flex;min-height:100%;}
 #view-dm-chat{display:none;flex-direction:column;}
-#view-dm-chat.active{display:flex;min-height:unset;height:100%;overflow:hidden;}
+#view-dm-chat.active{display:flex;flex-direction:column;min-height:unset;height:100%;overflow:hidden;}
+#view-dm-chat.active #dm-new-msg-bar{flex-shrink:0;}
+#view-dm-chat.active .dm-chat-wrap{flex:1;min-height:0;}
 
 /* ── Feed header ── */
 .feed-header{position:sticky;top:0;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:52px;}.feed-header-title{font-size:17px;font-weight:700;flex:1;}
@@ -337,8 +339,10 @@ body.modal-open{overflow:hidden;}
 @media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));overflow-y:auto;overflow-x:hidden;}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}
 #view-dm-list{display:none;flex-direction:column;height:100%;overflow-y:auto;}
 #view-dm-list.active{display:flex;}
-#view-dm-chat{position:fixed;top:0;left:0;right:0;bottom:0;height:100%;display:none;flex-direction:column;z-index:40;background:var(--bg);}
+#view-dm-chat{position:fixed;top:0;left:0;right:0;bottom:0;height:100%;display:none;flex-direction:column;z-index:60;background:var(--bg);}
 #view-dm-chat.active{display:flex;}
+#view-dm-chat .feed-header{flex-shrink:0;}
+#view-dm-chat #dm-new-msg-bar{flex-shrink:0;}
 #view-dm-chat .dm-chat-wrap{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
 #view-dm-chat .dm-messages{flex:1;overflow-y:auto;min-height:0;}
 #view-dm-chat .dm-input-row{flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}}
@@ -772,6 +776,9 @@ function _activate(id){
     if(main) main.scrollTop=0;
     window.scrollTo(0,0);
   }
+  // DMチャット中はモバイルナビを非表示（入力欄が隠れるのを防ぐ）
+  const mobileNav=document.querySelector('.mobile-nav');
+  if(mobileNav) mobileNav.style.display=(id==='dm-chat')?'none':'';
 }
 
 function focusSearch(){ document.getElementById('search-input').focus(); }

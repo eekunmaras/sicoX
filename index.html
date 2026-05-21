@@ -23,16 +23,16 @@ html,body{height:100%;}
 body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex;justify-content:center;min-height:100vh;}
 
 /* ── Demo bar ── */
-.demo-bar{position:fixed;top:0;left:0;right:0;z-index:999;background:#0d1f2d;border-bottom:1px solid var(--accent);padding:5px 16px;display:flex;align-items:center;gap:8px;font-size:11px;color:#8ecff5;}
+.demo-bar{display:none !important;}
 .demo-bar strong{color:var(--accent);}
 .pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;flex-shrink:0;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* ── Layout ── */
-.layout{display:flex;width:100%;max-width:1100px;padding-top:28px;}
+.layout{display:flex;width:100%;max-width:1100px;}
 
 /* ── Sidebar ── */
-.sidebar{width:250px;padding:8px 12px;display:flex;flex-direction:column;position:sticky;top:28px;height:calc(100vh - 28px);overflow-y:auto;border-right:1px solid var(--border);flex-shrink:0;}
+.sidebar{width:250px;padding:8px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;border-right:1px solid var(--border);flex-shrink:0;}
 .logo{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;color:var(--accent);padding:10px 14px;display:block;}
 .nav-item{display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:9999px;cursor:pointer;font-size:16px;font-weight:500;color:var(--text);transition:background .15s;text-decoration:none;margin:1px 0;position:relative;user-select:none;}
 .nav-item:hover{background:rgba(255,255,255,.08);}
@@ -53,13 +53,12 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .av-c:hover{opacity:.8;}
 
 /* ── Main ── */
-.main{flex:1;max-width:600px;border-right:1px solid var(--border);height:calc(100vh - 28px);overflow-y:auto;overflow-x:hidden;position:relative;}
+.main{flex:1;max-width:600px;border-right:1px solid var(--border);height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;}
 .view{display:none;flex-direction:column;}
 .view.active{display:flex;min-height:100%;}
 
 /* ── Feed header ── */
-.feed-header{position:sticky;top:0;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:52px;}
-.feed-header-title{font-size:17px;font-weight:700;flex:1;}
+.feed-header{position:sticky;top:0;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:52px;}.feed-header-title{font-size:17px;font-weight:700;flex:1;}
 .back-btn{background:transparent;border:none;color:var(--text);cursor:pointer;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0;}
 .back-btn:hover,.back-btn:active{background:rgba(255,255,255,.1);}
 .back-btn svg{width:20px;height:20px;}
@@ -256,7 +255,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .dm-new-btn{margin:14px 16px;background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);width:calc(100% - 32px);}
 
 /* ── Right sidebar ── */
-.right-sidebar{width:300px;padding:14px;position:sticky;top:28px;height:calc(100vh - 28px);overflow-y:auto;flex-shrink:0;}
+.right-sidebar{width:300px;padding:14px;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0;}
 .search-box{background:var(--bg3);border:1px solid transparent;border-radius:9999px;display:flex;align-items:center;gap:8px;padding:8px 14px;margin-bottom:14px;transition:border-color .15s,background .15s;}
 .search-box:focus-within{background:var(--bg);border-color:var(--accent);}
 .search-box svg{width:16px;height:16px;color:var(--text2);flex-shrink:0;}
@@ -318,7 +317,7 @@ body.modal-open{overflow:hidden;}
 .mob-badge{position:absolute;top:2px;right:6px;background:var(--like);color:#fff;border-radius:9999px;font-size:9px;font-weight:700;min-width:15px;height:15px;display:none;align-items:center;justify-content:center;padding:0 3px;}
 
 @media(max-width:1000px){.right-sidebar{display:none;}.sidebar{width:68px;}.nav-item span,.user-chip .user-info{display:none;}.nav-item{justify-content:center;padding:10px;}.logo{text-align:center;font-size:22px;}}
-@media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 28px - 54px - env(safe-area-inset-bottom,0px));}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.layout{padding-top:28px;}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}.dm-chat-wrap{height:calc(100vh - 28px - 52px - 54px - env(safe-area-inset-bottom,0px));}}
+@media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}.dm-chat-wrap{height:calc(100vh - 52px - 54px - env(safe-area-inset-bottom,0px));}}
 </style>
 </head>
 <body>
@@ -350,7 +349,7 @@ body.modal-open{overflow:hidden;}
   </span>
   <nav>
     <a class="nav-item" href="#" onclick="goFeed();return false;">
-      <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/main/logo.png" alt="SicoX" style="width:24px;height:24px;object-fit:contain;flex-shrink:0;"><span>ホーム</span>
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 9v13h7v-7h6v7h7V9z"/></svg><span>ホーム</span>
     </a>
     <a class="nav-item" href="#" onclick="focusSearch();return false;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><span>検索</span>
@@ -376,9 +375,8 @@ body.modal-open{overflow:hidden;}
   <!-- ── Feed ── -->
   <div class="view active" id="view-feed">
     <div class="feed-header" style="padding:0;">
-      <div style="padding:12px 16px;width:100%;display:flex;align-items:center;justify-content:space-between;">
+      <div style="padding:12px 16px;width:100%;display:flex;align-items:center;">
         <span style="font-size:17px;font-weight:700;">ホーム</span>
-        <span style="font-size:11px;color:var(--accent);background:rgba(29,155,240,.1);padding:3px 10px;border-radius:9999px;">デモ</span>
       </div>
     </div>
     <div class="tabs">

@@ -76,7 +76,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 #view-feed .tabs{position:sticky;top:52px;z-index:9;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);}
 
 /* ── New posts banner ── */
-.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:sticky;top:104px;z-index:10;width:100%;}
+.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:fixed;top:104px;left:0;right:0;z-index:20;}
 .new-posts-bar:hover{background:var(--ah);}
 
 /* ── Name banner ── */
@@ -789,12 +789,12 @@ function focusSearch(){ document.getElementById('search-input').focus(); }
 // ══════════════════════════════════════
 
 // ツイート一覧取得
-async function fetchTweets(skipRender=false){
+async function fetchTweets(){
   const {data,error}=await sb.from('tweets')
     .select('*').order('created_at',{ascending:false}).limit(200);
   if(error){console.error(error);return;}
   tweets=data.map(dbRowToTweet);
-  if(!skipRender) renderFeed(document.getElementById('search-input').value.toLowerCase());
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
 // ユーザー一覧取得
@@ -933,6 +933,10 @@ function startRealtime(){
       } else {
         pendingNewTweets.push(1);
         const bar=document.getElementById('new-posts-bar');
+        const main=document.getElementById('main-col');
+        const rect=main.getBoundingClientRect();
+        bar.style.left=rect.left+'px';
+        bar.style.right=(window.innerWidth-rect.right)+'px';
         bar.style.display='block';
         bar.textContent=`${pendingNewTweets.length}件の新しいポストを表示`;
       }
@@ -1290,14 +1294,8 @@ async function submitReply(parentId){
   tweets.push(t);
   ta.value='';
   showThread(parentId);
-  renderFeed(document.getElementById('search-input').value.toLowerCase());
   showToast('返信しました！');
-  await dbPostTweet(t); // DB保存
-  // DB保存後に最新データ取得して返信を確実に反映（renderFeedはスキップしスレッド表示を維持）
-  try {
-    await fetchTweets(true);
-    showThread(parentId);
-  } catch(e) { /* ネットワークエラー時はローカル表示のまま */ }
+  dbPostTweet(t); // DB保存（非同期・待機しない）
 }
 
 // ══════════════════════════════════════

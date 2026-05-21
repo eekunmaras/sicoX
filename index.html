@@ -258,7 +258,47 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .dm-send-btn svg{width:17px;height:17px;}
 .dm-new-btn{margin:14px 16px;background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);width:calc(100% - 32px);}
 
-/* ── Right sidebar ── */
+/* ── Pull-up sheet ── */
+.pullup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:200;pointer-events:none;transition:background .25s;}
+.pullup-overlay.open{background:rgba(0,0,0,.55);pointer-events:auto;}
+.pullup-sheet{position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(100%);width:100%;max-width:600px;background:var(--bg3);border-radius:20px 20px 0 0;border:1px solid var(--border);border-bottom:none;z-index:201;transition:transform .28s cubic-bezier(.4,0,.2,1);padding-bottom:env(safe-area-inset-bottom,0);}
+.pullup-sheet.open{transform:translateX(-50%) translateY(0);}
+.pullup-handle{width:36px;height:4px;background:var(--border);border-radius:9999px;margin:10px auto 6px;}
+.pullup-user{display:flex;align-items:center;gap:10px;padding:10px 20px 14px;}
+.pullup-user-info{flex:1;min-width:0;}
+.pullup-user-name{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pullup-user-handle{font-size:12px;color:var(--text2);}
+.pullup-divider{height:1px;background:var(--border);margin:0 20px;}
+.pullup-item{display:flex;align-items:center;gap:14px;padding:15px 24px;cursor:pointer;font-size:15px;font-weight:500;transition:background .15s;}
+.pullup-item:hover{background:rgba(255,255,255,.06);}
+.pullup-item svg{width:22px;height:22px;flex-shrink:0;color:var(--text);}
+.pullup-cancel{padding:14px 20px 18px;text-align:center;font-size:14px;color:var(--text2);cursor:pointer;border-top:1px solid var(--border);margin-top:4px;}
+.pullup-cancel:hover{color:var(--text);}
+
+/* ── Game select modal ── */
+.game-select-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:none;align-items:center;justify-content:center;}
+.game-select-overlay.open{display:flex;}
+.game-select-box{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:20px;width:280px;max-width:90vw;}
+.game-select-title{font-size:16px;font-weight:700;text-align:center;margin-bottom:16px;color:var(--text);}
+.game-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+.game-icon-btn{display:flex;align-items:center;gap:14px;background:var(--bg4,#181818);border:1px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;transition:background .15s;text-align:left;}
+.game-icon-btn:hover{background:rgba(29,155,240,.1);border-color:var(--accent);}
+.game-icon-emoji{font-size:36px;line-height:1;flex-shrink:0;}
+.game-icon-info{flex:1;}
+.game-icon-name{font-size:14px;font-weight:700;color:var(--text);}
+.game-icon-desc{font-size:11px;color:var(--text2);margin-top:2px;}
+.game-select-close{width:100%;margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:9999px;padding:9px;font-size:14px;cursor:pointer;font-family:var(--font);transition:background .15s;}
+.game-select-close:hover{background:rgba(255,255,255,.06);}
+
+/* ── Game frame modal ── */
+.game-frame-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:400;display:none;flex-direction:column;}
+.game-frame-overlay.open{display:flex;}
+.game-frame-header{display:flex;align-items:center;padding:10px 14px;gap:10px;flex-shrink:0;background:rgba(0,0,0,.8);}
+.game-frame-title{font-size:15px;font-weight:700;flex:1;color:var(--text);}
+.game-frame-close{background:rgba(255,255,255,.1);border:none;color:var(--text);border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.game-frame-close:hover{background:rgba(255,255,255,.2);}
+.game-frame-body{flex:1;overflow:hidden;}
+.game-frame-body iframe{width:100%;height:100%;border:none;display:block;}
 .right-sidebar{width:300px;padding:14px;position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0;}
 .search-box{background:var(--bg3);border:1px solid transparent;border-radius:9999px;display:flex;align-items:center;gap:8px;padding:8px 14px;margin-bottom:14px;transition:border-color .15s,background .15s;}
 .search-box:focus-within{background:var(--bg);border-color:var(--accent);}
@@ -388,7 +428,7 @@ body.modal-open{overflow:hidden;}
       <div class="nav-badge" id="dm-badge">0</div>
     </a>
   </nav>
-  <div class="user-chip" onclick="openProfileModal()">
+  <div class="user-chip" onclick="openPullup()">
     <div class="av av-40" id="sidebar-av" style="background:#444">?</div>
     <div class="user-info">
       <div id="sidebar-name" style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">名前未設定</div>
@@ -555,7 +595,7 @@ body.modal-open{overflow:hidden;}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     <div class="mob-badge" id="mob-dm-badge"></div>
   </button>
-  <button onclick="openProfileModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
+  <button onclick="openPullup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
 </div>
 
 <!-- ═══ MODALS ═══ -->
@@ -1144,7 +1184,7 @@ function tweetCardHTML(t){
   const repostLabel=t.isRepost&&t.repostBy?`<div class="repost-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>${esc(t.repostBy.name)} がリポスト</div>`:'';
 
   const parentTweet=t.replyTo?tweets.find(x=>x.id===t.replyTo):null;
-  const replyBadge=parentTweet?`<div class="reply-badge">↩ <em onclick="event.stopPropagation();showThread('${parentTweet.id}')">${esc(parentTweet.user.name)}</em> への返信</div>`:'';
+  const replyBadge=parentTweet?`<div class="reply-badge"><em onclick="event.stopPropagation();showThread('${parentTweet.id}')" title="${esc(parentTweet.user.name)}への返信">↩</em></div>`:'';
 
   const imgs=t.imageUrls&&t.imageUrls.length?t.imageUrls:(t.imageUrl?[t.imageUrl]:[]);
   let imgHtml='';
@@ -1875,8 +1915,272 @@ function renderMembersView(){
 }
 
 // ══════════════════════════════════════
-// Toast
+// Pull-up sheet
 // ══════════════════════════════════════
+function openPullup(){
+  // アバター・名前を最新状態で反映
+  const pav=document.getElementById('pullup-av');
+  const pn=document.getElementById('pullup-name');
+  const ph=document.getElementById('pullup-handle');
+  if(currentUser){
+    pav.style.background=currentUser.color||'#444';
+    pav.innerHTML=currentUser.avatarUrl?`<img src="${esc(currentUser.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:`${esc(initials(currentUser.name))}`;
+    pn.textContent=currentUser.name||'名前未設定';
+    ph.textContent=currentUser.handle?'@'+currentUser.handle:'@—';
+  } else {
+    pav.style.background='#444';
+    pav.innerHTML='?';
+    pn.textContent='名前未設定';
+    ph.textContent='クリックして設定';
+  }
+  document.getElementById('pullup-overlay').classList.add('open');
+  document.getElementById('pullup-sheet').classList.add('open');
+  document.body.classList.add('modal-open');
+}
+function closePullup(){
+  document.getElementById('pullup-overlay').classList.remove('open');
+  document.getElementById('pullup-sheet').classList.remove('open');
+  document.body.classList.remove('modal-open');
+}
+
+// ══════════════════════════════════════
+// Game select
+// ══════════════════════════════════════
+function openGameSelect(){
+  document.getElementById('game-select-overlay').classList.add('open');
+}
+function closeGameSelect(){
+  document.getElementById('game-select-overlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════
+// Game launcher
+// ══════════════════════════════════════
+const GAMES={
+  taika:{
+    title:'🦍 タイカゲーム',
+    html: `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>タイカゲーム 🦍</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Reggae+One&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#1a0f00;display:flex;justify-content:center;align-items:center;min-height:100vh;font-family:'Reggae One',cursive;overflow:hidden;}
+  #wrapper{display:flex;gap:20px;align-items:flex-start;}
+  #left-panel{width:140px;color:#d4a55a;text-align:center;}
+  #left-panel h1{font-size:26px;color:#f0c040;text-shadow:0 0 12px #a06000;margin-bottom:8px;line-height:1.2;}
+  #score-box{background:#2a1800;border:2px solid #7a4a10;border-radius:8px;padding:10px;margin-bottom:12px;}
+  #score-label{font-size:11px;color:#a07040;}
+  #score{font-size:28px;color:#f0c040;}
+  #best-label{font-size:10px;color:#a07040;margin-top:4px;}
+  #best{font-size:16px;color:#d4a55a;}
+  #next-box{background:#2a1800;border:2px solid #7a4a10;border-radius:8px;padding:10px;margin-bottom:12px;}
+  #next-label{font-size:11px;color:#a07040;margin-bottom:6px;}
+  #next-canvas{width:80px;height:80px;display:block;margin:0 auto;}
+  #evolution-list{background:#2a1800;border:2px solid #7a4a10;border-radius:8px;padding:8px;font-size:10px;color:#a07040;text-align:left;}
+  #evolution-list div{margin:3px 0;}
+  #evolution-list span{float:right;color:#d4a55a;}
+  #game-container{position:relative;width:360px;height:520px;}
+  #game-canvas{display:block;border:3px solid #7a4a10;border-radius:4px;background:#0d0700;cursor:crosshair;box-shadow:0 0 30px #5a300088,inset 0 0 40px #00000088;}
+  #overlay{position:absolute;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;border-radius:2px;}
+  #overlay h2{font-size:30px;color:#f0c040;text-shadow:0 0 16px #a06000;}
+  #overlay p{color:#d4a55a;font-size:14px;text-align:center;line-height:1.6;}
+  #overlay .final-score{font-size:22px;color:#f0c040;}
+  #start-btn,#restart-btn{background:#5a2a00;color:#f0c040;border:2px solid #a05a10;border-radius:8px;padding:10px 28px;font-size:16px;font-family:'Reggae One',cursive;cursor:pointer;transition:background 0.2s;}
+  #start-btn:hover,#restart-btn:hover{background:#7a3a00;}
+  #danger-bar{position:absolute;top:60px;left:0;right:0;height:2px;background:rgba(255,80,0,0.4);pointer-events:none;}
+  #message{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#f0c040;font-size:20px;text-shadow:0 0 10px #000;pointer-events:none;opacity:0;transition:opacity 0.5s;white-space:nowrap;}
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <div id="left-panel">
+    <h1>タイカ<br>ゲーム</h1>
+    <div id="score-box"><div id="score-label">スコア</div><div id="score">0</div><div id="best-label">ベスト</div><div id="best">0</div></div>
+    <div id="next-box"><div id="next-label">次の生物</div><canvas id="next-canvas" width="80" height="80"></canvas></div>
+    <div id="evolution-list">
+      <div style="color:#d4a55a;margin-bottom:4px;">退化チャート</div>
+      <div>🧑 現代人 <span>1pt</span></div><div>🧔 原始人 <span>3pt</span></div><div>🦴 直立猿人 <span>6pt</span></div>
+      <div>🦧 チンパン <span>10pt</span></div><div>🐒 サル <span>15pt</span></div><div>🐿 リス <span>21pt</span></div>
+      <div>🐭 ネズミ <span>28pt</span></div><div>🦎 トカゲ <span>36pt</span></div><div>🐟 魚 <span>45pt</span></div>
+      <div>🦠 微生物 <span>55pt</span></div>
+    </div>
+  </div>
+  <div id="game-container">
+    <canvas id="game-canvas" width="360" height="520"></canvas>
+    <div id="danger-bar"></div>
+    <div id="message"></div>
+    <div id="overlay">
+      <h2>🦍 タイカゲーム</h2>
+      <p>同じ生物をくっつけて<br>さらに退化させよう！<br>クリックで落とす</p>
+      <button id="start-btn">ゲームスタート</button>
+    </div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"><\\/script>
+<script>
+const{Engine,World,Bodies,Body,Events,Runner}=Matter;
+const CANVAS_W=360,CANVAS_H=520,WALL_T=20,DROP_Y=40;
+const CREATURES=[
+  {name:'現代人',emoji:'🧑',radius:18,score:1,color:'#e8c4a0'},
+  {name:'原始人',emoji:'🧔',radius:24,score:3,color:'#c8a070'},
+  {name:'猿人',emoji:'🦴',radius:30,score:6,color:'#b08050'},
+  {name:'チンパン',emoji:'🦧',radius:36,score:10,color:'#9a6a30'},
+  {name:'サル',emoji:'🐒',radius:42,score:15,color:'#8a5020'},
+  {name:'リス',emoji:'🐿',radius:48,score:21,color:'#a07040'},
+  {name:'ネズミ',emoji:'🐭',radius:54,score:28,color:'#888888'},
+  {name:'トカゲ',emoji:'🦎',radius:60,score:36,color:'#5a8a40'},
+  {name:'魚',emoji:'🐟',radius:68,score:45,color:'#4080b0'},
+  {name:'微生物',emoji:'🦠',radius:76,score:55,color:'#80c040'},
+];
+const canvas=document.getElementById('game-canvas');
+const ctx=canvas.getContext('2d');
+const nextCanvas=document.getElementById('next-canvas');
+const nextCtx=nextCanvas.getContext('2d');
+const overlay=document.getElementById('overlay');
+const scoreEl=document.getElementById('score');
+const bestEl=document.getElementById('best');
+const msgEl=document.getElementById('message');
+let engine,runner,world,bodies=[],score=0,best=parseInt(localStorage.getItem('taikaBest')||'0');
+let currentType=0,nextType=0,dropX=CANVAS_W/2,canDrop=true,gameActive=false,dangerTimer=0,mergeQueue=[],lastDropTime=0,animFrame;
+bestEl.textContent=best;
+function randType(){return Math.floor(Math.random()*4);}
+function initEngine(){
+  if(runner)Runner.stop(runner);
+  if(engine){World.clear(world);Engine.clear(engine);}
+  bodies=[];mergeQueue=[];score=0;scoreEl.textContent='0';canDrop=true;dangerTimer=0;
+  engine=Engine.create({gravity:{y:1.8}});world=engine.world;runner=Runner.create();
+  const wo={isStatic:true,friction:0.8,restitution:0.2};
+  World.add(world,[
+    Bodies.rectangle(CANVAS_W/2,CANVAS_H+WALL_T/2,CANVAS_W,WALL_T,wo),
+    Bodies.rectangle(-WALL_T/2,CANVAS_H/2,WALL_T,CANVAS_H*2,wo),
+    Bodies.rectangle(CANVAS_W+WALL_T/2,CANVAS_H/2,WALL_T,CANVAS_H*2,wo),
+  ]);
+  Events.on(engine,'collisionStart',handleCollisions);
+  Runner.run(runner,engine);
+}
+function handleCollisions(evt){
+  const toMerge=[];
+  evt.pairs.forEach(pair=>{
+    const a=bodies.find(b=>b.body===pair.bodyA),b=bodies.find(b=>b.body===pair.bodyB);
+    if(!a||!b)return;
+    if(a.type===b.type&&a.type<CREATURES.length-1&&!a.merging&&!b.merging){
+      a.merging=true;b.merging=true;toMerge.push({a,b});
+    }
+  });
+  toMerge.forEach(({a,b})=>{
+    const mx=(a.body.position.x+b.body.position.x)/2,my=(a.body.position.y+b.body.position.y)/2;
+    mergeQueue.push({type:a.type+1,x:mx,y:my,removeA:a,removeB:b});
+  });
+}
+function processQueue(){
+  mergeQueue.forEach(({type,x,y,removeA,removeB})=>{
+    removeCreature(removeA);removeCreature(removeB);addCreature(type,x,y,true);
+    score+=CREATURES[type].score;scoreEl.textContent=score;
+    if(score>best){best=score;bestEl.textContent=best;localStorage.setItem('taikaBest',best);}
+    showMessage(CREATURES[type].emoji+' 退化した！');
+  });
+  mergeQueue=[];
+}
+function removeCreature(c){World.remove(world,c.body);const i=bodies.indexOf(c);if(i!==-1)bodies.splice(i,1);}
+function addCreature(type,x,y,merged){
+  const r=CREATURES[type].radius;
+  x=Math.max(r+WALL_T,Math.min(CANVAS_W-r-WALL_T,x));
+  const body=Bodies.circle(x,y,r,{restitution:0.2,friction:0.8,frictionAir:0.01,density:0.002});
+  if(merged)Body.setVelocity(body,{x:(Math.random()-0.5)*3,y:-3});
+  World.add(world,body);bodies.push({body,type,merging:false});return body;
+}
+function drop(){
+  if(!canDrop||!gameActive)return;
+  const now=Date.now();if(now-lastDropTime<400)return;lastDropTime=now;
+  addCreature(currentType,dropX,DROP_Y);
+  currentType=nextType;nextType=randType();drawNext();canDrop=false;
+  setTimeout(()=>{canDrop=true;},700);
+}
+function lighten(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return\`rgb(\${Math.min(255,r+60)},\${Math.min(255,g+60)},\${Math.min(255,b+60)})\`;}
+function darken(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return\`rgb(\${Math.max(0,r-30)},\${Math.max(0,g-30)},\${Math.max(0,b-30)})\`;}
+function drawCreature(c2d,type,x,y,scale){
+  const c=CREATURES[type],r=c.radius*scale;
+  c2d.save();c2d.beginPath();c2d.arc(x,y,r,0,Math.PI*2);
+  const g=c2d.createRadialGradient(x-r*0.3,y-r*0.3,r*0.1,x,y,r);
+  g.addColorStop(0,lighten(c.color));g.addColorStop(1,darken(c.color));
+  c2d.fillStyle=g;c2d.fill();
+  c2d.strokeStyle='rgba(255,200,100,0.3)';c2d.lineWidth=1.5*scale;c2d.stroke();
+  c2d.font=\`\${Math.floor(r*1.1)}px serif\`;c2d.textAlign='center';c2d.textBaseline='middle';
+  c2d.fillText(c.emoji,x,y+r*0.05);c2d.restore();
+}
+function drawNext(){nextCtx.clearRect(0,0,80,80);drawCreature(nextCtx,nextType,40,40,0.65);}
+function drawGhost(){if(!gameActive||!canDrop)return;ctx.save();ctx.globalAlpha=0.35;drawCreature(ctx,currentType,dropX,DROP_Y,1);ctx.restore();}
+function drawDropIndicator(){
+  if(!gameActive||!canDrop)return;
+  ctx.save();ctx.strokeStyle='rgba(240,192,64,0.25)';ctx.lineWidth=1;ctx.setLineDash([4,6]);
+  ctx.beginPath();ctx.moveTo(dropX,DROP_Y+CREATURES[currentType].radius);ctx.lineTo(dropX,CANVAS_H);ctx.stroke();ctx.restore();
+}
+function checkDanger(){
+  for(const b of bodies){if(b.body.position.y<DROP_Y+20&&!b.merging){dangerTimer++;if(dangerTimer>120)gameOver();return;}}
+  dangerTimer=Math.max(0,dangerTimer-2);
+}
+function gameOver(){
+  gameActive=false;Runner.stop(runner);cancelAnimationFrame(animFrame);
+  overlay.innerHTML=\`<h2>⚰️ 絶滅した！</h2><p class="final-score">スコア: \${score}</p><p>最高記録: \${best}</p><button id="restart-btn" onclick="startGame()">もう一度</button>\`;
+  overlay.style.display='flex';
+  document.getElementById('restart-btn').onclick=startGame;
+}
+function showMessage(text){msgEl.textContent=text;msgEl.style.opacity='1';setTimeout(()=>{msgEl.style.opacity='0';},900);}
+function gameLoop(){
+  if(!gameActive)return;animFrame=requestAnimationFrame(gameLoop);
+  processQueue();checkDanger();
+  ctx.clearRect(0,0,CANVAS_W,CANVAS_H);ctx.fillStyle='#0d0700';ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+  ctx.strokeStyle='rgba(120,60,10,0.4)';ctx.lineWidth=1;
+  for(let i=0;i<CANVAS_W;i+=40){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,CANVAS_H);ctx.stroke();}
+  for(let j=0;j<CANVAS_H;j+=40){ctx.beginPath();ctx.moveTo(0,j);ctx.lineTo(CANVAS_W,j);ctx.stroke();}
+  ctx.fillStyle=dangerTimer>60?\`rgba(255,\${Math.max(0,80-dangerTimer)},0,0.15)\`:'rgba(255,200,60,0.04)';
+  ctx.fillRect(0,0,CANVAS_W,DROP_Y+20);
+  drawDropIndicator();drawGhost();
+  bodies.forEach(b=>{
+    const pos=b.body.position,angle=b.body.angle;
+    ctx.save();ctx.translate(pos.x,pos.y);ctx.rotate(angle);drawCreature(ctx,b.type,0,0,1);ctx.restore();
+  });
+  ctx.fillStyle='#1a0f00';ctx.fillRect(0,0,CANVAS_W,8);
+}
+function startGame(){
+  overlay.style.display='none';initEngine();currentType=randType();nextType=randType();drawNext();gameActive=true;gameLoop();
+}
+canvas.addEventListener('mousemove',e=>{if(!gameActive)return;const rect=canvas.getBoundingClientRect();const scaleX=CANVAS_W/rect.width;dropX=Math.max(30,Math.min(CANVAS_W-30,(e.clientX-rect.left)*scaleX));});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();if(!gameActive)return;const rect=canvas.getBoundingClientRect();const scaleX=CANVAS_W/rect.width;dropX=Math.max(30,Math.min(CANVAS_W-30,(e.touches[0].clientX-rect.left)*scaleX));},{passive:false});
+canvas.addEventListener('click',drop);
+canvas.addEventListener('touchend',e=>{e.preventDefault();drop();});
+document.getElementById('start-btn').onclick=startGame;
+<\/script>
+</body>
+</html>`
+  }
+};
+
+function openGame(gameId){
+  closeGameSelect();
+  const g=GAMES[gameId]; if(!g)return;
+  document.getElementById('game-frame-title').textContent=g.title;
+  const blob=new Blob([g.html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  const frame=document.getElementById('game-frame');
+  // 古いblobURLを解放
+  if(frame._blobUrl){URL.revokeObjectURL(frame._blobUrl);}
+  frame._blobUrl=url;
+  frame.src=url;
+  document.getElementById('game-frame-overlay').classList.add('open');
+  document.body.classList.add('modal-open');
+}
+function closeGame(){
+  document.getElementById('game-frame-overlay').classList.remove('open');
+  document.body.classList.remove('modal-open');
+  const frame=document.getElementById('game-frame');
+  frame.src='about:blank';
+  if(frame._blobUrl){URL.revokeObjectURL(frame._blobUrl);frame._blobUrl=null;}
+}
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);
@@ -1997,6 +2301,57 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
   o.addEventListener('click',e=>{if(e.target===o){o.classList.remove('open');document.body.classList.remove('modal-open');}});
 });
 </script>
+<!-- ── Pull-up sheet ── -->
+<div class="pullup-overlay" id="pullup-overlay" onclick="closePullup()"></div>
+<div class="pullup-sheet" id="pullup-sheet">
+  <div class="pullup-handle"></div>
+  <div class="pullup-user">
+    <div class="av av-40" id="pullup-av" style="background:#444">?</div>
+    <div class="pullup-user-info">
+      <div class="pullup-user-name" id="pullup-name">名前未設定</div>
+      <div class="pullup-user-handle" id="pullup-handle">@—</div>
+    </div>
+  </div>
+  <div class="pullup-divider"></div>
+  <div class="pullup-item" onclick="closePullup();openProfileModal();">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    設定
+  </div>
+  <div class="pullup-item" onclick="closePullup();openGameSelect();">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M6 12h4M8 10v4M15 12h.01M17.5 11h.01"/></svg>
+    ゲーム
+  </div>
+  <div class="pullup-cancel" onclick="closePullup()">キャンセル</div>
+</div>
+
+<!-- ── Game select modal ── -->
+<div class="game-select-overlay" id="game-select-overlay">
+  <div class="game-select-box">
+    <div class="game-select-title">🎮 ゲームを選ぶ</div>
+    <div class="game-grid">
+      <div class="game-icon-btn" onclick="openGame('taika')">
+        <div class="game-icon-emoji">🦍</div>
+        <div class="game-icon-info">
+          <div class="game-icon-name">タイカゲーム</div>
+          <div class="game-icon-desc">同じ生物を合体させて退化させよう！</div>
+        </div>
+      </div>
+    </div>
+    <button class="game-select-close" onclick="closeGameSelect()">閉じる</button>
+  </div>
+</div>
+
+<!-- ── Game frame modal ── -->
+<div class="game-frame-overlay" id="game-frame-overlay">
+  <div class="game-frame-header">
+    <span class="game-frame-title" id="game-frame-title">🦍 タイカゲーム</span>
+    <button class="game-frame-close" onclick="closeGame()">✕</button>
+  </div>
+  <div class="game-frame-body">
+    <iframe id="game-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+  </div>
+</div>
+
 <!-- ── New posts banner (body直下・fixed) ── -->
 <div id="new-posts-bar" onclick="showNewPosts()" style="display:none;position:fixed;z-index:9999;background:#1d9bf0;color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);">0件の新しいポストを表示</div>
 </body>

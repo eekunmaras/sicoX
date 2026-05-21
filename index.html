@@ -465,9 +465,16 @@ body.modal-open{overflow:hidden;}
       <div class="tab" id="tab-rec" onclick="switchTab('recommend')">おすすめ</div>
     </div>
     <div class="name-banner" id="name-banner">
-      <p>👋 ユーザー名を設定してツイートしよう</p>
-      <input class="txt-sm" id="name-banner-input" placeholder="表示名…" maxlength="20" style="width:120px;" onkeydown="if(event.key==='Enter')saveBanner()">
-      <button class="set-btn" onclick="saveBanner()">設定する</button>
+      <p>👋 表示名と@ハンドルを設定してツイートしよう</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;">
+        <input class="txt-sm" id="name-banner-input" placeholder="表示名…" maxlength="20" style="width:110px;" oninput="autoFillHandle()" onkeydown="if(event.key==='Enter')saveBanner()">
+        <div style="display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+          <span style="padding:0 4px 0 8px;color:var(--text2);font-size:13px;">@</span>
+          <input class="txt-sm" id="name-banner-handle" placeholder="handle" maxlength="20" style="width:100px;border:none;background:transparent;border-radius:0;" oninput="sanitizeHandle(this);this._edited=!!this.value;" onkeydown="if(event.key==='Enter')saveBanner()">
+        </div>
+        <button class="set-btn" onclick="saveBanner()">設定する</button>
+      </div>
+      <div id="name-banner-error" style="font-size:12px;color:#f91880;margin-top:4px;display:none;"></div>
     </div>
     <div class="compose-box" id="compose-box" style="display:none;">
       <div class="av av-44" id="compose-av" style="background:#444">?</div>
@@ -854,7 +861,26 @@ async function fetchTweets(){
 // ユーザー一覧取得
 async function fetchMembers(){
   const {data}=await sb.from('profiles').select('*');
-  if(data) data.forEach(p=>{ members[p.handle]=dbRowToUser(p); });
+  if(!data) return;
+  for(const p of data){
+    // ハンドルが空でnameがある場合、nameからハンドルを自動生成してDB更新
+    if(!p.handle && p.name){
+      let base=p.name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+      let h=base, n=2;
+      while(data.some(x=>x!==p && x.handle===h)) h=base+n++;
+      p.handle=h;
+      // DBを更新（handle空 かつ 同じnameのレコードを対象）
+      await sb.from('profiles').update({handle:p.handle}).is('handle',null).eq('name',p.name);
+      await sb.from('profiles').update({handle:p.handle}).eq('handle','').eq('name',p.name);
+      // ローカルのcurrentUserも更新
+      if(currentUser && currentUser.name===p.name && !currentUser.handle){
+        currentUser.handle=p.handle;
+        saveUserLS();
+        applyUser();
+      }
+    }
+    if(p.handle) members[p.handle]=dbRowToUser(p);
+  }
 }
 
 // ツイート投稿
@@ -888,6 +914,7 @@ async function dbDeleteTweet(id){
 
 // ユーザープロフィール保存
 async function dbSaveProfile(u){
+  if(!u.handle) return; // ハンドルなしは保存しない
   const row={handle:u.handle,name:u.name,bio:u.bio||'',
     color:u.color||null,avatar_url:u.avatarUrl||null,cover_url:u.coverUrl||null,
     updated_at:new Date().toISOString()};
@@ -1632,11 +1659,24 @@ async function onCoverSelect(e){
   try{pendingCoverUrl=await uploadToImgur(file);}catch(err){}
 }
 
+function autoFillHandle(){
+  const nameEl=document.getElementById('name-banner-input');
+  const handleEl=document.getElementById('name-banner-handle');
+  // ハンドルが未入力か自動生成値のままなら名前から自動補完
+  if(!handleEl._edited){
+    handleEl.value=nameEl.value.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  }
+}
 function saveBanner(){
-  const v=document.getElementById('name-banner-input').value.trim();if(!v)return;
-  const handle=v.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-  currentUser={name:v,handle,bio:'',avatarUrl:null,coverUrl:null,color:userColor(handle)};
-  members[handle]={...currentUser};
+  const errEl=document.getElementById('name-banner-error');
+  errEl.style.display='none';
+  const v=document.getElementById('name-banner-input').value.trim();
+  const h=document.getElementById('name-banner-handle').value.trim().toLowerCase();
+  if(!v){errEl.textContent='表示名を入力してください';errEl.style.display='block';return;}
+  if(!h){errEl.textContent='@ハンドルを入力してください';errEl.style.display='block';return;}
+  if(!/^[a-z0-9_]+$/.test(h)){errEl.textContent='@ハンドルは半角英数字・_のみ使えます';errEl.style.display='block';return;}
+  currentUser={name:v,handle:h,bio:'',avatarUrl:null,coverUrl:null,color:userColor(h)};
+  members[h]={...currentUser};
   saveUserLS();applyUser();renderMembers();
   dbSaveProfile(currentUser); // DB登録（ゴーストユーザー防止）
   showToast('ようこそ、'+v+' さん！');

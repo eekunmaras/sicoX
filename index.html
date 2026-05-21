@@ -1638,6 +1638,7 @@ function saveBanner(){
   currentUser={name:v,handle,bio:'',avatarUrl:null,coverUrl:null,color:userColor(handle)};
   members[handle]={...currentUser};
   saveUserLS();applyUser();renderMembers();
+  dbSaveProfile(currentUser); // DB登録（ゴーストユーザー防止）
   showToast('ようこそ、'+v+' さん！');
 }
 
@@ -2280,7 +2281,13 @@ async function appStart(){
   try {
     // ユーザー・プロフィールロード
     loadUserLS();
-    if(currentUser){ applyUser(); members[currentUser.handle]={...currentUser}; await dbSaveProfile(currentUser); }
+    // ハンドル未設定のユーザーに @ユーザーネーム を自動付与
+    if(currentUser && !currentUser.handle && currentUser.name){
+      currentUser.handle=currentUser.name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+      currentUser.color=currentUser.color||userColor(currentUser.handle);
+      saveUserLS();
+    }
+    if(currentUser && currentUser.handle){ applyUser(); members[currentUser.handle]={...currentUser}; await dbSaveProfile(currentUser); }
 
     // メンバー一覧取得
     await fetchMembers();

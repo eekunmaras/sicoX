@@ -76,7 +76,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 #view-feed .tabs{position:sticky;top:52px;z-index:9;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);}
 
 /* ── New posts banner ── */
-.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:sticky;top:calc(52px + 49px);z-index:8;}
+.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:sticky;top:101px;z-index:11;}
 .new-posts-bar:hover{background:var(--ah);}
 
 /* ── Name banner ── */
@@ -525,10 +525,8 @@ body.modal-open{overflow:hidden;}
       <div><div id="dm-chat-name" style="font-size:14px;font-weight:700;"></div><div id="dm-chat-handle" style="font-size:11px;color:var(--text2);"></div></div>
     </div>
     <div class="dm-chat-wrap">
-      <div style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;">
-        <div id="dm-new-msg-bar" onclick="dismissDmNewBar()" style="display:none;position:sticky;top:0;left:0;right:0;z-index:5;background:var(--accent);color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">▼ 新着メッセージがあります</div>
-        <div class="dm-messages" id="dm-messages" style="flex:1;overflow-y:auto;"></div>
-      </div>
+      <div id="dm-new-msg-bar" onclick="dismissDmNewBar()" style="display:none;background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;">▼ 新着メッセージがあります</div>
+      <div class="dm-messages" id="dm-messages"></div>
       <div class="dm-input-row">
         <textarea class="dm-ta" id="dm-input" placeholder="メッセージを入力…" rows="1" onkeydown="onDmKey(event)" oninput="onDmInput()"></textarea>
         <button class="dm-send-btn" id="dm-send-btn" onclick="sendDm()" disabled>
@@ -1753,14 +1751,15 @@ function _appendDmBubble(msg){
   div.style.cssText=`display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};`;
   div.innerHTML=`<div class="dm-bubble ${mine?'mine':'theirs'}">${esc(msg.text)}<div class="dm-btime">${timeAgo(msg.ts)}</div></div>`;
   el.appendChild(div);
-  // スクロールが一番下に近い（20px以内）場合のみ自動スクロール、それ以外は新着バナー表示
-  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 20;
-  if(mine || atBottom){
+  if(mine){
+    // 自分の送信 → 常に最下部へ
     el.scrollTop=el.scrollHeight;
   } else {
-    // 相手からのメッセージで上にスクロールしている場合はバナーを表示
+    // 相手からの新着 → バナーを表示して最下部へスクロール
     const bar=document.getElementById('dm-new-msg-bar');
-    if(bar) bar.style.display='block';
+    if(bar){ bar.style.display='block'; }
+    // 少し遅延させて要素が追加された後にスクロール
+    setTimeout(()=>{ el.scrollTop=el.scrollHeight; }, 50);
   }
 }
 function dismissDmNewBar(){

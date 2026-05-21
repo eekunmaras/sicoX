@@ -49,7 +49,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .av-44{width:44px;height:44px;font-size:16px;}
 .av-40{width:40px;height:40px;font-size:14px;}
 .av-32{width:32px;height:32px;font-size:12px;}
-.av-c{cursor:pointer;transition:opacity .15s;display:block;flex-shrink:0;}
+.av-c{cursor:pointer;transition:opacity .15s;}
 .av-c:hover{opacity:.8;}
 
 /* ── Main ── */
@@ -76,7 +76,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 #view-feed .tabs{position:sticky;top:52px;z-index:9;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);}
 
 /* ── New posts banner ── */
-.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:sticky;top:104px;z-index:8;width:100%;}
+.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:sticky;top:104px;z-index:10;width:100%;}
 .new-posts-bar:hover{background:var(--ah);}
 
 /* ── Name banner ── */
@@ -789,12 +789,12 @@ function focusSearch(){ document.getElementById('search-input').focus(); }
 // ══════════════════════════════════════
 
 // ツイート一覧取得
-async function fetchTweets(){
+async function fetchTweets(skipRender=false){
   const {data,error}=await sb.from('tweets')
     .select('*').order('created_at',{ascending:false}).limit(200);
   if(error){console.error(error);return;}
   tweets=data.map(dbRowToTweet);
-  renderFeed(document.getElementById('search-input').value.toLowerCase());
+  if(!skipRender) renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
 // ユーザー一覧取得
@@ -1293,9 +1293,9 @@ async function submitReply(parentId){
   renderFeed(document.getElementById('search-input').value.toLowerCase());
   showToast('返信しました！');
   await dbPostTweet(t); // DB保存
-  // DB保存後に最新データ取得して返信を確実に反映
+  // DB保存後に最新データ取得して返信を確実に反映（renderFeedはスキップしスレッド表示を維持）
   try {
-    await fetchTweets();
+    await fetchTweets(true);
     showThread(parentId);
   } catch(e) { /* ネットワークエラー時はローカル表示のまま */ }
 }

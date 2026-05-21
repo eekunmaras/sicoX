@@ -283,6 +283,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .game-grid{display:grid;grid-template-columns:1fr;gap:10px;}
 .game-icon-btn{display:flex;align-items:center;gap:14px;background:var(--bg4,#181818);border:1px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;transition:background .15s;text-align:left;}
 .game-icon-btn:hover{background:rgba(29,155,240,.1);border-color:var(--accent);}
+.game-icon-btn-img{justify-content:center;padding:16px;border-radius:20px;}
+.game-app-icon{width:72px;height:72px;border-radius:16px;object-fit:cover;display:block;box-shadow:0 2px 8px rgba(0,0,0,.5);}
 .game-icon-emoji{font-size:36px;line-height:1;flex-shrink:0;}
 .game-icon-info{flex:1;}
 .game-icon-name{font-size:14px;font-weight:700;color:var(--text);}
@@ -370,23 +372,33 @@ body.modal-open{overflow:hidden;}
 .toast.show{opacity:1;}
 
 /* ── Mobile nav ── */
-.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.95);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:6px 0;z-index:50;justify-content:space-around;safe-area-inset-bottom:env(safe-area-inset-bottom);}
-.mobile-nav button{background:transparent;border:none;color:var(--text);cursor:pointer;padding:6px 14px;position:relative;display:flex;flex-direction:column;align-items:center;}
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.95);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:6px 0;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px));z-index:50;justify-content:space-around;}
+.mobile-nav button{background:transparent;border:none;color:var(--text);cursor:pointer;padding:6px 14px;position:relative;display:flex;flex-direction:column;align-items:center;min-width:44px;min-height:44px;justify-content:center;}
 .mobile-nav button svg{width:24px;height:24px;}
 .mob-badge{position:absolute;top:2px;right:6px;background:var(--like);color:#fff;border-radius:9999px;font-size:9px;font-weight:700;min-width:15px;height:15px;display:none;align-items:center;justify-content:center;padding:0 3px;}
 
 @media(max-width:1000px){.right-sidebar{display:none;}.sidebar{width:68px;}.nav-item span,.user-chip .user-info{display:none;}.nav-item{justify-content:center;padding:10px;}.logo{text-align:center;font-size:22px;}}
-@media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));overflow-y:auto;overflow-x:hidden;}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}
-#view-dm-list{display:none;flex-direction:column;height:100%;overflow-y:auto;}
-#view-dm-list.active{display:flex;}
-#view-dm-chat{position:fixed;top:0;left:0;right:0;bottom:0;height:100%;display:none;flex-direction:column;z-index:60;background:var(--bg);}
-#view-dm-chat.active{display:flex;}
-#view-dm-chat .feed-header{flex-shrink:0;}
-#view-dm-chat #dm-new-msg-bar{flex-shrink:0;}
-#view-dm-chat .dm-chat-wrap{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
-#view-dm-chat .dm-messages{flex:1;overflow-y:auto;min-height:0;}
-#view-dm-chat .dm-input-row{flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}}
-</style>
+@media(max-width:640px){
+  .sidebar{display:none;}
+  .main{max-width:100%;border-right:none;min-width:0;width:100%;height:calc(100dvh - 54px - env(safe-area-inset-bottom,0px));overflow-y:auto;overflow-x:hidden;}
+  .mobile-nav{display:flex;}
+  body{padding-bottom:calc(54px + env(safe-area-inset-bottom,0px));}
+  .layout{width:100%;max-width:100%;}
+  .modal-overlay{padding-top:20px;}
+  .tweet-card{padding:10px 12px;}
+  .compose-box{padding:10px 12px;}
+  .game-select-box{width:calc(100vw - 32px);max-width:320px;}
+  .game-frame-overlay{padding-bottom:env(safe-area-inset-bottom,0px);}
+  #view-dm-list{display:none;flex-direction:column;height:100%;overflow-y:auto;}
+  #view-dm-list.active{display:flex;}
+  #view-dm-chat{position:fixed;top:0;left:0;right:0;bottom:0;height:100%;display:none;flex-direction:column;z-index:60;background:var(--bg);}
+  #view-dm-chat.active{display:flex;}
+  #view-dm-chat .feed-header{flex-shrink:0;}
+  #view-dm-chat #dm-new-msg-bar{flex-shrink:0;}
+  #view-dm-chat .dm-chat-wrap{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+  #view-dm-chat .dm-messages{flex:1;overflow-y:auto;min-height:0;}
+  #view-dm-chat .dm-input-row{flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}
+}</style>
 </head>
 <body>
 <div class="demo-bar" id="demo-bar"><div class="pulse"></div><strong id="demo-bar-label">接続中…</strong><span id="demo-bar-msg"></span></div>
@@ -1958,7 +1970,7 @@ function closeGameSelect(){
 // ══════════════════════════════════════
 const GAMES={
   taika:{
-    title:'🦍 タイカゲーム',
+    title:'タイカゲーム',
     html: `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -2044,7 +2056,8 @@ const overlay=document.getElementById('overlay');
 const scoreEl=document.getElementById('score');
 const bestEl=document.getElementById('best');
 const msgEl=document.getElementById('message');
-let engine,runner,world,bodies=[],score=0,best=parseInt(localStorage.getItem('taikaBest')||'0');
+let engine,runner,world,bodies=[],score=0,best=0;
+try{best=parseInt(localStorage.getItem('taikaBest')||'0');}catch(e){best=0;}
 let currentType=0,nextType=0,dropX=CANVAS_W/2,canDrop=true,gameActive=false,dangerTimer=0,mergeQueue=[],lastDropTime=0,animFrame;
 bestEl.textContent=best;
 function randType(){return Math.floor(Math.random()*4);}
@@ -2080,7 +2093,7 @@ function processQueue(){
   mergeQueue.forEach(({type,x,y,removeA,removeB})=>{
     removeCreature(removeA);removeCreature(removeB);addCreature(type,x,y,true);
     score+=CREATURES[type].score;scoreEl.textContent=score;
-    if(score>best){best=score;bestEl.textContent=best;localStorage.setItem('taikaBest',best);}
+    if(score>best){best=score;bestEl.textContent=best;try{localStorage.setItem('taikaBest',best);}catch(e){}}
     showMessage(CREATURES[type].emoji+' 退化した！');
   });
   mergeQueue=[];
@@ -2163,7 +2176,11 @@ document.getElementById('start-btn').onclick=startGame;
 function openGame(gameId){
   closeGameSelect();
   const g=GAMES[gameId]; if(!g)return;
-  document.getElementById('game-frame-title').textContent=g.title;
+  // ヘッダー：アイコン表示、テキストタイトルは非表示
+  const titleEl=document.getElementById('game-frame-title');
+  const iconEl=document.getElementById('game-frame-icon');
+  titleEl.textContent='';
+  if(iconEl){ iconEl.style.display='block'; }
   const blob=new Blob([g.html],{type:'text/html'});
   const url=URL.createObjectURL(blob);
   const frame=document.getElementById('game-frame');
@@ -2180,6 +2197,8 @@ function closeGame(){
   const frame=document.getElementById('game-frame');
   frame.src='about:blank';
   if(frame._blobUrl){URL.revokeObjectURL(frame._blobUrl);frame._blobUrl=null;}
+  const iconEl=document.getElementById('game-frame-icon');
+  if(iconEl){ iconEl.style.display='none'; }
 }
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
@@ -2329,12 +2348,8 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
   <div class="game-select-box">
     <div class="game-select-title">🎮 ゲームを選ぶ</div>
     <div class="game-grid">
-      <div class="game-icon-btn" onclick="openGame('taika')">
-        <div class="game-icon-emoji">🦍</div>
-        <div class="game-icon-info">
-          <div class="game-icon-name">タイカゲーム</div>
-          <div class="game-icon-desc">同じ生物を合体させて退化させよう！</div>
-        </div>
+      <div class="game-icon-btn game-icon-btn-img" onclick="openGame('taika')">
+        <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/d075e0c02488b15219397982963f0bfb9ba47c50/taika.png" alt="タイカゲーム" class="game-app-icon">
       </div>
     </div>
     <button class="game-select-close" onclick="closeGameSelect()">閉じる</button>
@@ -2344,11 +2359,12 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 <!-- ── Game frame modal ── -->
 <div class="game-frame-overlay" id="game-frame-overlay">
   <div class="game-frame-header">
-    <span class="game-frame-title" id="game-frame-title">🦍 タイカゲーム</span>
+    <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/d075e0c02488b15219397982963f0bfb9ba47c50/taika.png" id="game-frame-icon" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:none;flex-shrink:0;">
+    <span class="game-frame-title" id="game-frame-title"></span>
     <button class="game-frame-close" onclick="closeGame()">✕</button>
   </div>
   <div class="game-frame-body">
-    <iframe id="game-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+    <iframe id="game-frame" sandbox="allow-scripts"></iframe>
   </div>
 </div>
 

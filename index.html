@@ -1058,22 +1058,18 @@ function pollHTML(poll,tweetId){
   if(!poll)return'';
   const myVotedIndex=pollVotedMap[tweetId]!==undefined?pollVotedMap[tweetId]:null;
   const voted=myVotedIndex!==null;
-  const max=Math.max(...poll.options.map(o=>o.votes),1);
   const winner=poll.options.indexOf(poll.options.reduce((a,b)=>a.votes>b.votes?a:b));
-  return`<div class="poll" onclick="event.stopPropagation();">
-    ${poll.options.map((o,i)=>{
-      const pct=poll.totalVotes?Math.round(o.votes/poll.totalVotes*100):0;
-      const isW=voted&&i===winner;
-      return`<div class="poll-option${voted?' voted':''}${isW?' poll-winner':''}" onclick="${voted?'':'votePoll(''+tweetId+'','+i+')'}">
-        ${voted?`<div class="poll-bar" style="width:${pct}%"></div>`:''}
-        <div class="poll-option-inner">
-          <span>${esc(o.text)}${myVotedIndex===i?' ✓':''}</span>
-          ${voted?`<span class="poll-pct">${pct}%</span>`:''}
-        </div>
-      </div>`;
-    }).join('')}
-    <div class="poll-meta">${poll.totalVotes}票${voted?' · 投票済み':''}</div>
-  </div>`;
+  const optionsHTML=poll.options.map((o,i)=>{
+    const pct=poll.totalVotes?Math.round(o.votes/poll.totalVotes*100):0;
+    const isW=voted&&i===winner;
+    const cls='poll-option'+(voted?' voted':'')+(isW?' poll-winner':'');
+    const onclick=voted?'':'votePoll(\''+tweetId+'\','+i+')';
+    const bar=voted?'<div class="poll-bar" style="width:'+pct+'%"></div>':'';
+    const pctSpan=voted?'<span class="poll-pct">'+pct+'%</span>':'';
+    const check=myVotedIndex===i?' ✓':'';
+    return'<div class="'+cls+'" onclick="'+onclick+'">'+bar+'<div class="poll-option-inner"><span>'+esc(o.text)+check+'</span>'+pctSpan+'</div></div>';
+  }).join('');
+  return'<div class="poll" onclick="event.stopPropagation();">'+optionsHTML+'<div class="poll-meta">'+poll.totalVotes+'票'+(voted?' · 投票済み':'')+'</div></div>';
 }
 
 function votePoll(tweetId,optIndex){

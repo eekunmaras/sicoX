@@ -56,7 +56,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .main{flex:1;max-width:600px;border-right:1px solid var(--border);height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;}
 .view{display:none;flex-direction:column;}
 .view.active{display:flex;min-height:100%;}
-#view-dm-chat.active{min-height:unset;height:100%;}
+#view-dm-chat{display:none;flex-direction:column;}
+#view-dm-chat.active{display:flex;min-height:unset;height:100%;overflow:hidden;}
 
 /* ── Feed header ── */
 .feed-header{position:sticky;top:0;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:52px;}.feed-header-title{font-size:17px;font-weight:700;flex:1;}
@@ -241,7 +242,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .dm-name-row{display:flex;justify-content:space-between;align-items:baseline;}
 .dm-preview-text{font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
 .dm-unread-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;}
-.dm-chat-wrap{display:flex;flex-direction:column;height:100%;min-height:0;}
+.dm-chat-wrap{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden;}
 .dm-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain;}
 .dm-bubble{max-width:78%;padding:9px 13px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
 .dm-bubble.mine{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
@@ -333,9 +334,14 @@ body.modal-open{overflow:hidden;}
 .mob-badge{position:absolute;top:2px;right:6px;background:var(--like);color:#fff;border-radius:9999px;font-size:9px;font-weight:700;min-width:15px;height:15px;display:none;align-items:center;justify-content:center;padding:0 3px;}
 
 @media(max-width:1000px){.right-sidebar{display:none;}.sidebar{width:68px;}.nav-item span,.user-chip .user-info{display:none;}.nav-item{justify-content:center;padding:10px;}.logo{text-align:center;font-size:22px;}}
-@media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}
-#view-dm-chat{height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;}
-#view-dm-chat .dm-chat-wrap{flex:1;min-height:0;}}
+@media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));overflow-y:auto;overflow-x:hidden;}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}
+#view-dm-list{display:none;flex-direction:column;height:100%;overflow-y:auto;}
+#view-dm-list.active{display:flex;}
+#view-dm-chat{position:fixed;top:0;left:0;right:0;bottom:0;height:100%;display:none;flex-direction:column;z-index:40;background:var(--bg);}
+#view-dm-chat.active{display:flex;}
+#view-dm-chat .dm-chat-wrap{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+#view-dm-chat .dm-messages{flex:1;overflow-y:auto;min-height:0;}
+#view-dm-chat .dm-input-row{flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}}
 </style>
 </head>
 <body>
@@ -514,6 +520,7 @@ body.modal-open{overflow:hidden;}
       <div class="av av-32" id="dm-chat-av" style="background:#444">?</div>
       <div><div id="dm-chat-name" style="font-size:14px;font-weight:700;"></div><div id="dm-chat-handle" style="font-size:11px;color:var(--text2);"></div></div>
     </div>
+    <div id="dm-new-msg-bar" onclick="dismissDmNewBar()" style="display:none;background:var(--accent);color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">▼ 新着メッセージがあります</div>
     <div class="dm-chat-wrap">
       <div class="dm-messages" id="dm-messages"></div>
       <div class="dm-input-row">
@@ -759,9 +766,12 @@ function _activate(id){
       dbFetchAllThreads(currentUser.handle).then(()=>renderDmList()).catch(()=>{});
     }
   }
-  const main=document.getElementById('main-col');
-  if(main) main.scrollTop=0;
-  window.scrollTo(0,0);
+  // dm-chatはfixed positionなのでmainのスクロールをリセットしない
+  if(id!=='dm-chat'){
+    const main=document.getElementById('main-col');
+    if(main) main.scrollTop=0;
+    window.scrollTo(0,0);
+  }
 }
 
 function focusSearch(){ document.getElementById('search-input').focus(); }
@@ -1675,8 +1685,17 @@ async function dmUser(handle){
   chav.innerHTML=partner.avatarUrl?`<img src="${esc(partner.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">`:`${esc(initials(partner.name))}`;
   document.getElementById('dm-chat-name').textContent=partner.name||handle;
   document.getElementById('dm-chat-handle').textContent='@'+handle;
+  // 新着バナーをリセット
+  const bar=document.getElementById('dm-new-msg-bar');
+  if(bar) bar.style.display='none';
   await renderDmMessages(handle);
   goView('dm-chat');
+  // dm-messagesのスクロールイベントでバナー自動非表示
+  const msgs=document.getElementById('dm-messages');
+  msgs.onscroll=()=>{
+    const atBottom=msgs.scrollHeight-msgs.scrollTop-msgs.clientHeight<20;
+    if(atBottom&&bar) bar.style.display='none';
+  };
 }
 async function renderDmMessages(handle){
   const el=document.getElementById('dm-messages');
@@ -1722,7 +1741,21 @@ function _appendDmBubble(msg){
   div.style.cssText=`display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};`;
   div.innerHTML=`<div class="dm-bubble ${mine?'mine':'theirs'}">${esc(msg.text)}<div class="dm-btime">${timeAgo(msg.ts)}</div></div>`;
   el.appendChild(div);
-  el.scrollTop=el.scrollHeight;
+  // スクロールが一番下に近い（20px以内）場合のみ自動スクロール、それ以外は新着バナー表示
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 20;
+  if(mine || atBottom){
+    el.scrollTop=el.scrollHeight;
+  } else {
+    // 相手からのメッセージで上にスクロールしている場合はバナーを表示
+    const bar=document.getElementById('dm-new-msg-bar');
+    if(bar) bar.style.display='block';
+  }
+}
+function dismissDmNewBar(){
+  const bar=document.getElementById('dm-new-msg-bar');
+  if(bar) bar.style.display='none';
+  const el=document.getElementById('dm-messages');
+  if(el) el.scrollTop=el.scrollHeight;
 }
 function openNewDmModal(){if(!currentUser){openProfileModal();return;}document.getElementById('new-dm-to').value='';document.getElementById('new-dm-error').style.display='none';document.getElementById('new-dm-modal').classList.add('open');document.body.classList.add('modal-open');}
 function startNewDm(){
@@ -1878,12 +1911,14 @@ async function appStart(){
     window.visualViewport.addEventListener('resize',()=>{
       const chatView=document.getElementById('view-dm-chat');
       if(!chatView.classList.contains('active')) return;
-      // キーボードが出たぶん高さを縮める
+      // キーボードが出た分、dm-chatの高さを調整
       const vvH=window.visualViewport.height;
+      const offsetTop=window.visualViewport.offsetTop||0;
+      chatView.style.top=offsetTop+'px';
       chatView.style.height=vvH+'px';
       // 最新メッセージにスクロール
       const msgs=document.getElementById('dm-messages');
-      msgs.scrollTop=msgs.scrollHeight;
+      setTimeout(()=>{ msgs.scrollTop=msgs.scrollHeight; },50);
     });
   }
 }

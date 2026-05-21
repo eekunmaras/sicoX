@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SicoX</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/eekunmaras/sicoX/main/logo2.png">
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/eekunmaras/sicoX/main/logo2.png">
+<meta name="apple-mobile-web-app-title" content="SicoX">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="SicoX">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap');
+:root{
+  --bg:#000;--bg3:#111;--bg4:#181818;--border:#2f2f2f;
+  --text:#e7e9ea;--text2:#71767b;--accent:#1d9bf0;--ah:#1a8cd8;
+  --like:#f91880;--repost:#00ba7c;--font:'Noto Sans JP',sans-serif;--r:16px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex;justify-content:center;min-height:100vh;}
+
+/* ── Demo bar ── */
+.demo-bar{position:fixed;top:0;left:0;right:0;z-index:999;background:#0d1f2d;border-bottom:1px solid var(--accent);padding:5px 16px;display:flex;align-items:center;gap:8px;font-size:11px;color:#8ecff5;}
+.demo-bar strong{color:var(--accent);}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;flex-shrink:0;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── Layout ── */
+.layout{display:flex;width:100%;max-width:1100px;padding-top:28px;}
+
+/* ── Sidebar ── */
+.sidebar{width:250px;padding:8px 12px;display:flex;flex-direction:column;position:sticky;top:28px;height:calc(100vh - 28px);overflow-y:auto;border-right:1px solid var(--border);flex-shrink:0;}
+.logo{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;color:var(--accent);padding:10px 14px;display:block;}
+.nav-item{display:flex;align-items:center;gap:14px;padding:10px 14px;border-radius:9999px;cursor:pointer;font-size:16px;font-weight:500;color:var(--text);transition:background .15s;text-decoration:none;margin:1px 0;position:relative;user-select:none;}
+.nav-item:hover{background:rgba(255,255,255,.08);}
+.nav-item svg{width:24px;height:24px;flex-shrink:0;}
+.nav-badge{position:absolute;top:6px;left:28px;background:var(--like);color:#fff;border-radius:9999px;font-size:10px;font-weight:700;min-width:16px;height:16px;display:none;align-items:center;justify-content:center;padding:0 4px;}
+.user-chip{margin-top:auto;display:flex;align-items:center;gap:10px;padding:10px;border-radius:9999px;cursor:pointer;transition:background .15s;margin-bottom:8px;}
+.user-chip:hover{background:rgba(255,255,255,.08);}
+
+/* ── Avatar ── */
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;overflow:hidden;}
+.av img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.av-80{width:80px;height:80px;font-size:26px;}
+.av-48{width:48px;height:48px;font-size:18px;}
+.av-44{width:44px;height:44px;font-size:16px;}
+.av-40{width:40px;height:40px;font-size:14px;}
+.av-32{width:32px;height:32px;font-size:12px;}
+.av-c{cursor:pointer;transition:opacity .15s;}
+.av-c:hover{opacity:.8;}
+
+/* ── Main ── */
+.main{flex:1;max-width:600px;border-right:1px solid var(--border);height:calc(100vh - 28px);overflow-y:auto;overflow-x:hidden;position:relative;}
+.view{display:none;flex-direction:column;}
+.view.active{display:flex;min-height:100%;}
+
+/* ── Feed header ── */
+.feed-header{position:sticky;top:0;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:52px;}
+.feed-header-title{font-size:17px;font-weight:700;flex:1;}
+.back-btn{background:transparent;border:none;color:var(--text);cursor:pointer;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;transition:background .15s;flex-shrink:0;}
+.back-btn:hover,.back-btn:active{background:rgba(255,255,255,.1);}
+.back-btn svg{width:20px;height:20px;}
+
+/* ── Tabs ── */
+.tabs{display:flex;border-bottom:1px solid var(--border);}
+.tab{flex:1;padding:14px 8px;text-align:center;font-size:15px;font-weight:500;color:var(--text2);cursor:pointer;transition:background .15s,color .15s;border-bottom:3px solid transparent;margin-bottom:-1px;user-select:none;letter-spacing:.01em;}
+.tab:hover{background:rgba(255,255,255,.05);color:var(--text);}
+.tab.active{color:var(--text);border-bottom-color:var(--accent);font-weight:700;}
+/* Feed tabs sticky — relative to .main scroll container */
+#view-feed .tabs{position:sticky;top:52px;z-index:9;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);}
+
+/* ── New posts banner ── */
+.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:sticky;top:calc(52px + 49px);z-index:8;}
+.new-posts-bar:hover{background:var(--ah);}
+
+/* ── Name banner ── */
+.name-banner{background:rgba(29,155,240,.08);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.name-banner p{font-size:13px;flex:1;min-width:120px;}
+.txt-sm{background:var(--bg3);border:1px solid var(--border);border-radius:9999px;color:var(--text);font-family:var(--font);font-size:14px;padding:6px 12px;outline:none;}
+.txt-sm:focus{border-color:var(--accent);}
+.set-btn{background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:6px 16px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);}
+
+/* ── Compose ── */
+.compose-box{display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);}
+.compose-right{flex:1;min-width:0;}
+.compose-ta{width:100%;background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font);font-size:17px;resize:none;min-height:54px;line-height:1.5;}
+.compose-ta::placeholder{color:var(--text2);}
+.compose-toolbar{display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-top:8px;border-top:1px solid var(--border);}
+.compose-tools{display:flex;gap:2px;}
+.icon-btn{width:34px;height:34px;border-radius:50%;border:none;background:transparent;color:var(--accent);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.icon-btn:active{background:rgba(29,155,240,.2);}
+.icon-btn svg{width:19px;height:19px;}
+.char-count{font-size:13px;color:var(--text2);min-width:26px;text-align:right;}
+.char-count.warn{color:#ffd700;}.char-count.danger{color:var(--like);}
+.post-btn{background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:7px 16px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.post-btn:active{background:var(--ah);}
+.post-btn:disabled{opacity:.45;cursor:not-allowed;}
+.img-pw{margin-top:8px;border-radius:var(--r);display:none;gap:6px;flex-wrap:wrap;}
+.img-pw-item{position:relative;border-radius:10px;overflow:hidden;flex:0 0 calc(50% - 3px);max-width:calc(50% - 3px);}
+.img-pw-item:only-child{flex:0 0 100%;max-width:100%;}
+.img-pw-item img{width:100%;height:100px;object-fit:cover;display:block;}
+.img-pw-item:only-child img{height:200px;}
+.img-remove{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.75);border:none;color:#fff;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;}
+.up-status{font-size:11px;color:var(--text2);margin-top:3px;display:none;}
+
+/* ── Quoted tweet (compose) ── */
+.quote-preview{border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:8px;font-size:13px;color:var(--text2);position:relative;}
+.quote-preview-author{font-weight:700;color:var(--text);font-size:13px;margin-bottom:2px;}
+.quote-remove{position:absolute;top:6px;right:6px;background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:16px;}
+
+/* ── Tweet card ── */
+.tweet-card{display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
+.tweet-card:active{background:rgba(255,255,255,.04);}
+@media(hover:hover){.tweet-card:hover{background:rgba(255,255,255,.03);}}
+.repost-label{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px;margin-bottom:4px;padding-left:54px;}
+.repost-label svg{width:14px;height:14px;color:var(--repost);}
+.tweet-right{flex:1;min-width:0;}
+.tweet-header{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;}
+.tw-name{font-weight:700;font-size:14px;cursor:pointer;flex-shrink:0;}
+.tw-name:hover{text-decoration:underline;}
+.tw-handle{color:var(--text2);font-size:12px;cursor:pointer;flex-shrink:0;}
+.tw-handle:hover{text-decoration:underline;}
+.tw-time{color:var(--text2);font-size:11px;margin-left:auto;}
+.tweet-body{font-size:14px;line-height:1.65;margin-top:3px;word-break:break-word;white-space:pre-wrap;}
+.tweet-img{margin-top:8px;border-radius:12px;overflow:hidden;border:1px solid var(--border);}
+.tweet-img img{width:100%;max-height:300px;object-fit:cover;display:block;}
+/* ── Multi-image grid ── */
+.img-grid{margin-top:8px;border-radius:12px;overflow:hidden;border:1px solid var(--border);display:grid;gap:2px;cursor:pointer;max-width:280px;}
+.img-grid.g1{grid-template-columns:1fr;}
+.img-grid.g2{grid-template-columns:1fr 1fr;}
+.img-grid.g3{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;}
+.img-grid.g4{grid-template-columns:1fr 1fr;}
+.img-grid img{width:100%;object-fit:cover;display:block;}
+.img-grid.g1 img{max-height:160px;}
+.img-grid.g2 img,.img-grid.g3 img,.img-grid.g4 img{height:90px;}
+.img-grid.g3 img:first-child{grid-column:1/3;height:110px;}
+.img-grid-more{position:relative;}
+.img-grid-more::after{content:attr(data-more);position:absolute;inset:0;background:rgba(0,0,0,.55);color:#fff;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+/* ── Lightbox ── */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:900;align-items:center;justify-content:center;}
+.lightbox.open{display:flex;}
+.lightbox img{max-width:92vw;max-height:90vh;object-fit:contain;border-radius:8px;}
+.lightbox-close{position:absolute;top:14px;right:18px;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:22px;cursor:pointer;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;}
+.lightbox-prev,.lightbox-next{position:absolute;top:50%;transform:translateY(-50%);background:rgba(0,0,0,.5);border:none;color:#fff;font-size:24px;cursor:pointer;border-radius:50%;width:44px;height:44px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.lightbox-prev{left:14px;}.lightbox-next{right:14px;}
+.lightbox-prev:hover,.lightbox-next:hover{background:rgba(0,0,0,.8);}
+.lightbox-counter{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.7);font-size:13px;}
+.reply-badge{font-size:11px;color:var(--text2);margin-bottom:2px;}
+.reply-badge em{color:var(--accent);font-style:normal;cursor:pointer;}
+
+/* ── Quote embed ── */
+.quote-embed{border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:8px;cursor:pointer;}
+.quote-embed:hover{background:rgba(255,255,255,.03);}
+.quote-embed-header{font-size:12px;color:var(--text2);margin-bottom:3px;}
+.quote-embed-header strong{color:var(--text);}
+.quote-embed-body{font-size:13px;line-height:1.5;color:var(--text);}
+
+/* ── Link preview ── */
+.link-preview{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:8px;cursor:pointer;transition:background .15s;}
+.link-preview:hover{background:rgba(255,255,255,.04);}
+.link-preview-thumb{width:100%;height:160px;object-fit:cover;display:block;background:var(--bg3);}
+.link-preview-body{padding:10px 12px;}
+.link-preview-domain{font-size:11px;color:var(--text2);margin-bottom:2px;}
+.link-preview-title{font-size:14px;font-weight:700;line-height:1.3;}
+.link-preview-loading{padding:14px;font-size:13px;color:var(--text2);}
+
+/* ── Tweet actions ── */
+.tweet-actions{display:flex;gap:0;margin-top:8px;margin-left:-6px;}
+.act-btn{display:flex;align-items:center;gap:4px;background:transparent;border:none;color:var(--text2);font-size:12px;cursor:pointer;font-family:var(--font);padding:4px 8px;border-radius:9999px;transition:color .15s,background .15s;min-width:44px;}
+.act-btn svg{width:16px;height:16px;}
+.act-btn:hover{color:var(--accent);background:rgba(29,155,240,.08);}
+.act-btn:active{background:rgba(29,155,240,.15);}
+.act-btn.like:hover{color:var(--like);background:rgba(249,24,128,.08);}
+.act-btn.liked{color:var(--like);}
+.act-btn.liked svg{fill:var(--like);stroke:var(--like);}
+.act-btn.reposted{color:var(--repost);}
+.act-btn.reposted svg{stroke:var(--repost);}
+
+/* ── Poll ── */
+.poll{margin-top:8px;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.poll-option{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;position:relative;font-size:14px;}
+.poll-option:last-child{border-bottom:none;}
+.poll-option:hover{background:rgba(29,155,240,.06);}
+.poll-option.voted{cursor:default;}
+.poll-bar{position:absolute;left:0;top:0;bottom:0;background:rgba(29,155,240,.18);border-radius:0;transition:width .4s ease;}
+.poll-option-inner{position:relative;z-index:1;display:flex;justify-content:space-between;align-items:center;}
+.poll-pct{font-size:12px;color:var(--text2);font-weight:700;}
+.poll-winner .poll-bar{background:rgba(29,155,240,.28);}
+.poll-winner .poll-option-inner{font-weight:700;}
+.poll-meta{font-size:12px;color:var(--text2);padding:8px 14px;border-top:1px solid var(--border);}
+
+/* ── Poll compose ── */
+.poll-compose{border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:8px;}
+.poll-compose-title{font-size:13px;color:var(--text2);margin-bottom:8px;font-weight:600;}
+.poll-option-input{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.poll-option-input input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:14px;padding:7px 10px;outline:none;}
+.poll-option-input input:focus{border-color:var(--accent);}
+.poll-option-input button{background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:16px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
+.add-poll-opt{font-size:13px;color:var(--accent);background:transparent;border:none;cursor:pointer;font-family:var(--font);padding:4px 0;}
+
+/* ── Blocked overlay ── */
+.blocked-card{padding:12px 16px;border-bottom:1px solid var(--border);color:var(--text2);font-size:13px;display:flex;align-items:center;justify-content:space-between;}
+
+/* ── Thread view ── */
+.thread-parent{padding:14px 16px;border-bottom:1px solid var(--border);}
+.thread-parent .tweet-body{font-size:16px;margin-top:10px;}
+.tw-time-full{font-size:13px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.thread-stats{display:flex;gap:16px;padding:10px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-top:8px;}
+.stat-item{font-size:13px;color:var(--text2);} .stat-item strong{color:var(--text);}
+.thread-actions{display:flex;border-bottom:1px solid var(--border);}
+.thread-actions .act-btn{flex:1;justify-content:center;padding:10px 4px;font-size:13px;}
+.reply-compose-thread{display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);}
+.reply-ta{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;resize:none;outline:none;min-height:68px;}
+.reply-ta:focus{border-color:var(--accent);}
+
+/* ── User page ── */
+.user-cover{height:130px;position:relative;}
+.user-cover img{width:100%;height:100%;object-fit:cover;display:block;}
+.user-cover-placeholder{width:100%;height:100%;background:linear-gradient(135deg,#1a3a5c,#0d1f2d);}
+.user-profile-header{padding:0 16px 12px;}
+.user-edit-bar{display:flex;justify-content:flex-end;padding:10px 0 4px;gap:8px;}
+.user-av-wrap{margin-top:-46px;margin-bottom:8px;display:inline-block;position:relative;z-index:2;}
+.user-av-wrap .av{border:4px solid var(--bg);}
+.user-bio{font-size:14px;margin-top:6px;color:var(--text);line-height:1.5;}
+.profile-tabs{display:flex;border-bottom:1px solid var(--border);margin-top:10px;}
+/* User page action buttons */
+.up-action-btn{border:1px solid var(--border);background:transparent;color:var(--text);font-family:var(--font);font-size:14px;font-weight:700;border-radius:9999px;padding:6px 16px;cursor:pointer;transition:background .15s;}
+.up-action-btn:hover{background:rgba(255,255,255,.08);}
+.up-action-btn.danger{color:var(--like);border-color:var(--like);}
+.up-action-btn.danger:hover{background:rgba(249,24,128,.08);}
+.up-action-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.up-action-btn.primary:hover{background:var(--ah);}
+
+/* ── DM ── */
+.dm-list-item{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+.dm-list-item:hover{background:rgba(255,255,255,.03);}
+.dm-preview{flex:1;min-width:0;}
+.dm-name-row{display:flex;justify-content:space-between;align-items:baseline;}
+.dm-preview-text{font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.dm-unread-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+.dm-chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 28px - 52px);min-height:0;}
+.dm-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px;}
+.dm-bubble{max-width:78%;padding:9px 13px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
+.dm-bubble.mine{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
+.dm-bubble.theirs{background:var(--bg3);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;}
+.dm-btime{font-size:11px;opacity:.7;margin-top:2px;}
+.dm-input-row{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--bg);}
+.dm-ta{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:22px;color:var(--text);font-family:var(--font);font-size:14px;padding:8px 14px;outline:none;resize:none;max-height:80px;line-height:1.4;}
+.dm-ta:focus{border-color:var(--accent);}
+.dm-send-btn{background:var(--accent);color:#fff;border:none;border-radius:50%;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end;}
+.dm-send-btn:disabled{opacity:.4;cursor:not-allowed;}
+.dm-send-btn svg{width:17px;height:17px;}
+.dm-new-btn{margin:14px 16px;background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font);width:calc(100% - 32px);}
+
+/* ── Right sidebar ── */
+.right-sidebar{width:300px;padding:14px;position:sticky;top:28px;height:calc(100vh - 28px);overflow-y:auto;flex-shrink:0;}
+.search-box{background:var(--bg3);border:1px solid transparent;border-radius:9999px;display:flex;align-items:center;gap:8px;padding:8px 14px;margin-bottom:14px;transition:border-color .15s,background .15s;}
+.search-box:focus-within{background:var(--bg);border-color:var(--accent);}
+.search-box svg{width:16px;height:16px;color:var(--text2);flex-shrink:0;}
+.search-box input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font);font-size:14px;width:100%;}
+.search-box input::placeholder{color:var(--text2);}
+.widget{background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:14px;}
+.widget-title{font-size:16px;font-weight:700;margin-bottom:10px;}
+.member-item{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;}
+.member-item:hover .mem-name{text-decoration:underline;}
+.mem-name{font-size:13px;font-weight:500;}
+.mem-handle{font-size:11px;color:var(--text2);}
+.empty-msg{text-align:center;color:var(--text2);padding:40px 16px;font-size:14px;line-height:2.2;}
+
+/* ── Modals ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;}
+.modal-overlay.open{display:flex;}
+body.modal-open{overflow:hidden;}
+.modal{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);width:95%;max-width:520px;padding:20px;position:relative;margin-bottom:40px;}
+.modal-close{position:absolute;top:10px;right:12px;background:transparent;border:none;color:var(--text2);cursor:pointer;font-size:20px;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;}
+.modal-close:hover{background:rgba(255,255,255,.08);}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:14px;}
+.field-label{font-size:12px;color:var(--text2);margin-bottom:3px;}
+.txt-field{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;padding:9px 12px;outline:none;margin-bottom:10px;}
+.txt-field:focus{border-color:var(--accent);}
+.handle-wrap{position:relative;margin-bottom:10px;}
+.handle-wrap .pfx{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:14px;pointer-events:none;}
+.handle-wrap input{padding-left:24px;}
+.av-edit-wrap{position:relative;width:72px;height:72px;margin:0 auto 12px;}
+.av-edit-wrap .av{width:72px;height:72px;font-size:24px;}
+.av-edit-btn{position:absolute;bottom:0;right:-2px;background:var(--bg);border:2px solid var(--bg);border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);background:var(--bg3);}
+.av-edit-btn svg{width:12px;height:12px;}
+.cover-edit-wrap{width:100%;height:80px;border-radius:10px;overflow:hidden;cursor:pointer;position:relative;margin-bottom:12px;background:linear-gradient(135deg,#1a3a5c,#0d1f2d);}
+.cover-edit-wrap img{width:100%;height:100%;object-fit:cover;}
+.cover-edit-overlay{position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;gap:6px;}
+.cover-edit-overlay svg{width:16px;height:16px;}
+
+/* ── Repost modal ── */
+.repost-opt{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;border-radius:10px;transition:background .15s;font-size:15px;font-weight:500;}
+.repost-opt:hover{background:rgba(255,255,255,.06);}
+.repost-opt svg{width:20px;height:20px;}
+.repost-cancel-btn{display:flex;align-items:center;justify-content:center;width:100%;padding:11px 16px;margin-top:4px;border:1px solid var(--border);border-radius:10px;background:transparent;color:var(--text2);font-family:var(--font);font-size:15px;font-weight:500;cursor:pointer;transition:background .15s;}
+.repost-cancel-btn:hover{background:rgba(255,255,255,.06);color:var(--text);}
+
+/* ── Block menu ── */
+.ctx-menu{position:fixed;background:var(--bg);border:1px solid var(--border);border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,.6);z-index:500;min-width:220px;overflow:hidden;}
+.ctx-item{padding:13px 16px;cursor:pointer;font-size:14px;font-weight:500;transition:background .15s;display:flex;align-items:center;gap:10px;}
+.ctx-item:hover{background:rgba(255,255,255,.06);}
+.ctx-item.danger{color:var(--like);}
+.ctx-item svg{width:18px;height:18px;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:9px 20px;border-radius:9999px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;z-index:600;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center;}
+.toast.show{opacity:1;}
+
+/* ── Mobile nav ── */
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.95);backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:6px 0;z-index:50;justify-content:space-around;safe-area-inset-bottom:env(safe-area-inset-bottom);}
+.mobile-nav button{background:transparent;border:none;color:var(--text);cursor:pointer;padding:6px 14px;position:relative;display:flex;flex-direction:column;align-items:center;}
+.mobile-nav button svg{width:24px;height:24px;}
+.mob-badge{position:absolute;top:2px;right:6px;background:var(--like);color:#fff;border-radius:9999px;font-size:9px;font-weight:700;min-width:15px;height:15px;display:none;align-items:center;justify-content:center;padding:0 3px;}
+
+@media(max-width:1000px){.right-sidebar{display:none;}.sidebar{width:68px;}.nav-item span,.user-chip .user-info{display:none;}.nav-item{justify-content:center;padding:10px;}.logo{text-align:center;font-size:22px;}}
+@media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 28px - 54px - env(safe-area-inset-bottom,0px));}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.layout{padding-top:28px;}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}.dm-chat-wrap{height:calc(100vh - 28px - 52px - 54px - env(safe-area-inset-bottom,0px));}}
+</style>
+</head>
+<body>
+<div class="demo-bar" id="demo-bar"><div class="pulse"></div><strong id="demo-bar-label">接続中…</strong><span id="demo-bar-msg"></span></div>
+
+<!-- ── 合言葉ゲート ── -->
+<div id="gate" style="display:none;position:fixed;inset:0;background:#000;z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:20px;">
+  <div style="font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;color:#1d9bf0;">
+    <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/main/logo.png" alt="SicoX" style="height:48px;width:auto;">
+  </div>
+  <div style="background:#111;border:1px solid #2f2f2f;border-radius:16px;padding:28px 32px;width:320px;display:flex;flex-direction:column;gap:14px;">
+    <div style="font-size:15px;font-weight:600;color:#e7e9ea;">合言葉を入力してください</div>
+    <input id="gate-input" type="password" placeholder="合言葉" autocomplete="off"
+      style="background:#1c1c1c;border:1px solid #2f2f2f;border-radius:10px;padding:10px 14px;color:#e7e9ea;font-size:15px;font-family:inherit;outline:none;"
+      onkeydown="if(event.key==='Enter')checkGate()">
+    <div id="gate-error" style="color:#f91880;font-size:13px;display:none;">合言葉が違います</div>
+    <button onclick="checkGate()"
+      style="background:#1d9bf0;border:none;border-radius:9999px;color:#fff;font-size:15px;font-weight:700;padding:10px;cursor:pointer;font-family:inherit;">
+      入室する
+    </button>
+  </div>
+</div>
+
+<div class="layout">
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sidebar">
+  <span class="logo" onclick="goFeed();return false;" style="cursor:pointer;display:block;padding:10px 14px;">
+    <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/main/logo.png" alt="SicoX" style="height:32px;width:auto;display:block;">
+  </span>
+  <nav>
+    <a class="nav-item" href="#" onclick="goFeed();return false;">
+      <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/main/logo.png" alt="SicoX" style="width:24px;height:24px;object-fit:contain;flex-shrink:0;"><span>ホーム</span>
+    </a>
+    <a class="nav-item" href="#" onclick="focusSearch();return false;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><span>検索</span>
+    </a>
+    <a class="nav-item" id="nav-dm" href="#" onclick="goView('dm-list');return false;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span>メッセージ</span>
+      <div class="nav-badge" id="dm-badge">0</div>
+    </a>
+  </nav>
+  <div class="user-chip" onclick="openProfileModal()">
+    <div class="av av-40" id="sidebar-av" style="background:#444">?</div>
+    <div class="user-info">
+      <div id="sidebar-name" style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">名前未設定</div>
+      <div id="sidebar-handle" style="font-size:11px;color:var(--text2);">クリックして設定</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main" id="main-col">
+
+  <!-- ── Feed ── -->
+  <div class="view active" id="view-feed">
+    <div class="feed-header" style="padding:0;">
+      <div style="padding:12px 16px;width:100%;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:17px;font-weight:700;">ホーム</span>
+        <span style="font-size:11px;color:var(--accent);background:rgba(29,155,240,.1);padding:3px 10px;border-radius:9999px;">デモ</span>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" id="tab-latest" onclick="switchTab('latest')">最新</div>
+      <div class="tab" id="tab-rec" onclick="switchTab('recommend')">おすすめ</div>
+    </div>
+    <div class="new-posts-bar" id="new-posts-bar" onclick="showNewPosts()">0件の新しいポストを表示</div>
+    <div class="name-banner" id="name-banner">
+      <p>👋 ユーザー名を設定してツイートしよう</p>
+      <input class="txt-sm" id="name-banner-input" placeholder="表示名…" maxlength="20" style="width:120px;" onkeydown="if(event.key==='Enter')saveBanner()">
+      <button class="set-btn" onclick="saveBanner()">設定する</button>
+    </div>
+    <div class="compose-box" id="compose-box" style="display:none;">
+      <div class="av av-44" id="compose-av" style="background:#444">?</div>
+      <div class="compose-right">
+        <textarea class="compose-ta" id="compose-input" placeholder="いまどうしてる？" maxlength="280" rows="3" oninput="onCompose()"></textarea>
+        <div class="img-pw" id="img-pw"></div>
+        <div class="quote-preview" id="quote-preview" style="display:none;">
+          <div class="quote-preview-author" id="qp-author"></div>
+          <div id="qp-body" style="font-size:13px;color:var(--text2);"></div>
+          <button class="quote-remove" onclick="cancelQuote()">✕</button>
+        </div>
+        <div class="poll-compose" id="poll-compose" style="display:none;">
+          <div class="poll-compose-title">投票オプション</div>
+          <div id="poll-options-wrap">
+            <div class="poll-option-input"><input placeholder="選択肢 1" maxlength="40"><button onclick="removePollOpt(this)" style="display:none;">✕</button></div>
+            <div class="poll-option-input"><input placeholder="選択肢 2" maxlength="40"><button onclick="removePollOpt(this)">✕</button></div>
+          </div>
+          <button class="add-poll-opt" onclick="addPollOpt()">+ 選択肢を追加</button>
+        </div>
+        <div class="up-status" id="up-status"></div>
+        <div class="compose-toolbar">
+          <div class="compose-tools">
+            <button class="icon-btn" onclick="document.getElementById('img-file').click()" title="画像">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+            </button>
+            <input type="file" id="img-file" accept="image/*" multiple style="display:none" onchange="onImgSelect(event)">
+            <button class="icon-btn" id="poll-toggle-btn" onclick="togglePollCompose()" title="投票">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18" rx="1"/><rect x="10" y="8" width="4" height="13" rx="1"/><rect x="17" y="5" width="4" height="16" rx="1"/></svg>
+            </button>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="char-count" id="char-count">280</span>
+            <button class="post-btn" id="post-btn" onclick="postTweet()" disabled>投稿</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="feed"></div>
+  </div>
+
+  <!-- ── Thread ── -->
+  <div class="view" id="view-thread">
+    <div class="feed-header">
+      <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></button>
+      <span class="feed-header-title">ポスト</span>
+    </div>
+    <div id="thread-content"></div>
+  </div>
+
+  <!-- ── User page ── -->
+  <div class="view" id="view-user">
+    <div class="feed-header">
+      <button class="back-btn" onclick="goBack()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></button>
+      <div>
+        <div id="up-name" style="font-size:16px;font-weight:700;"></div>
+        <div id="up-count" style="font-size:11px;color:var(--text2);"></div>
+      </div>
+    </div>
+    <div class="user-cover" id="user-cover"></div>
+    <div class="user-profile-header">
+      <div class="user-edit-bar" id="user-edit-bar"></div>
+      <div class="user-av-wrap"><div class="av av-80" id="up-av" style="background:#444">?</div></div>
+      <div style="font-size:19px;font-weight:700;" id="up-display-name"></div>
+      <div style="font-size:14px;color:var(--text2);" id="up-handle"></div>
+      <div class="user-bio" id="up-bio"></div>
+      <div style="display:flex;gap:16px;margin-top:8px;">
+        <div style="font-size:13px;color:var(--text2);"><strong id="up-tweet-count" style="color:var(--text);">0</strong> ポスト</div>
+      </div>
+      <div class="profile-tabs tabs">
+        <div class="tab active" style="text-align:left;padding-left:0;">ポスト</div>
+      </div>
+    </div>
+    <div id="user-page-feed"></div>
+  </div>
+
+  <!-- ── DM list ── -->
+  <div class="view" id="view-dm-list">
+    <div class="feed-header">
+      <button class="back-btn" onclick="goFeed()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></button>
+      <span class="feed-header-title">メッセージ</span>
+    </div>
+    <button class="dm-new-btn" onclick="openNewDmModal()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;vertical-align:-2px;margin-right:5px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      新しいメッセージ
+    </button>
+    <div id="dm-list-content"></div>
+  </div>
+
+  <!-- ── DM chat ── -->
+  <div class="view" id="view-dm-chat">
+    <div class="feed-header">
+      <button class="back-btn" onclick="goView('dm-list')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></button>
+      <div class="av av-32" id="dm-chat-av" style="background:#444">?</div>
+      <div><div id="dm-chat-name" style="font-size:14px;font-weight:700;"></div><div id="dm-chat-handle" style="font-size:11px;color:var(--text2);"></div></div>
+    </div>
+    <div class="dm-chat-wrap">
+      <div class="dm-messages" id="dm-messages"></div>
+      <div class="dm-input-row">
+        <textarea class="dm-ta" id="dm-input" placeholder="メッセージを入力…" rows="1" onkeydown="onDmKey(event)" oninput="onDmInput()"></textarea>
+        <button class="dm-send-btn" id="dm-send-btn" onclick="sendDm()" disabled>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══ RIGHT SIDEBAR ═══ -->
+<aside class="right-sidebar">
+  <div class="search-box">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" placeholder="SicoXを検索" id="search-input" oninput="onSearch()">
+  </div>
+  <div class="widget"><div class="widget-title">メンバー</div><div id="members-list"></div></div>
+</aside>
+</div>
+
+<!-- ═══ MOBILE NAV ═══ -->
+<div class="mobile-nav">
+  <button onclick="goFeed()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 9v13h7v-7h6v7h7V9z"/></svg></button>
+  <button onclick="focusSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+  <button onclick="goView('dm-list')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <div class="mob-badge" id="mob-dm-badge"></div>
+  </button>
+  <button onclick="openProfileModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+
+<!-- Profile modal -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('profile-modal')">✕</button>
+    <div style="text-align:center;margin-bottom:14px;">
+      <div style="margin-bottom:6px;"><img src="https://raw.githubusercontent.com/eekunmaras/sicoX/main/logo.png" alt="SicoX" style="height:36px;width:auto;"></div>
+      <div class="modal-title" style="font-size:18px;margin-bottom:0;">プロフィール設定</div>
+    </div>
+    <!-- Cover edit -->
+    <div class="field-label">カバー画像</div>
+    <div class="cover-edit-wrap" id="cover-edit-wrap" onclick="document.getElementById('cover-file').click()">
+      <div class="user-cover-placeholder" id="cover-preview-inner"></div>
+      <div class="cover-edit-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>カバーを変更</div>
+    </div>
+    <input type="file" id="cover-file" accept="image/*" style="display:none" onchange="onCoverSelect(event)">
+    <!-- Avatar edit -->
+    <div class="av-edit-wrap">
+      <div class="av" id="profile-av-preview" style="background:#444;width:72px;height:72px;font-size:24px;">?</div>
+      <button class="av-edit-btn" onclick="document.getElementById('av-file').click()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+      </button>
+      <input type="file" id="av-file" accept="image/*" style="display:none" onchange="onAvSelect(event)">
+    </div>
+    <div id="av-up-status" style="font-size:11px;color:var(--text2);text-align:center;margin-bottom:8px;min-height:14px;"></div>
+    <div class="field-label">表示名</div>
+    <input class="txt-field" id="profile-name" placeholder="例：田中 太郎" maxlength="20">
+    <div class="field-label">@ハンドル（半角英数字・_）</div>
+    <div class="handle-wrap"><span class="pfx">@</span><input class="txt-field" id="profile-handle" placeholder="tanaka_taro" maxlength="20" style="margin-bottom:0;padding-left:24px;" oninput="sanitizeHandle(this)"></div>
+    <div style="height:10px;"></div>
+    <div class="field-label">自己紹介</div>
+    <textarea class="txt-field" id="profile-bio" placeholder="自己紹介を入力…" maxlength="160" rows="3" style="resize:none;"></textarea>
+    <button class="post-btn" onclick="saveProfile()" style="width:100%;padding:11px;font-size:15px;">保存する</button>
+  </div>
+</div>
+
+<!-- Repost modal -->
+<div class="modal-overlay" id="repost-modal">
+  <div class="modal" style="max-width:320px;padding:12px;">
+    <div class="repost-opt" id="repost-opt-repost" onclick="doRepost()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--repost);"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      リポスト
+    </div>
+    <div class="repost-opt" onclick="doQuoteTweet()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      引用ポスト
+    </div>
+    <button class="repost-cancel-btn" onclick="closeModal('repost-modal')">キャンセル</button>
+  </div>
+</div>
+
+<!-- New DM modal -->
+<div class="modal-overlay" id="new-dm-modal">
+  <div class="modal" style="max-width:380px;">
+    <button class="modal-close" onclick="closeModal('new-dm-modal')">✕</button>
+    <div class="modal-title">新しいメッセージ</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">宛先の@ハンドルを入力してください</p>
+    <div style="display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:10px;">
+      <span style="color:var(--text2);font-size:14px;">宛先：@</span>
+      <input style="flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font);font-size:14px;" id="new-dm-to" placeholder="ハンドルを入力" oninput="sanitizeHandle(this)">
+    </div>
+    <div id="new-dm-error" style="font-size:12px;color:var(--like);margin-bottom:8px;display:none;"></div>
+    <button class="post-btn" onclick="startNewDm()" style="width:100%;padding:10px;">次へ</button>
+  </div>
+</div>
+
+<!-- Context menu (block) -->
+<div class="ctx-menu" id="ctx-menu" style="display:none;">
+  <div class="ctx-item danger" id="ctx-block-item" onclick="ctxBlock()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+    ブロック
+  </div>
+  <div class="ctx-item" onclick="closeCtx()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    キャンセル
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <button class="lightbox-prev" id="lb-prev" onclick="event.stopPropagation();lbMove(-1)">&#8249;</button>
+  <img id="lb-img" src="" alt="" onclick="event.stopPropagation()">
+  <button class="lightbox-next" id="lb-next" onclick="event.stopPropagation();lbMove(1)">&#8250;</button>
+  <div class="lightbox-counter" id="lb-counter"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════ -->
+<script>
+// ══════════════════════════════════════
+// Supabase 設定
+// ══════════════════════════════════════
+const SUPABASE_URL = 'https://lbulatinwtsqgudgdhpe.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxidWxhdGlud3RzcWd1ZGdkaHBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTc3NDgsImV4cCI6MjA5NDgzMzc0OH0.4pNE5vxC2Z3OdXcj6MDUuMZpHhUZMRdyxhSipsZyEUU';
+
+// ⚠️ 合言葉をここで設定（変更してください）
+const PASSPHRASE = '0721';
+const GATE_KEY   = 'mn_gate_ok';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ══════════════════════════════════════
+// 合言葉ゲート
+// ══════════════════════════════════════
+function checkGate(){
+  const v = document.getElementById('gate-input').value.trim();
+  if(v === PASSPHRASE){
+    localStorage.setItem(GATE_KEY,'1');
+    document.getElementById('gate').style.display='none';
+    appStart();
+  } else {
+    document.getElementById('gate-error').style.display='block';
+    document.getElementById('gate-input').value='';
+  }
+}
+
+// ══════════════════════════════════════
+// Constants & State
+// ══════════════════════════════════════
+const IMGUR_CID = 'e484a9032da395e';
+
+let tweets = [];
+let members = {};
+let currentUser = null;
+let likedSet    = new Set(JSON.parse(localStorage.getItem('mn_liked')||'[]'));
+let repostedSet = new Set(JSON.parse(localStorage.getItem('mn_reposted')||'[]'));
+let blockedSet  = new Set(JSON.parse(localStorage.getItem('mn_blocked')||'[]'));
+let dmStore = {};
+let activeDmPartner = null;
+let currentTab = 'latest';
+let nextId = 1;
+let pendingNewTweets = [];
+let selectedImages = [];
+let quoteTargetId = null;
+let pollActive = false;
+let repostTargetId = null;
+let ctxTargetHandle = null;
+let viewStack = ['feed'];
+let sbChannel = null; // realtime channel
+
+// ══════════════════════════════════════
+// Utils
+// ══════════════════════════════════════
+function uid(){ return 't'+(nextId++); }
+function userColor(s){ if(!s)return'#444'; const c=['#1d9bf0','#f91880','#00ba7c','#ff7747','#794bc4','#ffa500','#00b4d8','#e63946']; let h=0; for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0; return c[Math.abs(h)%c.length]; }
+function initials(n){ return n?n.slice(0,2):'?'; }
+function timeAgo(ms){ const s=Math.floor((Date.now()-ms)/1000); if(s<60)return s+'秒前'; if(s<3600)return Math.floor(s/60)+'分前'; if(s<86400)return Math.floor(s/3600)+'時間前'; return Math.floor(s/86400)+'日前'; }
+function timeFull(ms){ return new Date(ms).toLocaleString('ja-JP',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function sanitizeHandle(el){ el.value=el.value.replace(/[^a-zA-Z0-9_]/g,'').toLowerCase(); }
+function dmKey(a,b){ return [a,b].sort().join(':'); }
+function saveLiked(){ localStorage.setItem('mn_liked',JSON.stringify([...likedSet])); }
+function saveReposted(){ localStorage.setItem('mn_reposted',JSON.stringify([...repostedSet])); }
+function saveBlocked(){ localStorage.setItem('mn_blocked',JSON.stringify([...blockedSet])); }
+function imgurThumb(url){ if(!url)return url; return url.replace(/(\.\w+)$/,'m$1'); }
+
+function avHTML(user,cls){
+  if(!user)return`<div class="av ${cls}" style="background:#444">?</div>`;
+  const bg=user.color||'#444';
+  if(user.avatarUrl)return`<div class="av ${cls}" style="background:${bg}"><img src="${esc(user.avatarUrl)}" alt=""></div>`;
+  return`<div class="av ${cls}" style="background:${bg}">${esc(initials(user.name))}</div>`;
+}
+
+// ══════════════════════════════════════
+// View Router — clean history stack
+// ══════════════════════════════════════
+function goView(id){
+  // Avoid duplicates at top of stack
+  if(viewStack[viewStack.length-1]===id) { _activate(id); return; }
+  viewStack.push(id);
+  _activate(id);
+}
+function goFeed(){
+  viewStack=['feed'];
+  _activate('feed');
+}
+function goBack(){
+  if(viewStack.length>1) viewStack.pop();
+  _activate(viewStack[viewStack.length-1]);
+}
+function _activate(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const el=document.getElementById('view-'+id);
+  if(el) el.classList.add('active');
+  // Side effects
+  if(id==='dm-list') renderDmList();
+  const main=document.getElementById('main-col');
+  if(main) main.scrollTop=0;
+  window.scrollTo(0,0);
+}
+
+function focusSearch(){ document.getElementById('search-input').focus(); }
+
+// ══════════════════════════════════════
+// Supabase DB 操作
+// ══════════════════════════════════════
+
+// ツイート一覧取得
+async function fetchTweets(){
+  const {data,error}=await sb.from('tweets')
+    .select('*').order('created_at',{ascending:false}).limit(200);
+  if(error){console.error(error);return;}
+  tweets=data.map(dbRowToTweet);
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+}
+
+// ユーザー一覧取得
+async function fetchMembers(){
+  const {data}=await sb.from('profiles').select('*');
+  if(data) data.forEach(p=>{ members[p.handle]=dbRowToUser(p); });
+}
+
+// ツイート投稿
+async function dbPostTweet(t){
+  const row={
+    id:t.id, user_handle:t.user.handle, user_name:t.user.name,
+    user_color:t.user.color||null, user_avatar_url:t.user.avatarUrl||null,
+    text:t.text, image_urls:t.imageUrls||[], likes:0,
+    reply_to:t.replyTo||null, quote_of:t.quoteOf||null,
+    is_repost:t.isRepost||false,
+    repost_by_handle:t.repostBy?.handle||null,
+    repost_by_name:t.repostBy?.name||null,
+    poll:t.poll?JSON.stringify(t.poll):null,
+    created_at:new Date(t.ts).toISOString()
+  };
+  const {error}=await sb.from('tweets').insert(row);
+  if(error) console.error('post error', JSON.stringify(error));
+}
+
+// いいね
+async function dbToggleLike(tweetId,delta){
+  const {data}=await sb.from('tweets').select('likes').eq('id',tweetId).single();
+  if(!data) return;
+  await sb.from('tweets').update({likes:Math.max(0,(data.likes||0)+delta)}).eq('id',tweetId);
+}
+
+// ツイート削除
+async function dbDeleteTweet(id){
+  await sb.from('tweets').delete().eq('id',id);
+}
+
+// ユーザープロフィール保存
+async function dbSaveProfile(u){
+  const row={handle:u.handle,name:u.name,bio:u.bio||'',
+    color:u.color||null,avatar_url:u.avatarUrl||null,cover_url:u.coverUrl||null,
+    updated_at:new Date().toISOString()};
+  const {error}=await sb.from('profiles').upsert(row);
+  if(error) console.error('profile error', JSON.stringify(error));
+}
+
+// DM送信
+async function dbSendMessage(from,to,text){
+  await sb.from('messages').insert({
+    from_handle:from, to_handle:to, text, read:false,
+    created_at:new Date().toISOString()
+  });
+}
+
+// DM取得
+async function dbFetchMessages(myHandle,partnerHandle){
+  const {data}=await sb.from('messages')
+    .select('*')
+    .or(`and(from_handle.eq.${myHandle},to_handle.eq.${partnerHandle}),and(from_handle.eq.${partnerHandle},to_handle.eq.${myHandle})`)
+    .order('created_at',{ascending:true});
+  return data||[];
+}
+
+// DB行→内部ツイートオブジェクト変換
+function dbRowToTweet(row){
+  return{
+    id:row.id,
+    user:{handle:row.user_handle,name:row.user_name,color:row.user_color,
+          avatarUrl:row.user_avatar_url,bio:'',coverUrl:null},
+    text:row.text||'',
+    imageUrl:(row.image_urls&&row.image_urls[0])||null,
+    imageUrls:row.image_urls||[],
+    ts:new Date(row.created_at).getTime(),
+    likes:row.likes||0,
+    replyTo:row.reply_to||null,
+    quoteOf:row.quote_of||null,
+    isRepost:row.is_repost||false,
+    repostBy:row.repost_by_handle?{handle:row.repost_by_handle,name:row.repost_by_name}:null,
+    poll:row.poll?JSON.parse(row.poll):null,
+    originalUser:null
+  };
+}
+
+function dbRowToUser(row){
+  return{handle:row.handle,name:row.name,bio:row.bio||'',
+    color:row.color,avatarUrl:row.avatar_url,coverUrl:row.cover_url};
+}
+
+// リアルタイム購読
+function startRealtime(){
+  if(sbChannel) sb.removeChannel(sbChannel);
+  sbChannel=sb.channel('tweets-live')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'tweets'},payload=>{
+      const t=dbRowToTweet(payload.new);
+      // 自分の投稿は既にローカルにある
+      if(currentUser&&t.user.handle===currentUser.handle) return;
+      tweets.unshift(t);
+      pendingNewTweets.push(1);
+      const bar=document.getElementById('new-posts-bar');
+      bar.style.display='block';
+      bar.textContent=`${pendingNewTweets.length}件の新しいポストを表示`;
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'tweets'},payload=>{
+      const idx=tweets.findIndex(x=>x.id===payload.new.id);
+      if(idx>=0) tweets[idx]=dbRowToTweet(payload.new);
+      renderFeed(document.getElementById('search-input').value.toLowerCase());
+    })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'tweets'},payload=>{
+      tweets=tweets.filter(x=>x.id!==payload.old.id);
+      renderFeed(document.getElementById('search-input').value.toLowerCase());
+    })
+    .subscribe();
+}
+
+// ══════════════════════════════════════
+// Seed data（デモ用：DB空の時のみ投入）
+// ══════════════════════════════════════
+async function seed(){
+  const {count}=await sb.from('tweets').select('*',{count:'exact',head:true});
+  if(count>0) return; // すでにデータあり
+
+  const us=[
+    {name:'山田 花子',handle:'hanako_y',bio:'SicoXが好き🌸',color:'#f91880',avatarUrl:null,coverUrl:null},
+    {name:'佐藤 健',  handle:'ken_s',  bio:'エンジニア☕',   color:'#00ba7c',avatarUrl:null,coverUrl:null},
+    {name:'鈴木 あい',handle:'ai_suz', bio:'デザイナー🎨',  color:'#ff7747',avatarUrl:null,coverUrl:null},
+    {name:'田中 翔',  handle:'sho_t',  bio:'',              color:'#794bc4',avatarUrl:null,coverUrl:null},
+  ];
+  for(const u of us){
+    members[u.handle]={...u};
+    await dbSaveProfile(u);
+  }
+  const seedTweets=[
+    {id:'seed1',user:us[0],text:'SicoX へようこそ！🎉 ここでつぶやいてみましょう',ts:Date.now()-300000,likes:8,imageUrls:[],replyTo:null,quoteOf:null,isRepost:false,repostBy:null,poll:null},
+    {id:'seed2',user:us[1],text:'いい天気ですね☀️ 今日も一日頑張りましょう！',ts:Date.now()-200000,likes:12,imageUrls:[],replyTo:null,quoteOf:null,isRepost:false,repostBy:null,poll:null},
+    {id:'seed3',user:us[2],text:'コーヒーが美味しい☕ 午後も集中できそうです',ts:Date.now()-120000,likes:5,imageUrls:[],replyTo:null,quoteOf:null,isRepost:false,repostBy:null,poll:null},
+  ];
+  for(const t of seedTweets) await dbPostTweet(t);
+}
+
+// ══════════════════════════════════════
+// Score (recommend tab)
+// ══════════════════════════════════════
+function tweetScore(t){
+  const r=tweets.filter(x=>x.replyTo===t.id).length;
+  const age=(Date.now()-t.ts)/3600000;
+  return(t.likes*2+r*3)/Math.pow(age+1,.8);
+}
+
+// ══════════════════════════════════════
+// New posts simulation (③)
+// ══════════════════════════════════════
+let newPostsInterval=null;
+function startNewPostSim(){
+  // デモでは実ツイートの自動追加がないため、擬似通知は無効化
+  // 実際に新着ツイートが追加された場合のみバーを表示する
+}
+function showNewPosts(){
+  pendingNewTweets=[];
+  document.getElementById('new-posts-bar').style.display='none';
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+}
+
+// ══════════════════════════════════════
+// URL / embed detection (②)
+// ══════════════════════════════════════
+const URL_RE=/https?:\/\/[^\s]+/g;
+const YT_RE=/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/;
+const TWITTER_RE=/(?:twitter\.com|x\.com)\/\w+\/status\/(\d+)/;
+
+function extractUrls(text){ return text.match(URL_RE)||[]; }
+
+function ytThumb(url){
+  const m=url.match(YT_RE); if(!m)return null;
+  return{type:'youtube',id:m[1],thumb:`https://img.youtube.com/vi/${m[1]}/hqdefault.jpg`,url};
+}
+
+function linkPreviewHTML(text){
+  const urls=extractUrls(text); if(!urls.length)return'';
+  for(const url of urls){
+    const yt=ytThumb(url);
+    if(yt)return`<div class="link-preview" onclick="window.open('${esc(yt.url)}','_blank');event.stopPropagation();">
+      <img class="link-preview-thumb" src="${yt.thumb}" alt="YouTube" loading="lazy">
+      <div class="link-preview-body"><div class="link-preview-domain">youtube.com</div><div class="link-preview-title">YouTube 動画</div></div>
+    </div>`;
+    // Generic link card
+    return`<div class="link-preview" onclick="window.open('${esc(url)}','_blank');event.stopPropagation();">
+      <div class="link-preview-body"><div class="link-preview-domain">${esc(new URL(url).hostname)}</div><div class="link-preview-title">${esc(url.length>60?url.slice(0,60)+'…':url)}</div></div>
+    </div>`;
+  }
+  return'';
+}
+
+function bodyWithLinks(text){
+  return esc(text).replace(URL_RE, url=>`<a href="${esc(url)}" target="_blank" onclick="event.stopPropagation();" style="color:var(--accent);text-decoration:none;">${esc(url)}</a>`);
+}
+
+// ══════════════════════════════════════
+// Poll rendering
+// ══════════════════════════════════════
+function pollHTML(poll,tweetId){
+  if(!poll)return'';
+  const voted=poll.votedIndex!==null;
+  const max=Math.max(...poll.options.map(o=>o.votes),1);
+  const winner=poll.options.indexOf(poll.options.reduce((a,b)=>a.votes>b.votes?a:b));
+  return`<div class="poll" onclick="event.stopPropagation();">
+    ${poll.options.map((o,i)=>{
+      const pct=poll.totalVotes?Math.round(o.votes/poll.totalVotes*100):0;
+      const isW=voted&&i===winner;
+      return`<div class="poll-option${voted?' voted':''}${isW?' poll-winner':''}" onclick="${voted?'':'votePoll(\''+tweetId+'\','+i+')'}">
+        ${voted?`<div class="poll-bar" style="width:${pct}%"></div>`:''}
+        <div class="poll-option-inner">
+          <span>${esc(o.text)}${poll.votedIndex===i?' ✓':''}</span>
+          ${voted?`<span class="poll-pct">${pct}%</span>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+    <div class="poll-meta">${poll.totalVotes}票${voted?' · 投票済み':''}</div>
+  </div>`;
+}
+
+function votePoll(tweetId,optIndex){
+  const t=tweets.find(x=>x.id===tweetId); if(!t||!t.poll||t.poll.votedIndex!==null)return;
+  t.poll.options[optIndex].votes++;
+  t.poll.totalVotes++;
+  t.poll.votedIndex=optIndex;
+  refreshCard(tweetId);
+}
+
+// ══════════════════════════════════════
+// Render helpers
+// ══════════════════════════════════════
+function tweetCardHTML(t){
+  if(blockedSet.has(t.user.handle)){
+    return`<div class="blocked-card" data-id="${t.id}">
+      <span>@${esc(t.user.handle)} をブロックしています</span>
+      <button onclick="unblockUser('${esc(t.user.handle)}')" style="background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:9999px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:var(--font);">解除</button>
+    </div>`;
+  }
+
+  const liked=likedSet.has(t.id);
+  const reposted=repostedSet.has(t.id);
+  const replyCount=tweets.filter(r=>r.replyTo===t.id).length;
+  const repostCount=tweets.filter(r=>r.isRepost&&r.quoteOf===t.id&&!r.text).length;
+
+  // Repost label
+  const repostLabel=t.isRepost&&t.repostBy?`<div class="repost-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>${esc(t.repostBy.name)} がリポスト</div>`:'';
+
+  const parentTweet=t.replyTo?tweets.find(x=>x.id===t.replyTo):null;
+  const replyBadge=parentTweet?`<div class="reply-badge">↩ <em onclick="event.stopPropagation();showThread('${parentTweet.id}')">${esc(parentTweet.user.name)}</em> への返信</div>`:'';
+
+  const imgs=t.imageUrls&&t.imageUrls.length?t.imageUrls:(t.imageUrl?[t.imageUrl]:[]);
+  let imgHtml='';
+  if(imgs.length){
+    const n=Math.min(imgs.length,4);
+    const cls=`g${n}`;
+    const allUrls=JSON.stringify(imgs.slice(0,4)).replace(/"/g,"'");
+    imgHtml=`<div class="img-grid ${cls}" onclick="event.stopPropagation();openLightbox(${allUrls},0)">
+      ${imgs.slice(0,4).map((url,i)=>{
+        const isLast=i===3&&imgs.length>4;
+        return`<div class="${isLast?'img-grid-more':''}" ${isLast?`data-more="+${imgs.length-3}"`:''}><img src="${esc(url)}" loading="lazy" alt=""></div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  // Quote embed (for quote tweets)
+  let quoteEmbedHtml='';
+  if(t.quoteOf){
+    const qt=tweets.find(x=>x.id===t.quoteOf);
+    if(qt)quoteEmbedHtml=`<div class="quote-embed" onclick="event.stopPropagation();showThread('${qt.id}')">
+      <div class="quote-embed-header"><strong>${esc(qt.user.name)}</strong> @${esc(qt.user.handle)}</div>
+      <div class="quote-embed-body">${esc(qt.text.length>100?qt.text.slice(0,100)+'…':qt.text)}</div>
+    </div>`;
+  }
+
+  // The display user (for reposts, show original author)
+  const displayUser = t.isRepost&&t.originalUser ? t.originalUser : t.user;
+
+  return`<div${t.isRepost?'':''}>
+    ${repostLabel}
+    <div class="tweet-card" data-id="${t.id}" onclick="showThread('${t.id}')">
+      <div onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')">${avHTML(displayUser,'av-44 av-c')}</div>
+      <div class="tweet-right">
+        ${replyBadge}
+        <div class="tweet-header">
+          <span class="tw-name" onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')">${esc(displayUser.name)}</span>
+          <span class="tw-handle" onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')">@${esc(displayUser.handle)}</span>
+          <span class="tw-time">${timeAgo(t.ts)}</span>
+          <button class="act-btn" style="margin-left:auto;padding:2px 4px;min-width:auto;" onclick="event.stopPropagation();openCtxMenu(event,'${esc(displayUser.handle)}')" title="メニュー">
+            <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+        <div class="tweet-body">${bodyWithLinks(t.text)}</div>
+        ${imgHtml}${quoteEmbedHtml}${pollHTML(t.poll,t.id)}${linkPreviewHTML(t.text)}
+        <div class="tweet-actions">
+          <button class="act-btn" onclick="event.stopPropagation();showThread('${t.id}')" title="返信">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span>${replyCount||''}</span>
+          </button>
+          <button class="act-btn${reposted?' reposted':''}" onclick="event.stopPropagation();openRepostModal('${t.id}')" title="リポスト">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            <span>${repostCount||''}</span>
+          </button>
+          <button class="act-btn like${liked?' liked':''}" onclick="event.stopPropagation();toggleLike('${t.id}')" title="いいね">
+            <svg viewBox="0 0 24 24" fill="${liked?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <span>${t.likes}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function refreshCard(tweetId){
+  const t=tweets.find(x=>x.id===tweetId); if(!t)return;
+  const html=tweetCardHTML(t);
+  ['feed','user-page-feed','thread-content'].forEach(containerId=>{
+    const card=document.querySelector(`#${containerId} [data-id="${tweetId}"]`);
+    if(card){ const wrapper=card.closest('div[data-wrapper]')||card; wrapper.outerHTML=html; }
+  });
+}
+
+// ══════════════════════════════════════
+// Render feed
+// ══════════════════════════════════════
+function renderFeed(filter=''){
+  const feed=document.getElementById('feed');
+  let pool=tweets.filter(t=>!t.replyTo);
+  if(filter) pool=tweets.filter(t=>
+    t.text.toLowerCase().includes(filter)||
+    t.user.name.toLowerCase().includes(filter)||
+    ('@'+t.user.handle).includes(filter)
+  );
+  if(currentTab==='recommend'&&!filter) pool=[...pool].sort((a,b)=>tweetScore(b)-tweetScore(a));
+  else pool=[...pool].sort((a,b)=>b.ts-a.ts);
+  feed.innerHTML=pool.length?pool.map(t=>tweetCardHTML(t)).join(''):`<div class="empty-msg">${filter?'「'+esc(filter)+'」に一致するツイートはありません':'まだツイートがありません'}</div>`;
+}
+
+function switchTab(tab){
+  currentTab=tab;
+  document.getElementById('tab-latest').classList.toggle('active',tab==='latest');
+  document.getElementById('tab-rec').classList.toggle('active',tab==='recommend');
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+}
+
+function onSearch(){
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+}
+
+// ══════════════════════════════════════
+// Thread
+// ══════════════════════════════════════
+function showThread(tweetId){
+  const parent=tweets.find(t=>t.id===tweetId); if(!parent)return;
+  const liked=likedSet.has(tweetId);
+  const reposted=repostedSet.has(tweetId);
+  const replyCount=tweets.filter(t=>t.replyTo===tweetId).length;
+  const replies=tweets.filter(t=>t.replyTo===tweetId).sort((a,b)=>a.ts-b.ts);
+  const imgHtml=parent.imageUrl?`<div class="tweet-img"><img src="${esc(parent.imageUrl)}" alt="" loading="lazy"></div>`:'';
+  let quoteHtml='';
+  if(parent.quoteOf){const qt=tweets.find(x=>x.id===parent.quoteOf);if(qt)quoteHtml=`<div class="quote-embed" onclick="showThread('${qt.id}')"><div class="quote-embed-header"><strong>${esc(qt.user.name)}</strong> @${esc(qt.user.handle)}</div><div class="quote-embed-body">${esc(qt.text)}</div></div>`;}
+  const composeHtml=currentUser?`<div class="reply-compose-thread">
+    ${avHTML(currentUser,'av-40')}
+    <div style="flex:1;">
+      <textarea class="reply-ta" id="thread-reply-ta" placeholder="${esc(parent.user.name)} に返信…" maxlength="280" rows="3" oninput="onThreadInput()"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px;gap:8px;align-items:center;">
+        <span class="char-count" id="thread-reply-char">280</span>
+        <button class="post-btn" id="thread-reply-btn" onclick="submitReply('${tweetId}')" disabled>返信</button>
+      </div>
+    </div></div>`:`<div style="padding:12px 16px;font-size:13px;color:var(--text2);">返信するには名前を設定してください。</div>`;
+
+  document.getElementById('thread-content').innerHTML=`
+    <div class="thread-parent">
+      <div style="display:flex;gap:10px;align-items:flex-start;">
+        <div onclick="showUserPage('${esc(parent.user.handle)}')">${avHTML(parent.user,'av-48 av-c')}</div>
+        <div>
+          <div class="tw-name" style="font-size:16px;" onclick="showUserPage('${esc(parent.user.handle)}')">${esc(parent.user.name)}</div>
+          <div class="tw-handle" style="font-size:13px;" onclick="showUserPage('${esc(parent.user.handle)}')" >@${esc(parent.user.handle)}</div>
+        </div>
+      </div>
+      <div class="tweet-body">${bodyWithLinks(parent.text)}</div>
+      ${imgHtml}${quoteHtml}${pollHTML(parent.poll,parent.id)}${linkPreviewHTML(parent.text)}
+      <div class="tw-time-full">${timeFull(parent.ts)}</div>
+      <div class="thread-stats">
+        <div class="stat-item"><strong>${replyCount}</strong> 返信</div>
+        <div class="stat-item"><strong>${parent.likes}</strong> いいね</div>
+      </div>
+      <div class="thread-actions">
+        <button class="act-btn${reposted?' reposted':''}" onclick="openRepostModal('${parent.id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> リポスト
+        </button>
+        <button class="act-btn like${liked?' liked':''}" onclick="toggleLike('${parent.id}');showThread('${parent.id}')">
+          <svg viewBox="0 0 24 24" fill="${liked?'currentColor':'none'}" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> いいね
+        </button>
+      </div>
+    </div>
+    ${composeHtml}
+    ${replies.length?`<div style="font-size:13px;font-weight:700;color:var(--text2);padding:10px 16px;">返信 ${replies.length}件</div>`:''}
+    ${replies.map(t=>tweetCardHTML(t)).join('')}
+  `;
+  goView('thread');
+}
+
+function onThreadInput(){
+  const v=document.getElementById('thread-reply-ta')?.value||'';
+  const rem=280-v.length;
+  const cc=document.getElementById('thread-reply-char'); if(cc){cc.textContent=rem;cc.className='char-count'+(rem<20?(rem<0?' danger':' warn'):'');}
+  const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=!v.trim();
+}
+function submitReply(parentId){
+  const ta=document.getElementById('thread-reply-ta'); if(!ta)return;
+  const text=ta.value.trim(); if(!text)return;
+  tweets.push({id:uid(),user:{...currentUser},text,imageUrl:null,ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null});
+  showThread(parentId);
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+  showToast('返信しました！');
+}
+
+// ══════════════════════════════════════
+// Like (⑧ fix: works on reposts too)
+// ══════════════════════════════════════
+function toggleLike(id){
+  if(!currentUser){openProfileModal();return;}
+  const t=tweets.find(x=>x.id===id); if(!t)return;
+  const already=likedSet.has(id);
+  if(already){likedSet.delete(id);t.likes=Math.max(0,t.likes-1);}
+  else{likedSet.add(id);t.likes++;}
+  saveLiked();
+  document.querySelectorAll(`[data-id="${id}"]`).forEach(card=>{ card.outerHTML=tweetCardHTML(t); });
+  dbToggleLike(id, already?-1:1);
+}
+
+// ══════════════════════════════════════
+// Repost / Quote (④ — no DM btn on cards)
+// ══════════════════════════════════════
+function openRepostModal(tweetId){
+  if(!currentUser){openProfileModal();return;}
+  repostTargetId=tweetId;
+  // Update repost option label based on current state
+  const already=repostedSet.has(tweetId);
+  document.getElementById('repost-opt-repost').innerHTML=`
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--repost);width:20px;height:20px;"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    ${already?'リポストを取り消す':'リポスト'}`;
+  document.getElementById('repost-modal').classList.add('open');
+  document.body.classList.add('modal-open');
+}
+
+function doRepost(){
+  closeModal('repost-modal');
+  if(!repostTargetId)return;
+  const orig=tweets.find(x=>x.id===repostTargetId); if(!orig)return;
+  if(repostedSet.has(repostTargetId)){
+    // Undo repost
+    repostedSet.delete(repostTargetId);
+    const idx=tweets.findIndex(t=>t.isRepost&&t.quoteOf===repostTargetId&&t.user.handle===currentUser.handle&&!t.text);
+    if(idx>-1)tweets.splice(idx,1);
+    saveReposted();
+    renderFeed(document.getElementById('search-input').value.toLowerCase());
+    showToast('リポストを取り消しました');
+    return;
+  }
+  repostedSet.add(repostTargetId);
+  saveReposted();
+  // Create repost tweet
+  tweets.unshift({
+    id:uid(),user:{...currentUser},text:'',
+    imageUrl:null,ts:Date.now(),likes:orig.likes,
+    replyTo:null,quoteOf:repostTargetId,
+    isRepost:true,repostBy:{...currentUser},
+    originalUser:{...orig.user},
+    poll:orig.poll?JSON.parse(JSON.stringify(orig.poll)):null
+  });
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+  showToast('リポストしました！');
+}
+
+function doQuoteTweet(){
+  closeModal('repost-modal');
+  if(!repostTargetId)return;
+  const orig=tweets.find(x=>x.id===repostTargetId); if(!orig)return;
+  // Open compose with quote
+  quoteTargetId=repostTargetId;
+  document.getElementById('qp-author').textContent=orig.user.name+' @'+orig.user.handle;
+  document.getElementById('qp-body').textContent=orig.text.length>80?orig.text.slice(0,80)+'…':orig.text;
+  document.getElementById('quote-preview').style.display='block';
+  document.getElementById('compose-input').focus();
+  goFeed();
+  window.scrollTo(0,0);
+}
+
+function cancelQuote(){
+  quoteTargetId=null;
+  document.getElementById('quote-preview').style.display='none';
+}
+
+// ══════════════════════════════════════
+// Poll compose
+// ══════════════════════════════════════
+function togglePollCompose(){
+  pollActive=!pollActive;
+  document.getElementById('poll-compose').style.display=pollActive?'block':'none';
+  document.getElementById('poll-toggle-btn').style.background=pollActive?'rgba(29,155,240,.15)':'';
+}
+function addPollOpt(){
+  const wrap=document.getElementById('poll-options-wrap');
+  if(wrap.children.length>=4){showToast('最大4つまで');return;}
+  const div=document.createElement('div');div.className='poll-option-input';
+  const n=wrap.children.length+1;
+  div.innerHTML=`<input placeholder="選択肢 ${n}" maxlength="40"><button onclick="removePollOpt(this)">✕</button>`;
+  wrap.appendChild(div);
+}
+function removePollOpt(btn){
+  const wrap=document.getElementById('poll-options-wrap');
+  if(wrap.children.length<=2){showToast('最低2つ必要です');return;}
+  btn.closest('.poll-option-input').remove();
+}
+
+// ══════════════════════════════════════
+// Compose / post
+// ══════════════════════════════════════
+function onCompose(){
+  const v=document.getElementById('compose-input').value;
+  const rem=280-v.length;
+  const cc=document.getElementById('char-count');cc.textContent=rem;cc.className='char-count'+(rem<20?(rem<0?' danger':' warn'):'');
+  document.getElementById('post-btn').disabled=!v.trim()&&selectedImages.length===0;
+}
+
+async function onImgSelect(e){
+  const files=[...e.target.files];
+  if(!files.length)return;
+  const remaining=4-selectedImages.length;
+  if(remaining<=0){showToast('画像は最大4枚まで');return;}
+  const toAdd=files.slice(0,remaining);
+  if(files.length>remaining)showToast(`最大4枚まで。${toAdd.length}枚を追加します`);
+  const st=document.getElementById('up-status');st.style.display='block';st.textContent='📤 アップロード中…';
+  for(const file of toAdd){
+    const dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.readAsDataURL(file);});
+    const entry={dataUrl,uploadedUrl:null};
+    selectedImages.push(entry);
+    renderImgPreview();
+    document.getElementById('post-btn').disabled=false;
+    try{entry.uploadedUrl=await uploadToImgur(file);}catch(err){}
+  }
+  st.textContent=selectedImages.length+'枚選択中';
+  e.target.value='';
+}
+
+function renderImgPreview(){
+  const pw=document.getElementById('img-pw');
+  if(selectedImages.length===0){pw.style.display='none';pw.innerHTML='';return;}
+  pw.style.display='flex';
+  pw.innerHTML=selectedImages.map((img,i)=>`
+    <div class="img-pw-item">
+      <img src="${img.dataUrl}" alt="">
+      <button class="img-remove" onclick="removeImg(${i})">✕</button>
+    </div>`).join('');
+}
+
+function removeImg(idx){
+  selectedImages.splice(idx,1);
+  renderImgPreview();
+  if(selectedImages.length===0){
+    document.getElementById('up-status').style.display='none';
+  }else{
+    document.getElementById('up-status').textContent=selectedImages.length+'枚選択中';
+  }
+  onCompose();
+}
+
+function removeAllImgs(){
+  selectedImages=[];
+  renderImgPreview();
+  document.getElementById('up-status').style.display='none';
+  document.getElementById('img-file').value='';
+}
+
+function buildPollData(){
+  if(!pollActive)return null;
+  const inputs=[...document.querySelectorAll('#poll-options-wrap input')].map(i=>i.value.trim()).filter(Boolean);
+  if(inputs.length<2)return null;
+  return{options:inputs.map(t=>({text:t,votes:0})),totalVotes:0,votedIndex:null};
+}
+
+function postTweet(){
+  if(!currentUser){openProfileModal();return;}
+  const text=document.getElementById('compose-input').value.trim();
+  if(!text&&selectedImages.length===0)return;
+  const poll=buildPollData();
+  const imageUrls=selectedImages.map(img=>img.uploadedUrl||img.dataUrl);
+  const t={id:'t'+Date.now()+Math.random().toString(36).slice(2,6),
+    user:{...currentUser},text,imageUrls,imageUrl:imageUrls[0]||null,
+    ts:Date.now(),likes:0,replyTo:null,quoteOf:quoteTargetId||null,
+    isRepost:false,repostBy:null,poll};
+  tweets.unshift(t);
+  document.getElementById('compose-input').value='';
+  document.getElementById('char-count').textContent='280';
+  removeAllImgs();cancelQuote();
+  if(pollActive){togglePollCompose();document.getElementById('poll-options-wrap').innerHTML=`<div class="poll-option-input"><input placeholder="選択肢 1" maxlength="40"><button onclick="removePollOpt(this)" style="display:none">✕</button></div><div class="poll-option-input"><input placeholder="選択肢 2" maxlength="40"><button onclick="removePollOpt(this)">✕</button></div>`;}
+  document.getElementById('post-btn').disabled=true;
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+  showToast('ポストしました！');
+  dbPostTweet(t); // DB保存（非同期・バックグラウンド）
+}
+
+// ══════════════════════════════════════
+// Imgur
+// ══════════════════════════════════════
+async function uploadToImgur(file){
+  const fd=new FormData();fd.append('image',file);
+  const res=await fetch('https://api.imgur.com/3/image',{method:'POST',headers:{'Authorization':'Client-ID '+IMGUR_CID},body:fd});
+  const j=await res.json();if(!j.success)throw new Error('fail');return j.data.link;
+}
+
+// ══════════════════════════════════════
+// Profile / User
+// ══════════════════════════════════════
+let pendingAvUrl=null,pendingCoverUrl=null;
+
+function loadUserLS(){ try{const r=localStorage.getItem('mn_user');if(r)currentUser=JSON.parse(r);}catch(e){} }
+function saveUserLS(){ localStorage.setItem('mn_user',JSON.stringify(currentUser)); }
+
+function applyUser(){
+  const sav=document.getElementById('sidebar-av');
+  sav.style.background=currentUser.color||'#444';
+  sav.innerHTML=currentUser.avatarUrl?`<img src="${esc(currentUser.avatarUrl)}" alt="">`:`${esc(initials(currentUser.name))}`;
+  document.getElementById('sidebar-name').textContent=currentUser.name;
+  document.getElementById('sidebar-handle').textContent='@'+currentUser.handle;
+  const cav=document.getElementById('compose-av');
+  cav.style.background=currentUser.color||'#444';
+  cav.innerHTML=currentUser.avatarUrl?`<img src="${esc(currentUser.avatarUrl)}" alt="">`:`${esc(initials(currentUser.name))}`;
+  document.getElementById('compose-box').style.display='flex';
+  document.getElementById('name-banner').style.display='none';
+}
+
+function openProfileModal(){
+  pendingAvUrl=null;pendingCoverUrl=null;
+  document.getElementById('av-up-status').textContent='';
+  const p=document.getElementById('profile-av-preview');
+  const cw=document.getElementById('cover-preview-inner');
+  if(currentUser){
+    document.getElementById('profile-name').value=currentUser.name||'';
+    document.getElementById('profile-handle').value=currentUser.handle||'';
+    document.getElementById('profile-bio').value=currentUser.bio||'';
+    p.style.background=currentUser.color||'#444';
+    p.innerHTML=currentUser.avatarUrl?`<img src="${esc(currentUser.avatarUrl)}" alt="" style="width:72px;height:72px;object-fit:cover;">`:`${esc(initials(currentUser.name))}`;
+    if(currentUser.coverUrl){const ci=document.getElementById('cover-edit-wrap');ci.innerHTML=`<img src="${esc(currentUser.coverUrl)}" style="width:100%;height:100%;object-fit:cover;"><div class="cover-edit-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>カバーを変更</div>`;document.getElementById('cover-edit-wrap').onclick=()=>document.getElementById('cover-file').click();}
+  }else{document.getElementById('profile-name').value='';document.getElementById('profile-handle').value='';document.getElementById('profile-bio').value='';p.textContent='?';p.style.background='#444';}
+  document.getElementById('profile-modal').classList.add('open');
+  document.body.classList.add('modal-open');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); document.body.classList.remove('modal-open'); }
+
+async function onAvSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{pendingAvUrl=ev.target.result;const p=document.getElementById('profile-av-preview');p.innerHTML=`<img src="${esc(pendingAvUrl)}" alt="" style="width:72px;height:72px;object-fit:cover;">`;p.style.background='#444';};
+  reader.readAsDataURL(file);
+  const st=document.getElementById('av-up-status');st.textContent='📤 アップロード中…';
+  try{pendingAvUrl=await uploadToImgur(file);st.textContent='✅';}
+  catch(err){st.textContent='⚠️ 失敗';}
+}
+
+async function onCoverSelect(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    pendingCoverUrl=ev.target.result;
+    const wrap=document.getElementById('cover-edit-wrap');
+    wrap.innerHTML=`<img src="${esc(pendingCoverUrl)}" style="width:100%;height:100%;object-fit:cover;"><div class="cover-edit-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>カバーを変更</div>`;
+    wrap.onclick=()=>document.getElementById('cover-file').click();
+  };
+  reader.readAsDataURL(file);
+  try{pendingCoverUrl=await uploadToImgur(file);}catch(err){}
+}
+
+function saveBanner(){
+  const v=document.getElementById('name-banner-input').value.trim();if(!v)return;
+  const handle=v.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  currentUser={name:v,handle,bio:'',avatarUrl:null,coverUrl:null,color:userColor(handle)};
+  members[handle]={...currentUser};
+  saveUserLS();applyUser();renderMembers();
+  showToast('ようこそ、'+v+' さん！');
+}
+
+function saveProfile(){
+  const name=document.getElementById('profile-name').value.trim();
+  const handle=document.getElementById('profile-handle').value.trim().toLowerCase();
+  const bio=document.getElementById('profile-bio').value.trim();
+  if(!name){showToast('表示名を入力してください');return;}
+  if(!handle){showToast('@ハンドルを入力してください');return;}
+  if(!/^[a-z0-9_]+$/.test(handle)){showToast('@は半角英数字・_のみ');return;}
+  const avatarUrl=pendingAvUrl||(currentUser?.avatarUrl)||null;
+  const coverUrl=pendingCoverUrl||(currentUser?.coverUrl)||null;
+  const oldHandle=currentUser?.handle;
+  currentUser={name,handle,bio,avatarUrl,coverUrl,color:userColor(handle)};
+  if(oldHandle&&oldHandle!==handle)delete members[oldHandle];
+  members[handle]={...currentUser};
+  saveUserLS();applyUser();renderMembers();closeModal('profile-modal');
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+  showToast('プロフィールを保存しました！');
+  dbSaveProfile(currentUser);
+}
+
+// ══════════════════════════════════════
+// User page (③)
+// ══════════════════════════════════════
+function showUserPage(handle){
+  const u=members[handle]||(currentUser?.handle===handle?currentUser:null);
+  if(!u){showToast('ユーザーが見つかりません');return;}
+  const isMe=currentUser&&currentUser.handle===handle;
+  const userTweets=tweets.filter(t=>t.user.handle===handle&&!t.isRepost).sort((a,b)=>b.ts-a.ts);
+
+  document.getElementById('up-name').textContent=u.name;
+  document.getElementById('up-count').textContent=userTweets.length+' ポスト';
+  document.getElementById('up-display-name').textContent=u.name;
+  document.getElementById('up-handle').textContent='@'+u.handle;
+  document.getElementById('up-bio').textContent=u.bio||'';
+  document.getElementById('up-tweet-count').textContent=userTweets.length;
+
+  // Cover
+  const cover=document.getElementById('user-cover');
+  if(u.coverUrl){cover.innerHTML=`<img src="${esc(u.coverUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">`;}
+  else{cover.innerHTML='<div class="user-cover-placeholder"></div>';}
+
+  // Avatar
+  const avEl=document.getElementById('up-av');
+  avEl.style.background=u.color||'#444';
+  avEl.innerHTML=u.avatarUrl?`<img src="${esc(u.avatarUrl)}" alt="" style="width:80px;height:80px;object-fit:cover;border-radius:50%;">`:`${esc(initials(u.name))}`;
+
+  // Action buttons
+  const bar=document.getElementById('user-edit-bar');
+  if(isMe){
+    bar.innerHTML=`<button class="up-action-btn" onclick="openProfileModal()">プロフィールを編集</button>`;
+  } else {
+    const isBlocked=blockedSet.has(handle);
+    bar.innerHTML=`
+      <button class="up-action-btn${isBlocked?' danger':''}" onclick="toggleBlockFromPage('${esc(handle)}')">
+        ${isBlocked?'ブロック解除':'ブロック'}
+      </button>
+      <button class="up-action-btn primary" onclick="dmUser('${esc(handle)}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        DM
+      </button>`;
+  }
+
+  document.getElementById('user-page-feed').innerHTML=userTweets.length?userTweets.map(t=>tweetCardHTML(t)).join(''):`<div class="empty-msg">まだポストがありません</div>`;
+  goView('user');
+}
+
+function toggleBlockFromPage(handle){
+  if(!currentUser){openProfileModal();return;}
+  const isBlocked=blockedSet.has(handle);
+  if(isBlocked){blockedSet.delete(handle);showToast('@'+handle+' のブロックを解除しました');}
+  else{blockedSet.add(handle);showToast('@'+handle+' をブロックしました');}
+  saveBlocked();
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+  showUserPage(handle);
+}
+
+// ══════════════════════════════════════
+// Block / Context menu (⑦)
+// ══════════════════════════════════════
+function openCtxMenu(event,handle){
+  event.stopPropagation();
+  ctxTargetHandle=handle;
+  const menu=document.getElementById('ctx-menu');
+  const isBlocked=blockedSet.has(handle);
+  document.getElementById('ctx-block-item').innerHTML=`
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+    ${isBlocked?'ブロックを解除':'@'+handle+' をブロック'}`;
+  menu.style.display='block';
+  const x=Math.min(event.clientX,window.innerWidth-230);
+  const y=Math.min(event.clientY,window.innerHeight-100);
+  menu.style.left=x+'px';menu.style.top=y+'px';
+  setTimeout(()=>document.addEventListener('click',closeCtx,{once:true}),10);
+}
+function ctxBlock(){
+  if(!ctxTargetHandle)return;
+  if(currentUser&&ctxTargetHandle===currentUser.handle){showToast('自分はブロックできません');closeCtx();return;}
+  const isBlocked=blockedSet.has(ctxTargetHandle);
+  if(isBlocked){blockedSet.delete(ctxTargetHandle);showToast('@'+ctxTargetHandle+' のブロックを解除しました');}
+  else{blockedSet.add(ctxTargetHandle);showToast('@'+ctxTargetHandle+' をブロックしました');}
+  saveBlocked();closeCtx();
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+}
+function unblockUser(handle){blockedSet.delete(handle);saveBlocked();renderFeed(document.getElementById('search-input').value.toLowerCase());showToast('ブロックを解除しました');}
+function closeCtx(){document.getElementById('ctx-menu').style.display='none';}
+
+// ══════════════════════════════════════
+// DM
+// ══════════════════════════════════════
+function unreadCount(){
+  if(!currentUser)return 0;
+  let n=0;
+  Object.entries(dmStore).forEach(([key,msgs])=>{
+    if(key.split(':').includes(currentUser.handle))msgs.forEach(m=>{if(m.to===currentUser.handle&&!m.read)n++;});
+  });
+  return n;
+}
+function updateDmBadge(){
+  const n=unreadCount();
+  const b=document.getElementById('dm-badge'),mb=document.getElementById('mob-dm-badge');
+  if(n>0){b.style.display='flex';b.textContent=n;mb.style.display='flex';mb.textContent=n;}
+  else{b.style.display='none';mb.style.display='none';}
+}
+async function dmUser(handle){
+  if(!currentUser){openProfileModal();return;}
+  if(handle===currentUser.handle){showToast('自分自身にはDMできません');return;}
+  activeDmPartner=handle;
+  const partner=members[handle]||{name:handle,handle,color:userColor(handle),avatarUrl:null};
+  const chav=document.getElementById('dm-chat-av');
+  chav.style.background=partner.color||'#444';
+  chav.innerHTML=partner.avatarUrl?`<img src="${esc(partner.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;">`:`${esc(initials(partner.name))}`;
+  document.getElementById('dm-chat-name').textContent=partner.name||handle;
+  document.getElementById('dm-chat-handle').textContent='@'+handle;
+  await renderDmMessages(handle);
+  goView('dm-chat');
+}
+async function renderDmMessages(handle){
+  const el=document.getElementById('dm-messages');
+  el.innerHTML='<div class="empty-msg" style="padding:24px 0;">読込中…</div>';
+  const msgs=await dbFetchMessages(currentUser.handle,handle);
+  // ローカルキャッシュにも保存
+  const key=dmKey(currentUser.handle,handle);
+  dmStore[key]=msgs.map(m=>({from:m.from_handle,to:m.to_handle,text:m.text,ts:new Date(m.created_at).getTime(),read:m.read}));
+  el.innerHTML=msgs.length?msgs.map(m=>{const mine=m.from_handle===currentUser.handle;return`<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};"><div class="dm-bubble ${mine?'mine':'theirs'}">${esc(m.text)}<div class="dm-btime">${timeAgo(new Date(m.created_at).getTime())}</div></div></div>`;}).join(''):`<div class="empty-msg" style="padding:24px 0;">メッセージはまだありません</div>`;
+  el.scrollTop=el.scrollHeight;
+}
+function onDmInput(){document.getElementById('dm-send-btn').disabled=!document.getElementById('dm-input').value.trim();}
+function onDmKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendDm();}}
+async function sendDm(){
+  if(!currentUser||!activeDmPartner)return;
+  const ta=document.getElementById('dm-input');
+  const text=ta.value.trim();if(!text)return;
+  ta.value='';document.getElementById('dm-send-btn').disabled=true;
+  // ローカルに即時反映
+  const key=dmKey(currentUser.handle,activeDmPartner);
+  if(!dmStore[key])dmStore[key]=[];
+  dmStore[key].push({from:currentUser.handle,to:activeDmPartner,text,ts:Date.now(),read:false});
+  await renderDmMessages(activeDmPartner);
+  await dbSendMessage(currentUser.handle,activeDmPartner,text);
+}
+function openNewDmModal(){if(!currentUser){openProfileModal();return;}document.getElementById('new-dm-to').value='';document.getElementById('new-dm-error').style.display='none';document.getElementById('new-dm-modal').classList.add('open');document.body.classList.add('modal-open');}
+function startNewDm(){
+  const handle=document.getElementById('new-dm-to').value.trim().toLowerCase();if(!handle)return;
+  if(handle===currentUser?.handle){document.getElementById('new-dm-error').textContent='自分自身にはDMできません';document.getElementById('new-dm-error').style.display='block';return;}
+  closeModal('new-dm-modal');
+  if(!members[handle])members[handle]={name:handle,handle,color:userColor(handle),avatarUrl:null,coverUrl:null};
+  dmUser(handle);
+}
+function renderDmList(){
+  if(!currentUser){document.getElementById('dm-list-content').innerHTML=`<div class="empty-msg">名前を設定するとDMを使えます</div>`;return;}
+  const myH=currentUser.handle;
+  const threads=Object.entries(dmStore).filter(([k])=>k.split(':').includes(myH));
+  document.getElementById('dm-list-content').innerHTML=threads.length?threads.map(([key,msgs])=>{
+    const ph=key.split(':').find(h=>h!==myH);
+    const p=members[ph]||{name:ph,handle:ph,color:userColor(ph),avatarUrl:null};
+    const last=msgs[msgs.length-1];
+    const unread=msgs.filter(m=>m.to===myH&&!m.read).length;
+    return`<div class="dm-list-item" onclick="dmUser('${esc(ph)}')">${avHTML(p,'av-48')}<div class="dm-preview"><div class="dm-name-row"><span style="font-weight:700;font-size:14px;">${esc(p.name)}</span><span style="font-size:11px;color:var(--text2);">${timeAgo(last.ts)}</span></div><div class="dm-preview-text">${last.from===myH?'あなた: ':''}${esc(last.text)}</div></div>${unread?`<div class="dm-unread-dot"></div>`:''}</div>`;
+  }).join(''):`<div class="empty-msg">メッセージはまだありません<br>上のボタンから送ってみましょう</div>`;
+}
+
+// ══════════════════════════════════════
+// Members sidebar
+// ══════════════════════════════════════
+function renderMembers(){
+  const el=document.getElementById('members-list');
+  const all=Object.values(members);
+  if(currentUser&&!all.find(m=>m.handle===currentUser.handle))all.unshift(currentUser);
+  el.innerHTML=all.length?all.map(u=>`<div class="member-item" onclick="showUserPage('${esc(u.handle)}')">${avHTML(u,'av-32')}<div><div class="mem-name">${esc(u.name)}</div><div class="mem-handle">@${esc(u.handle)}</div></div></div>`).join(''):`<div style="color:var(--text2);font-size:13px;">まだ誰もいません</div>`;
+}
+
+// ══════════════════════════════════════
+// Toast
+// ══════════════════════════════════════
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);
+}
+
+// ══════════════════════════════════════
+// Lightbox
+// ══════════════════════════════════════
+let lbUrls=[],lbIdx=0;
+function openLightbox(urls,idx){
+  lbUrls=Array.isArray(urls)?urls:[urls];
+  lbIdx=idx;
+  _lbRender();
+  document.getElementById('lightbox').classList.add('open');
+  document.body.classList.add('modal-open');
+}
+function _lbRender(){
+  document.getElementById('lb-img').src=lbUrls[lbIdx];
+  const multi=lbUrls.length>1;
+  document.getElementById('lb-prev').style.display=multi?'flex':'none';
+  document.getElementById('lb-next').style.display=multi?'flex':'none';
+  document.getElementById('lb-counter').textContent=multi?`${lbIdx+1} / ${lbUrls.length}`:'';
+}
+function lbMove(dir){
+  lbIdx=(lbIdx+dir+lbUrls.length)%lbUrls.length;
+  _lbRender();
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.classList.remove('modal-open');
+}
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('lightbox').classList.contains('open'))return;
+  if(e.key==='Escape')closeLightbox();
+  if(e.key==='ArrowLeft')lbMove(-1);
+  if(e.key==='ArrowRight')lbMove(1);
+});
+
+// ══════════════════════════════════════
+// Init
+// ══════════════════════════════════════
+async function appStart(){
+  // バー更新
+  document.getElementById('demo-bar-label').textContent='接続中…';
+  document.getElementById('demo-bar-msg').textContent='';
+
+  try {
+    // ユーザー・プロフィールロード
+    loadUserLS();
+    if(currentUser){ applyUser(); members[currentUser.handle]={...currentUser}; await dbSaveProfile(currentUser); }
+
+    // メンバー一覧取得
+    await fetchMembers();
+    renderMembers();
+
+    // 初回シード（空DBのみ）
+    await seed();
+
+    // ツイート取得
+    await fetchTweets();
+
+    // リアルタイム購読開始
+    startRealtime();
+
+    // バー更新（ライブモード）
+    document.getElementById('demo-bar-label').textContent='ライブ';
+    document.getElementById('demo-bar-msg').textContent='— 投稿はリアルタイムで全員に反映されます';
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('demo-bar-label').textContent='オフライン';
+    document.getElementById('demo-bar-msg').textContent='— DB接続失敗。ローカルモードで動作中';
+    // フォールバック：ローカルで動かす
+    seed_local();
+    renderFeed();
+    renderMembers();
+  }
+
+  startNewPostSim();
+}
+
+// ローカルフォールバック用seed
+function seed_local(){
+  const us=[
+    {name:'山田 花子',handle:'hanako_y',bio:'SicoXが好き🌸',color:'#f91880',avatarUrl:null,coverUrl:null},
+    {name:'佐藤 健',  handle:'ken_s',  bio:'エンジニア☕',   color:'#00ba7c',avatarUrl:null,coverUrl:null},
+  ];
+  us.forEach(u=>{ members[u.handle]={...u}; });
+  if(!tweets.length) tweets=[
+    {id:'s1',user:us[0],text:'SicoX へようこそ！（オフラインモード）',ts:Date.now()-300000,likes:0,imageUrls:[],imageUrl:null,replyTo:null,quoteOf:null,isRepost:false,repostBy:null,poll:null},
+  ];
+}
+
+// 合言葉チェック → 通過済みならそのまま起動
+if(localStorage.getItem(GATE_KEY)==='1'){
+  appStart();
+} else {
+  document.getElementById('gate').style.display='flex';
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{if(e.target===o){o.classList.remove('open');document.body.classList.remove('modal-open');}});
+});
+</script>
+</body>
+</html>

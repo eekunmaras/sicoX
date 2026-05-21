@@ -705,7 +705,12 @@ function _activate(id){
   const el=document.getElementById('view-'+id);
   if(el) el.classList.add('active');
   // Side effects
-  if(id==='dm-list') renderDmList();
+  if(id==='dm-list'){
+    renderDmList();
+    if(currentUser){
+      dbFetchAllThreads(currentUser.handle).then(()=>renderDmList()).catch(()=>{});
+    }
+  }
   const main=document.getElementById('main-col');
   if(main) main.scrollTop=0;
   window.scrollTo(0,0);
@@ -785,6 +790,22 @@ async function dbFetchMessages(myHandle,partnerHandle){
     .or(`and(from_handle.eq.${myHandle},to_handle.eq.${partnerHandle}),and(from_handle.eq.${partnerHandle},to_handle.eq.${myHandle})`)
     .order('created_at',{ascending:true});
   return data||[];
+}
+
+// DM一覧用：自分が関与する全スレッドを取得してdmStoreを更新
+async function dbFetchAllThreads(myHandle){
+  const {data}=await sb.from('messages')
+    .select('*')
+    .or(`from_handle.eq.${myHandle},to_handle.eq.${myHandle}`)
+    .order('created_at',{ascending:true});
+  if(!data)return;
+  // dmStoreを再構築
+  dmStore={};
+  data.forEach(m=>{
+    const key=dmKey(m.from_handle,m.to_handle);
+    if(!dmStore[key])dmStore[key]=[];
+    dmStore[key].push({from:m.from_handle,to:m.to_handle,text:m.text,ts:new Date(m.created_at).getTime(),read:m.read});
+  });
 }
 
 // DB行→内部ツイートオブジェクト変換
@@ -1561,9 +1582,24 @@ async function sendDm(){
   // ローカルに即時反映
   const key=dmKey(currentUser.handle,activeDmPartner);
   if(!dmStore[key])dmStore[key]=[];
-  dmStore[key].push({from:currentUser.handle,to:activeDmPartner,text,ts:Date.now(),read:false});
-  await renderDmMessages(activeDmPartner);
+  const msg={from:currentUser.handle,to:activeDmPartner,text,ts:Date.now(),read:false};
+  dmStore[key].push(msg);
+  // UIに即時追加（DBフェッチなし）
+  _appendDmBubble(msg);
+  // DBに保存
   await dbSendMessage(currentUser.handle,activeDmPartner,text);
+}
+function _appendDmBubble(msg){
+  const el=document.getElementById('dm-messages');
+  // 「メッセージはまだありません」などの空メッセージを消す
+  const empty=el.querySelector('.empty-msg');
+  if(empty)empty.remove();
+  const mine=msg.from===currentUser.handle;
+  const div=document.createElement('div');
+  div.style.cssText=`display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};`;
+  div.innerHTML=`<div class="dm-bubble ${mine?'mine':'theirs'}">${esc(msg.text)}<div class="dm-btime">${timeAgo(msg.ts)}</div></div>`;
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
 }
 function openNewDmModal(){if(!currentUser){openProfileModal();return;}document.getElementById('new-dm-to').value='';document.getElementById('new-dm-error').style.display='none';document.getElementById('new-dm-modal').classList.add('open');document.body.classList.add('modal-open');}
 function startNewDm(){

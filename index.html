@@ -49,7 +49,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .av-44{width:44px;height:44px;font-size:16px;}
 .av-40{width:40px;height:40px;font-size:14px;}
 .av-32{width:32px;height:32px;font-size:12px;}
-.av-c{cursor:pointer;transition:opacity .15s;}
+.av-c{cursor:pointer;transition:opacity .15s;display:block;flex-shrink:0;}
 .av-c:hover{opacity:.8;}
 
 /* ── Main ── */
@@ -76,7 +76,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 #view-feed .tabs{position:sticky;top:52px;z-index:9;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);}
 
 /* ── New posts banner ── */
-.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:fixed;top:0;left:0;right:0;z-index:100;}
+.new-posts-bar{background:var(--accent);color:#fff;text-align:center;padding:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;display:none;position:sticky;top:104px;z-index:8;width:100%;}
 .new-posts-bar:hover{background:var(--ah);}
 
 /* ── Name banner ── */
@@ -916,11 +916,26 @@ function startRealtime(){
       const t=dbRowToTweet(payload.new);
       // 自分の投稿は既にローカルにある
       if(currentUser&&t.user.handle===currentUser.handle) return;
+      // 重複チェック
+      if(tweets.some(x=>x.id===t.id)) return;
       tweets.unshift(t);
-      pendingNewTweets.push(1);
-      const bar=document.getElementById('new-posts-bar');
-      bar.style.display='block';
-      bar.textContent=`${pendingNewTweets.length}件の新しいポストを表示`;
+      // 返信の場合はバナーを出さず、スレッドが開いていれば自動更新
+      if(t.replyTo){
+        const threadView=document.getElementById('view-thread');
+        if(threadView&&threadView.classList.contains('active')){
+          const parentEl=document.querySelector('#thread-content .thread-parent');
+          if(parentEl){
+            // 現在表示中のスレッドへの返信か確認
+            const replyListHeader=document.querySelector('#thread-content [style*="返信"]');
+            showThread(t.replyTo);
+          }
+        }
+      } else {
+        pendingNewTweets.push(1);
+        const bar=document.getElementById('new-posts-bar');
+        bar.style.display='block';
+        bar.textContent=`${pendingNewTweets.length}件の新しいポストを表示`;
+      }
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'tweets'},payload=>{
       const idx=tweets.findIndex(x=>x.id===payload.new.id);
@@ -1140,7 +1155,7 @@ function tweetCardHTML(t){
   return`<div${t.isRepost?'':''}>
     ${repostLabel}
     <div class="tweet-card" data-id="${t.id}" onclick="showThread('${t.id}')">
-      <div onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')">${avHTML(displayUser,'av-44 av-c')}</div>
+      <div onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')" style="width:44px;height:44px;flex-shrink:0;">${avHTML(displayUser,'av-44 av-c')}</div>
       <div class="tweet-right">
         ${replyBadge}
         <div class="tweet-header">
@@ -1278,6 +1293,11 @@ async function submitReply(parentId){
   renderFeed(document.getElementById('search-input').value.toLowerCase());
   showToast('返信しました！');
   await dbPostTweet(t); // DB保存
+  // DB保存後に最新データ取得して返信を確実に反映
+  try {
+    await fetchTweets();
+    showThread(parentId);
+  } catch(e) { /* ネットワークエラー時はローカル表示のまま */ }
 }
 
 // ══════════════════════════════════════

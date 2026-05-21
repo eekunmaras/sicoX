@@ -56,6 +56,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .main{flex:1;max-width:600px;border-right:1px solid var(--border);height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;}
 .view{display:none;flex-direction:column;}
 .view.active{display:flex;min-height:100%;}
+#view-dm-chat.active{min-height:unset;height:100%;}
 
 /* ── Feed header ── */
 .feed-header{position:sticky;top:0;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;min-height:52px;}.feed-header-title{font-size:17px;font-weight:700;flex:1;}
@@ -240,14 +241,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .dm-name-row{display:flex;justify-content:space-between;align-items:baseline;}
 .dm-preview-text{font-size:13px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
 .dm-unread-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;}
-.dm-chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 28px - 52px);min-height:0;}
-.dm-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px;}
+.dm-chat-wrap{display:flex;flex-direction:column;height:100%;min-height:0;}
+.dm-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px;overscroll-behavior:contain;}
 .dm-bubble{max-width:78%;padding:9px 13px;border-radius:18px;font-size:14px;line-height:1.5;word-break:break-word;}
 .dm-bubble.mine{background:var(--accent);color:#fff;align-self:flex-end;border-bottom-right-radius:4px;}
 .dm-bubble.theirs{background:var(--bg3);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;}
 .dm-btime{font-size:11px;opacity:.7;margin-top:2px;}
-.dm-input-row{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--bg);}
-.dm-ta{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:22px;color:var(--text);font-family:var(--font);font-size:14px;padding:8px 14px;outline:none;resize:none;max-height:80px;line-height:1.4;}
+.dm-input-row{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;}
+.dm-ta{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:22px;color:var(--text);font-family:var(--font);font-size:14px;padding:8px 14px;outline:none;resize:none;max-height:120px;line-height:1.4;}
 .dm-ta:focus{border-color:var(--accent);}
 .dm-send-btn{background:var(--accent);color:#fff;border:none;border-radius:50%;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end;}
 .dm-send-btn:disabled{opacity:.4;cursor:not-allowed;}
@@ -268,6 +269,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .mem-name{font-size:13px;font-weight:500;}
 .mem-handle{font-size:11px;color:var(--text2);}
 .empty-msg{text-align:center;color:var(--text2);padding:40px 16px;font-size:14px;line-height:2.2;}
+
+/* ── Users search view ── */
+.user-search-box{display:flex;align-items:center;gap:10px;margin:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:9999px;padding:9px 16px;transition:border-color .15s;}
+.user-search-box:focus-within{border-color:var(--accent);}
+.user-search-box svg{width:16px;height:16px;color:var(--text2);flex-shrink:0;}
+.user-search-box input{background:transparent;border:none;outline:none;color:var(--text);font-family:var(--font);font-size:15px;width:100%;}
+.user-search-box input::placeholder{color:var(--text2);}
+.user-card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
+.user-card:hover{background:rgba(255,255,255,.03);}
+.user-card-info{flex:1;min-width:0;}
+.user-card-name{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-card-handle{font-size:13px;color:var(--text2);}
+.user-card-bio{font-size:13px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-card-dm{background:transparent;border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;border-radius:9999px;padding:5px 14px;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.user-card-dm:hover{background:rgba(255,255,255,.08);}
 
 /* ── Modals ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;align-items:flex-start;justify-content:center;padding-top:40px;overflow-y:auto;}
@@ -317,7 +333,9 @@ body.modal-open{overflow:hidden;}
 .mob-badge{position:absolute;top:2px;right:6px;background:var(--like);color:#fff;border-radius:9999px;font-size:9px;font-weight:700;min-width:15px;height:15px;display:none;align-items:center;justify-content:center;padding:0 3px;}
 
 @media(max-width:1000px){.right-sidebar{display:none;}.sidebar{width:68px;}.nav-item span,.user-chip .user-info{display:none;}.nav-item{justify-content:center;padding:10px;}.logo{text-align:center;font-size:22px;}}
-@media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}.dm-chat-wrap{height:calc(100vh - 52px - 54px - env(safe-area-inset-bottom,0px));}}
+@media(max-width:640px){.sidebar{display:none;}.main{max-width:100%;border-right:none;min-width:0;height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));}.mobile-nav{display:flex;}body{padding-bottom:calc(54px + env(safe-area-inset-bottom));}.modal-overlay{padding-top:20px;}.tweet-card{padding:10px 12px;}.compose-box{padding:10px 12px;}
+#view-dm-chat{height:calc(100vh - 54px - env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;}
+#view-dm-chat .dm-chat-wrap{flex:1;min-height:0;}}
 </style>
 </head>
 <body>
@@ -351,8 +369,8 @@ body.modal-open{overflow:hidden;}
     <a class="nav-item" href="#" onclick="goFeed();return false;">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 9v13h7v-7h6v7h7V9z"/></svg><span>ホーム</span>
     </a>
-    <a class="nav-item" href="#" onclick="focusSearch();return false;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><span>検索</span>
+    <a class="nav-item" href="#" onclick="goView('members');return false;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><span>ユーザーを探す</span>
     </a>
     <a class="nav-item" id="nav-dm" href="#" onclick="goView('dm-list');return false;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -463,6 +481,19 @@ body.modal-open{overflow:hidden;}
     <div id="user-page-feed"></div>
   </div>
 
+  <!-- ── Users (search) ── -->
+  <div class="view" id="view-members">
+    <div class="feed-header">
+      <button class="back-btn" onclick="goFeed()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></button>
+      <span class="feed-header-title">ユーザーを探す</span>
+    </div>
+    <div class="user-search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="member-search-input" placeholder="名前や@ハンドルで検索…" oninput="renderMembersView()" autocomplete="off">
+    </div>
+    <div id="members-view-list"></div>
+  </div>
+
   <!-- ── DM list ── -->
   <div class="view" id="view-dm-list">
     <div class="feed-header">
@@ -508,9 +539,9 @@ body.modal-open{overflow:hidden;}
 
 <!-- ═══ MOBILE NAV ═══ -->
 <div class="mobile-nav">
-  <button onclick="goFeed()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 9v13h7v-7h6v7h7V9z"/></svg></button>
-  <button onclick="focusSearch()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
-  <button onclick="goView('dm-list')">
+  <button id="mob-home-btn" onclick="goFeed()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 9v13h7v-7h6v7h7V9z"/></svg></button>
+  <button id="mob-search-btn" onclick="goView('members')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></button>
+  <button id="mob-dm-btn" onclick="goView('dm-list')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     <div class="mob-badge" id="mob-dm-badge"></div>
   </button>
@@ -584,8 +615,12 @@ body.modal-open{overflow:hidden;}
   </div>
 </div>
 
-<!-- Context menu (block) -->
+<!-- Context menu (block / delete) -->
 <div class="ctx-menu" id="ctx-menu" style="display:none;">
+  <div class="ctx-item danger" id="ctx-delete-item" onclick="ctxDelete()" style="display:none;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    ポストを削除
+  </div>
   <div class="ctx-item danger" id="ctx-block-item" onclick="ctxBlock()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
     ブロック
@@ -656,7 +691,7 @@ let selectedImages = [];
 let quoteTargetId = null;
 let pollActive = false;
 let repostTargetId = null;
-let ctxTargetHandle = null;
+let ctxTargetHandle = null, ctxTargetTweetId = null;
 let viewStack = ['feed'];
 let sbChannel = null; // realtime channel
 
@@ -704,7 +739,20 @@ function _activate(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   const el=document.getElementById('view-'+id);
   if(el) el.classList.add('active');
+  // モバイルナビ アクティブ色
+  document.querySelectorAll('.mobile-nav button').forEach(b=>b.style.color='');
+  const mobMap={feed:'mob-home-btn',members:'mob-search-btn','dm-list':'mob-dm-btn','dm-chat':'mob-dm-btn'};
+  const activeBtn=document.getElementById(mobMap[id]);
+  if(activeBtn) activeBtn.style.color='var(--accent)';
   // Side effects
+  if(id==='members'){
+    renderMembersView();
+    // フォーカス（少し遅延してキーボード出す）
+    setTimeout(()=>{
+      const inp=document.getElementById('member-search-input');
+      if(inp) inp.focus();
+    },120);
+  }
   if(id==='dm-list'){
     renderDmList();
     if(currentUser){
@@ -775,6 +823,15 @@ async function dbSaveProfile(u){
   if(error) console.error('profile error', JSON.stringify(error));
 }
 
+// DM既読更新
+async function dbMarkMessagesRead(myHandle, partnerHandle){
+  await sb.from('messages')
+    .update({read:true})
+    .eq('to_handle', myHandle)
+    .eq('from_handle', partnerHandle)
+    .eq('read', false);
+}
+
 // DM送信
 async function dbSendMessage(from,to,text){
   await sb.from('messages').insert({
@@ -836,7 +893,7 @@ function dbRowToUser(row){
 // リアルタイム購読
 function startRealtime(){
   if(sbChannel) sb.removeChannel(sbChannel);
-  sbChannel=sb.channel('tweets-live')
+  sbChannel=sb.channel('app-live')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'tweets'},payload=>{
       const t=dbRowToTweet(payload.new);
       // 自分の投稿は既にローカルにある
@@ -855,6 +912,39 @@ function startRealtime(){
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'tweets'},payload=>{
       tweets=tweets.filter(x=>x.id!==payload.old.id);
       renderFeed(document.getElementById('search-input').value.toLowerCase());
+    })
+    // ── DM リアルタイム受信 ──
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'},payload=>{
+      const m=payload.new;
+      if(!currentUser) return;
+      // 自分が送信したメッセージは _appendDmBubble で既に表示済み
+      if(m.from_handle===currentUser.handle) return;
+      // 自分宛でなければ無視
+      if(m.to_handle!==currentUser.handle) return;
+
+      const msg={from:m.from_handle,to:m.to_handle,text:m.text,
+                 ts:new Date(m.created_at).getTime(),read:false};
+
+      // dmStore に追加
+      const key=dmKey(m.from_handle,m.to_handle);
+      if(!dmStore[key]) dmStore[key]=[];
+      dmStore[key].push(msg);
+
+      // チャット画面が開いていて相手が一致する場合 → バブル即時追加
+      const chatOpen=document.getElementById('view-dm-chat').classList.contains('active');
+      if(chatOpen && activeDmPartner===m.from_handle){
+        _appendDmBubble(msg);
+        // チャット開いているので即既読
+        msg.read=true;
+        dbMarkMessagesRead(currentUser.handle,m.from_handle);
+      } else {
+        // それ以外はバッジ更新 & トースト通知
+        updateDmBadge();
+        const sender=members[m.from_handle]||{name:m.from_handle};
+        showToast('💬 '+sender.name+'：'+m.text.slice(0,24)+(m.text.length>24?'…':''));
+      }
+      // DM一覧が開いていれば再レンダリング
+      if(document.getElementById('view-dm-list').classList.contains('active')) renderDmList();
     })
     .subscribe();
 }
@@ -971,6 +1061,11 @@ function votePoll(tweetId,optIndex){
   t.poll.totalVotes++;
   t.poll.votedIndex=optIndex;
   refreshCard(tweetId);
+  // DB保存（投票結果をpollカラムに更新）
+  dbUpdatePoll(tweetId,t.poll);
+}
+async function dbUpdatePoll(tweetId,poll){
+  await sb.from('tweets').update({poll:JSON.stringify(poll)}).eq('id',tweetId);
 }
 
 // ══════════════════════════════════════
@@ -1032,7 +1127,7 @@ function tweetCardHTML(t){
           <span class="tw-name" onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')">${esc(displayUser.name)}</span>
           <span class="tw-handle" onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')">@${esc(displayUser.handle)}</span>
           <span class="tw-time">${timeAgo(t.ts)}</span>
-          <button class="act-btn" style="margin-left:auto;padding:2px 4px;min-width:auto;" onclick="event.stopPropagation();openCtxMenu(event,'${esc(displayUser.handle)}')" title="メニュー">
+          <button class="act-btn" style="margin-left:auto;padding:2px 4px;min-width:auto;" onclick="event.stopPropagation();openCtxMenu(event,'${esc(displayUser.handle)}','${t.id}')" title="メニュー">
             <svg viewBox="0 0 24 24" fill="currentColor" style="width:16px;height:16px;"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
           </button>
         </div>
@@ -1156,10 +1251,12 @@ function onThreadInput(){
 function submitReply(parentId){
   const ta=document.getElementById('thread-reply-ta'); if(!ta)return;
   const text=ta.value.trim(); if(!text)return;
-  tweets.push({id:uid(),user:{...currentUser},text,imageUrl:null,ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null});
+  const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
+  tweets.push(t);
   showThread(parentId);
   renderFeed(document.getElementById('search-input').value.toLowerCase());
   showToast('返信しました！');
+  dbPostTweet(t); // DB保存
 }
 
 // ══════════════════════════════════════
@@ -1199,7 +1296,10 @@ function doRepost(){
     // Undo repost
     repostedSet.delete(repostTargetId);
     const idx=tweets.findIndex(t=>t.isRepost&&t.quoteOf===repostTargetId&&t.user.handle===currentUser.handle&&!t.text);
-    if(idx>-1)tweets.splice(idx,1);
+    if(idx>-1){
+      const removed=tweets.splice(idx,1)[0];
+      dbDeleteTweet(removed.id); // DB削除
+    }
     saveReposted();
     renderFeed(document.getElementById('search-input').value.toLowerCase());
     showToast('リポストを取り消しました');
@@ -1208,16 +1308,18 @@ function doRepost(){
   repostedSet.add(repostTargetId);
   saveReposted();
   // Create repost tweet
-  tweets.unshift({
+  const rt={
     id:uid(),user:{...currentUser},text:'',
-    imageUrl:null,ts:Date.now(),likes:orig.likes,
+    imageUrl:null,imageUrls:[],ts:Date.now(),likes:orig.likes,
     replyTo:null,quoteOf:repostTargetId,
     isRepost:true,repostBy:{...currentUser},
     originalUser:{...orig.user},
     poll:orig.poll?JSON.parse(JSON.stringify(orig.poll)):null
-  });
+  };
+  tweets.unshift(rt);
   renderFeed(document.getElementById('search-input').value.toLowerCase());
   showToast('リポストしました！');
+  dbPostTweet(rt); // DB保存
 }
 
 function doQuoteTweet(){
@@ -1506,19 +1608,33 @@ function toggleBlockFromPage(handle){
 // ══════════════════════════════════════
 // Block / Context menu (⑦)
 // ══════════════════════════════════════
-function openCtxMenu(event,handle){
+function openCtxMenu(event,handle,tweetId){
   event.stopPropagation();
   ctxTargetHandle=handle;
+  ctxTargetTweetId=tweetId||null;
   const menu=document.getElementById('ctx-menu');
   const isBlocked=blockedSet.has(handle);
   document.getElementById('ctx-block-item').innerHTML=`
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
     ${isBlocked?'ブロックを解除':'@'+handle+' をブロック'}`;
+  const delItem=document.getElementById('ctx-delete-item');
+  delItem.style.display=(currentUser&&handle===currentUser.handle&&tweetId)?'flex':'none';
+  document.getElementById('ctx-block-item').style.display=(currentUser&&handle===currentUser.handle)?'none':'flex';
   menu.style.display='block';
   const x=Math.min(event.clientX,window.innerWidth-230);
   const y=Math.min(event.clientY,window.innerHeight-100);
   menu.style.left=x+'px';menu.style.top=y+'px';
   setTimeout(()=>document.addEventListener('click',closeCtx,{once:true}),10);
+}
+function ctxDelete(){
+  if(!ctxTargetTweetId)return;
+  closeCtx();
+  const idx=tweets.findIndex(t=>t.id===ctxTargetTweetId);
+  if(idx>-1)tweets.splice(idx,1);
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+  dbDeleteTweet(ctxTargetTweetId);
+  showToast('ポストを削除しました');
+  if(document.getElementById('view-thread').classList.contains('active')) goBack();
 }
 function ctxBlock(){
   if(!ctxTargetHandle)return;
@@ -1571,6 +1687,13 @@ async function renderDmMessages(handle){
   dmStore[key]=msgs.map(m=>({from:m.from_handle,to:m.to_handle,text:m.text,ts:new Date(m.created_at).getTime(),read:m.read}));
   el.innerHTML=msgs.length?msgs.map(m=>{const mine=m.from_handle===currentUser.handle;return`<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};"><div class="dm-bubble ${mine?'mine':'theirs'}">${esc(m.text)}<div class="dm-btime">${timeAgo(new Date(m.created_at).getTime())}</div></div></div>`;}).join(''):`<div class="empty-msg" style="padding:24px 0;">メッセージはまだありません</div>`;
   el.scrollTop=el.scrollHeight;
+  // 既読処理：相手からの未読メッセージをすべて既読に
+  const hasUnread=dmStore[key].some(m=>m.to===currentUser.handle&&!m.read);
+  if(hasUnread){
+    dmStore[key].forEach(m=>{if(m.to===currentUser.handle)m.read=true;});
+    updateDmBadge();
+    dbMarkMessagesRead(currentUser.handle,handle); // DB更新（非同期・バックグラウンド）
+  }
 }
 function onDmInput(){document.getElementById('dm-send-btn').disabled=!document.getElementById('dm-input').value.trim();}
 function onDmKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendDm();}}
@@ -1630,6 +1753,42 @@ function renderMembers(){
   const all=Object.values(members);
   if(currentUser&&!all.find(m=>m.handle===currentUser.handle))all.unshift(currentUser);
   el.innerHTML=all.length?all.map(u=>`<div class="member-item" onclick="showUserPage('${esc(u.handle)}')">${avHTML(u,'av-32')}<div><div class="mem-name">${esc(u.name)}</div><div class="mem-handle">@${esc(u.handle)}</div></div></div>`).join(''):`<div style="color:var(--text2);font-size:13px;">まだ誰もいません</div>`;
+}
+
+// ══════════════════════════════════════
+// Members view (ユーザー検索ビュー)
+// ══════════════════════════════════════
+function renderMembersView(){
+  const el=document.getElementById('members-view-list');
+  if(!el) return;
+  const q=(document.getElementById('member-search-input')?.value||'').trim().toLowerCase();
+  let all=Object.values(members);
+  // 自分も含める
+  if(currentUser&&!all.find(u=>u.handle===currentUser.handle)) all.unshift(currentUser);
+  // フィルタリング
+  if(q) all=all.filter(u=>
+    u.name.toLowerCase().includes(q)||
+    u.handle.toLowerCase().includes(q)||
+    (u.bio||'').toLowerCase().includes(q)
+  );
+  if(!all.length){
+    el.innerHTML=`<div class="empty-msg">${q?'「'+esc(q)+'」に一致するユーザーはいません':'まだメンバーがいません'}</div>`;
+    return;
+  }
+  el.innerHTML=all.map(u=>{
+    const isMe=currentUser&&u.handle===currentUser.handle;
+    return`<div class="user-card" onclick="showUserPage('${esc(u.handle)}')">
+      ${avHTML(u,'av-48 av-c')}
+      <div class="user-card-info">
+        <div class="user-card-name">${esc(u.name)}</div>
+        <div class="user-card-handle">@${esc(u.handle)}</div>
+        ${u.bio?`<div class="user-card-bio">${esc(u.bio)}</div>`:''}
+      </div>
+      ${!isMe?`<button class="user-card-dm" onclick="event.stopPropagation();dmUser('${esc(u.handle)}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px;vertical-align:-2px;margin-right:3px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>DM
+      </button>`:'<span style="font-size:12px;color:var(--text2);">自分</span>'}
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════
@@ -1714,6 +1873,19 @@ async function appStart(){
   }
 
   startNewPostSim();
+  // スマホキーボード表示時のDMチャット位置補正
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',()=>{
+      const chatView=document.getElementById('view-dm-chat');
+      if(!chatView.classList.contains('active')) return;
+      // キーボードが出たぶん高さを縮める
+      const vvH=window.visualViewport.height;
+      chatView.style.height=vvH+'px';
+      // 最新メッセージにスクロール
+      const msgs=document.getElementById('dm-messages');
+      msgs.scrollTop=msgs.scrollHeight;
+    });
+  }
 }
 
 // ローカルフォールバック用seed

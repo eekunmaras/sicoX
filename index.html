@@ -1306,7 +1306,9 @@ function showThread(tweetId){
   const reposted=repostedSet.has(tweetId);
   const replyCount=tweets.filter(t=>t.replyTo===tweetId).length;
   const replies=tweets.filter(t=>t.replyTo===tweetId).sort((a,b)=>a.ts-b.ts);
-  const imgHtml=parent.imageUrl?`<div class="tweet-img"><img src="${esc(parent.imageUrl)}" alt="" loading="lazy"></div>`:'';
+  const _imgs=parent.imageUrls&&parent.imageUrls.length?parent.imageUrls:(parent.imageUrl?[parent.imageUrl]:[]);
+  let imgHtml='';
+  if(_imgs.length){const _n=Math.min(_imgs.length,4);const _cls=`g${_n}`;const _allUrls=JSON.stringify(_imgs.slice(0,4)).replace(/"/g,"'");imgHtml=`<div class="img-grid ${_cls}" onclick="openLightbox(${_allUrls},0)">${_imgs.slice(0,4).map((url,i)=>{const isLast=i===3&&_imgs.length>4;return`<div class="${isLast?'img-grid-more':''}" ${isLast?`data-more="+${_imgs.length-3}"`:''}><img src="${esc(url)}" loading="lazy" alt=""></div>`;}).join('')}</div>`;}
   let quoteHtml='';
   if(parent.quoteOf){const qt=tweets.find(x=>x.id===parent.quoteOf);if(qt)quoteHtml=`<div class="quote-embed" onclick="showThread('${qt.id}')"><div class="quote-embed-header"><strong>${esc(qt.user.name)}</strong> @${esc(qt.user.handle)}</div><div class="quote-embed-body">${esc(qt.text)}</div></div>`;}
   const composeHtml=currentUser?`<div class="reply-compose-thread">

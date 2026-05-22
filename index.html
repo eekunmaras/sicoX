@@ -465,7 +465,29 @@ body.modal-open{overflow:hidden;}
   #view-dm-chat .dm-chat-wrap{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
   #view-dm-chat .dm-messages{flex:1;overflow-y:auto;min-height:0;}
   #view-dm-chat .dm-input-row{flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}
-}</style>
+}
+
+/* ── Notification Bell ── */
+.notif-bell-btn{background:transparent;border:none;color:var(--text);cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;border-radius:9999px;position:relative;transition:background .15s;}
+.notif-bell-btn:hover{background:rgba(255,255,255,.1);}
+.notif-bell-btn svg{width:22px;height:22px;}
+.notif-bell-badge{position:absolute;top:-2px;right:-2px;background:var(--like);color:#fff;border-radius:9999px;font-size:9px;font-weight:700;min-width:15px;height:15px;display:none;align-items:center;justify-content:center;padding:0 3px;}
+.notif-dropdown{position:absolute;top:calc(100% + 8px);right:0;width:320px;max-height:420px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.6);z-index:200;display:none;}
+.notif-dropdown.open{display:block;}
+.notif-dropdown-header{padding:14px 16px 10px;font-size:15px;font-weight:700;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.notif-dropdown-header button{background:transparent;border:none;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;display:flex;gap:10px;align-items:flex-start;}
+.notif-item:hover{background:rgba(255,255,255,.05);}
+.notif-item:last-child{border-bottom:none;}
+.notif-item.unread{background:rgba(29,155,240,.06);}
+.notif-item-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.notif-item-body{flex:1;min-width:0;}
+.notif-item-name{font-weight:700;font-size:13px;color:var(--text);}
+.notif-item-text{font-size:13px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.notif-item-time{font-size:11px;color:var(--text2);margin-top:3px;}
+.notif-empty{padding:32px 16px;text-align:center;font-size:14px;color:var(--text2);}
+.notif-bell-wrap{position:relative;}
+</style>
 </head>
 <body>
 <div class="demo-bar" id="demo-bar"><div class="pulse"></div><strong id="demo-bar-label">接続中…</strong><span id="demo-bar-msg"></span></div>
@@ -524,6 +546,19 @@ body.modal-open{overflow:hidden;}
     <div class="feed-header" style="padding:0;">
       <div style="padding:12px 16px;width:100%;display:flex;align-items:center;">
         <span style="font-size:17px;font-weight:700;">ホーム</span>
+        <div class="notif-bell-wrap" style="margin-left:auto;">
+          <button class="notif-bell-btn" id="notif-bell-btn" onclick="toggleNotifDropdown(event)" aria-label="通知">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <div class="notif-bell-badge" id="notif-bell-badge"></div>
+          </button>
+          <div class="notif-dropdown" id="notif-dropdown">
+            <div class="notif-dropdown-header">
+              <span>通知</span>
+              <button onclick="markAllNotifsRead()">すべて既読</button>
+            </div>
+            <div id="notif-list"></div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="tabs">
@@ -680,6 +715,10 @@ body.modal-open{overflow:hidden;}
   <button id="mob-dm-btn" onclick="goView('dm-list')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
     <div class="mob-badge" id="mob-dm-badge"></div>
+  </button>
+  <button id="mob-notif-btn" onclick="toggleNotifDropdown(event)" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <div class="mob-badge" id="mob-notif-badge"></div>
   </button>
   <button onclick="openPullup()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
 </div>
@@ -906,6 +945,10 @@ let repostTargetId = null;
 let ctxTargetHandle = null, ctxTargetTweetId = null;
 let viewStack = ['feed'];
 let sbChannel = null; // realtime channel
+
+// ── Notifications ──
+let notifications = []; // {id, tweetId, fromHandle, fromName, text, ts, read}
+let notifDropdownOpen = false;
 
 // ══════════════════════════════════════
 // Utils
@@ -1138,6 +1181,21 @@ function startRealtime(){
       tweets.unshift(t);
       // 返信の場合はバナーを出さず、スレッドが開いていれば自動更新
       if(t.replyTo){
+        // ── 自分の投稿へのコメント通知 ──
+        if(currentUser){
+          const parent=tweets.find(x=>x.id===t.replyTo);
+          if(parent && parent.user.handle===currentUser.handle){
+            addNotification({
+              id:'n'+Date.now()+Math.random().toString(36).slice(2,5),
+              tweetId:t.replyTo,
+              fromHandle:t.user.handle,
+              fromName:t.user.name,
+              text:t.text,
+              ts:t.ts,
+              read:false
+            });
+          }
+        }
         const threadView=document.getElementById('view-thread');
         if(threadView&&threadView.classList.contains('active')){
           const parentEl=document.querySelector('#thread-content .thread-parent');
@@ -2217,6 +2275,128 @@ async function cnSubmit(){
 }
 
 // ══════════════════════════════════════
+// Notifications（返信通知）
+// ══════════════════════════════════════
+function addNotification(notif){
+  notifications.unshift(notif);
+  if(notifications.length > 50) notifications = notifications.slice(0,50);
+  renderNotifList();
+  updateNotifBadge();
+  // トースト
+  showToast('💬 ' + notif.fromName + 'があなたの投稿にコメントしました');
+}
+
+function unreadNotifCount(){
+  return notifications.filter(n=>!n.read).length;
+}
+
+function updateNotifBadge(){
+  const cnt = unreadNotifCount();
+  const badge = document.getElementById('notif-bell-badge');
+  const mobBadge = document.getElementById('mob-notif-badge');
+  if(badge){
+    if(cnt>0){ badge.style.display='flex'; badge.textContent=cnt>9?'9+':cnt; }
+    else{ badge.style.display='none'; }
+  }
+  if(mobBadge){
+    if(cnt>0){ mobBadge.style.display='flex'; mobBadge.textContent=cnt>9?'9+':cnt; }
+    else{ mobBadge.style.display='none'; }
+  }
+}
+
+function renderNotifList(){
+  const listEl = document.getElementById('notif-list');
+  const mobListEl = document.getElementById('mob-notif-list');
+  const html = notifications.length === 0
+    ? '<div class="notif-empty">通知はありません</div>'
+    : notifications.map(n=>`
+      <div class="notif-item${n.read?'':' unread'}" onclick="onNotifClick('${n.id}','${n.tweetId}')">
+        <div class="notif-item-icon">💬</div>
+        <div class="notif-item-body">
+          <div class="notif-item-name">${esc(n.fromName)} <span style="font-weight:400;color:var(--text2);">@${esc(n.fromHandle)}</span></div>
+          <div class="notif-item-text">${esc(n.text)}</div>
+          <div class="notif-item-time">${timeAgo(n.ts)}</div>
+        </div>
+      </div>`).join('');
+  if(listEl) listEl.innerHTML = html;
+  if(mobListEl) mobListEl.innerHTML = html;
+}
+
+function onNotifClick(notifId, tweetId){
+  // 既読にする
+  const n = notifications.find(x=>x.id===notifId);
+  if(n) n.read = true;
+  updateNotifBadge();
+  renderNotifList();
+  closeNotifDropdown();
+  // スレッドを開く
+  showThread(tweetId);
+}
+
+function markAllNotifsRead(){
+  notifications.forEach(n=>n.read=true);
+  updateNotifBadge();
+  renderNotifList();
+}
+
+function toggleNotifDropdown(e){
+  e.stopPropagation();
+  const isMobile = window.innerWidth <= 640;
+  if(isMobile){
+    const dd = document.getElementById('mob-notif-dropdown');
+    const ov = document.getElementById('mob-notif-overlay');
+    const isOpen = dd.style.display === 'block';
+    if(isOpen){ closeNotifDropdown(); }
+    else {
+      renderNotifList();
+      // 未読をすべて既読に（表示したら既読）
+      notifications.forEach(n=>n.read=true);
+      updateNotifBadge();
+      renderNotifList();
+      dd.style.display='block';
+      ov.style.display='block';
+    }
+  } else {
+    const dd = document.getElementById('notif-dropdown');
+    const isOpen = dd.classList.contains('open');
+    if(isOpen){ closeNotifDropdown(); }
+    else {
+      renderNotifList();
+      notifications.forEach(n=>n.read=true);
+      updateNotifBadge();
+      renderNotifList();
+      dd.classList.add('open');
+      notifDropdownOpen = true;
+      setTimeout(()=>document.addEventListener('click', _notifOutsideClick, {once:true}), 10);
+    }
+  }
+}
+
+function _notifOutsideClick(e){
+  const dd = document.getElementById('notif-dropdown');
+  if(dd && !dd.contains(e.target)){
+    dd.classList.remove('open');
+    notifDropdownOpen = false;
+  }
+}
+
+function closeNotifDropdown(){
+  const dd = document.getElementById('notif-dropdown');
+  const mobDd = document.getElementById('mob-notif-dropdown');
+  const ov = document.getElementById('mob-notif-overlay');
+  if(dd) dd.classList.remove('open');
+  if(mobDd) mobDd.style.display='none';
+  if(ov) ov.style.display='none';
+  notifDropdownOpen = false;
+}
+
+function closeMobNotifDropdown(e){
+  if(e.target === document.getElementById('mob-notif-overlay')){
+    closeNotifDropdown();
+  }
+}
+
+// ══════════════════════════════════════
 // DM
 // ══════════════════════════════════════
 function unreadCount(){
@@ -2863,6 +3043,16 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
   <div class="game-frame-body">
     <iframe id="game-frame" sandbox="allow-scripts"></iframe>
   </div>
+</div>
+
+<!-- ── Mobile Notification Dropdown (fixed overlay) ── -->
+<div id="mob-notif-overlay" onclick="closeMobNotifDropdown(event)" style="display:none;position:fixed;inset:0;z-index:9990;"></div>
+<div id="mob-notif-dropdown" style="display:none;position:fixed;bottom:70px;left:50%;transform:translateX(-50%);width:calc(100vw - 24px);max-width:360px;max-height:420px;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.7);z-index:9991;">
+  <div class="notif-dropdown-header">
+    <span>通知</span>
+    <button onclick="markAllNotifsRead()">すべて既読</button>
+  </div>
+  <div id="mob-notif-list"></div>
 </div>
 
 <!-- ── New posts banner (body直下・fixed) ── -->

@@ -368,6 +368,72 @@ body.modal-open{overflow:hidden;}
 .ctx-item.danger{color:var(--like);}
 .ctx-item svg{width:18px;height:18px;}
 
+/* ── Community Note ── */
+.cn-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:600;display:none;align-items:flex-end;justify-content:center;}
+.cn-overlay.open{display:flex;}
+@media(min-width:640px){.cn-overlay{align-items:center;}}
+.cn-sheet{background:var(--bg);border:1px solid var(--border);border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom,0);}
+@media(min-width:640px){.cn-sheet{border-radius:16px;max-height:85vh;margin:20px;}}
+.cn-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.cn-header-icon{width:28px;height:28px;flex-shrink:0;color:#1d9bf0;}
+.cn-header-title{font-size:15px;font-weight:700;flex:1;color:var(--text);}
+.cn-close{background:transparent;border:none;color:var(--text2);cursor:pointer;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cn-close:hover{background:rgba(255,255,255,.08);}
+.cn-close svg{width:18px;height:18px;}
+
+/* Existing note display */
+.cn-existing{background:rgba(29,155,240,.06);border-left:3px solid #1d9bf0;margin:14px 16px;border-radius:0 10px 10px 0;padding:12px 14px;}
+.cn-existing-label{font-size:11px;font-weight:700;color:#1d9bf0;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:5px;}
+.cn-existing-label svg{width:13px;height:13px;}
+.cn-existing-text{font-size:14px;line-height:1.65;color:var(--text);word-break:break-word;white-space:pre-wrap;}
+.cn-existing-meta{font-size:11px;color:var(--text2);margin-top:8px;display:flex;gap:12px;flex-wrap:wrap;}
+
+/* Source list */
+.cn-sources{margin:0 16px 12px;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;}
+.cn-source-item{display:flex;align-items:center;gap:8px;font-size:13px;color:#1d9bf0;}
+.cn-source-item svg{width:14px;height:14px;flex-shrink:0;}
+.cn-source-link{color:#1d9bf0;text-decoration:none;word-break:break-all;}
+.cn-source-link:hover{text-decoration:underline;}
+
+/* Compose section */
+.cn-compose{padding:14px 16px;}
+.cn-compose-label{font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.cn-compose-label svg{width:16px;height:16px;color:var(--text2);}
+.cn-ta{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--font);font-size:14px;padding:11px 13px;resize:none;outline:none;min-height:90px;line-height:1.6;}
+.cn-ta:focus{border-color:var(--accent);}
+.cn-ta::placeholder{color:var(--text2);}
+
+/* Source inputs */
+.cn-sources-compose{display:flex;flex-direction:column;gap:7px;margin-top:10px;}
+.cn-src-row{display:flex;align-items:center;gap:6px;}
+.cn-src-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:13px;padding:7px 10px;outline:none;}
+.cn-src-input:focus{border-color:var(--accent);}
+.cn-src-input::placeholder{color:var(--text2);}
+.cn-src-remove{background:transparent;border:none;color:var(--text2);cursor:pointer;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0;}
+.cn-src-remove:hover{background:rgba(255,255,255,.08);color:var(--text);}
+.cn-src-remove svg{width:14px;height:14px;}
+.cn-add-src{font-size:12px;color:var(--accent);background:transparent;border:none;cursor:pointer;font-family:var(--font);padding:4px 0;display:flex;align-items:center;gap:5px;margin-top:2px;}
+.cn-add-src svg{width:14px;height:14px;}
+
+.cn-footer{padding:12px 16px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;margin-top:4px;}
+.cn-cancel-btn{background:transparent;border:1px solid var(--border);color:var(--text2);font-family:var(--font);font-size:14px;font-weight:700;border-radius:9999px;padding:7px 18px;cursor:pointer;transition:background .15s;}
+.cn-cancel-btn:hover{background:rgba(255,255,255,.06);color:var(--text);}
+.cn-submit-btn{background:var(--accent);color:#fff;border:none;font-family:var(--font);font-size:14px;font-weight:700;border-radius:9999px;padding:7px 20px;cursor:pointer;transition:background .15s;}
+.cn-submit-btn:hover{background:var(--ah);}
+.cn-submit-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* Tweet-level community note badge */
+.cn-badge{margin:6px 0 2px;background:rgba(29,155,240,.07);border:1px solid rgba(29,155,240,.25);border-radius:10px;padding:9px 12px;cursor:pointer;transition:background .15s;}
+.cn-badge:hover{background:rgba(29,155,240,.12);}
+.cn-badge-header{font-size:11px;font-weight:700;color:#1d9bf0;display:flex;align-items:center;gap:5px;margin-bottom:4px;letter-spacing:.04em;}
+.cn-badge-header svg{width:13px;height:13px;}
+.cn-badge-text{font-size:13px;color:var(--text);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* Character counter row */
+.cn-char-row{display:flex;justify-content:flex-end;margin-top:4px;}
+.cn-char{font-size:12px;color:var(--text2);}
+.cn-char.warn{color:#ffd700;}.cn-char.danger{color:var(--like);}
+
 /* ── Toast ── */
 .toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:9px 20px;border-radius:9999px;font-size:13px;font-weight:500;opacity:0;transition:opacity .3s;z-index:600;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center;}
 .toast.show{opacity:1;}
@@ -685,11 +751,15 @@ body.modal-open{overflow:hidden;}
   </div>
 </div>
 
-<!-- Context menu (block / delete) -->
+<!-- Context menu (block / delete / community note) -->
 <div class="ctx-menu" id="ctx-menu" style="display:none;">
   <div class="ctx-item danger" id="ctx-delete-item" onclick="ctxDelete()" style="display:none;">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
     ポストを削除
+  </div>
+  <div class="ctx-item" id="ctx-note-item" onclick="ctxOpenNote()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01"/><path d="M12 12v4"/></svg>
+    コミュニティノートを書く
   </div>
   <div class="ctx-item danger" id="ctx-block-item" onclick="ctxBlock()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
@@ -698,6 +768,77 @@ body.modal-open{overflow:hidden;}
   <div class="ctx-item" onclick="closeCtx()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     キャンセル
+  </div>
+</div>
+
+<!-- Community Note Modal -->
+<div class="cn-overlay" id="cn-overlay" onclick="cnOverlayClick(event)">
+  <div class="cn-sheet" id="cn-sheet">
+    <div class="cn-header">
+      <svg class="cn-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><path d="M12 8h.01"/><path d="M12 12v4"/>
+      </svg>
+      <span class="cn-header-title">コミュニティノート</span>
+      <button class="cn-close" onclick="closeCNModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Existing note display (shown when note exists) -->
+    <div id="cn-existing-wrap" style="display:none;">
+      <div class="cn-existing">
+        <div class="cn-existing-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01"/><path d="M12 12v4"/></svg>
+          閲覧したユーザーが他のユーザーにとって役立つと思う背景情報を追加しました
+        </div>
+        <div class="cn-existing-text" id="cn-existing-text"></div>
+        <ul class="cn-sources" id="cn-existing-sources"></ul>
+        <div class="cn-existing-meta">
+          <span id="cn-existing-author"></span>
+          <span id="cn-existing-time"></span>
+        </div>
+      </div>
+      <div style="padding:0 16px 4px;">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">このノートは役に立ちましたか？</div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="cnRateNote('helpful')" id="cn-rate-helpful" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;border-radius:9999px;padding:6px 12px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(29,155,240,.1)'" onmouseout="this.style.background='transparent'">役に立った</button>
+          <button onclick="cnRateNote('not_helpful')" id="cn-rate-not-helpful" style="flex:1;background:transparent;border:1px solid var(--border);color:var(--text2);font-family:var(--font);font-size:13px;border-radius:9999px;padding:6px 12px;cursor:pointer;transition:background .15s;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'">役に立たなかった</button>
+        </div>
+      </div>
+      <div style="padding:10px 16px 0;border-top:1px solid var(--border);margin-top:12px;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;">別のノートを提案する</div>
+      </div>
+    </div>
+
+    <!-- Compose section -->
+    <div class="cn-compose">
+      <div class="cn-compose-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        背景情報・補足・訂正を書く
+      </div>
+      <textarea class="cn-ta" id="cn-ta" placeholder="このポストについて、読者にとって重要な背景情報や訂正を書いてください。誤解を招く点や事実と異なる点がある場合はその理由も記載してください。" maxlength="500" oninput="cnOnInput()"></textarea>
+      <div class="cn-char-row"><span class="cn-char" id="cn-char">0 / 500</span></div>
+
+      <!-- Source URLs -->
+      <div class="cn-sources-compose" id="cn-sources-compose">
+        <div style="font-size:12px;color:var(--text2);margin-bottom:2px;">出典URL（任意）</div>
+        <div class="cn-src-row">
+          <input class="cn-src-input" placeholder="https://..." type="url">
+          <button class="cn-src-remove" style="visibility:hidden;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="cn-add-src" onclick="cnAddSource()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        出典を追加
+      </button>
+    </div>
+
+    <div class="cn-footer">
+      <button class="cn-cancel-btn" onclick="closeCNModal()">キャンセル</button>
+      <button class="cn-submit-btn" id="cn-submit-btn" onclick="cnSubmit()" disabled>ノートを投稿</button>
+    </div>
   </div>
 </div>
 
@@ -1053,6 +1194,33 @@ function startRealtime(){
       // DM一覧が開いていれば再レンダリング
       if(document.getElementById('view-dm-list').classList.contains('active')) renderDmList();
     })
+    // ── コミュニティノート リアルタイム受信 ──
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'community_notes'},payload=>{
+      const row = payload.new;
+      // 自分が投稿したものはcnSubmitで既にローカル更新済み
+      if(currentUser && row.author_handle===currentUser.handle) return;
+      communityNotes[row.tweet_id] = dbRowToCN(row);
+      refreshCard(row.tweet_id);
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'community_notes'},payload=>{
+      const row = payload.new;
+      const existing = communityNotes[row.tweet_id];
+      if(existing && existing.id===row.id){
+        const rating = existing._userRating;
+        communityNotes[row.tweet_id] = dbRowToCN(row);
+        communityNotes[row.tweet_id]._userRating = rating; // 自分の評価状態は保持
+        // モーダルが開いていてこのツイートのノートなら表示更新
+        if(cnTargetTweetId===row.tweet_id){
+          const h=communityNotes[row.tweet_id].helpful;
+          const nh=communityNotes[row.tweet_id].notHelpful;
+          const hb=document.getElementById('cn-rate-helpful');
+          const nhb=document.getElementById('cn-rate-not-helpful');
+          if(hb) hb.textContent='役に立った'+(h?` (${h})`:'');
+          if(nhb) nhb.textContent='役に立たなかった'+(nh?` (${nh})`:'');
+        }
+      }
+      refreshCard(row.tweet_id);
+    })
     .subscribe();
 }
 
@@ -1263,7 +1431,7 @@ function tweetCardHTML(t){
           </button>
         </div>
         <div class="tweet-body">${bodyWithLinks(t.text)}</div>
-        ${imgHtml}${quoteEmbedHtml}${pollHTML(t.poll,t.id)}${linkPreviewHTML(t.text)}
+        ${imgHtml}${quoteEmbedHtml}${pollHTML(t.poll,t.id)}${linkPreviewHTML(t.text)}${cnBadgeHTML(t.id)}
         <div class="tweet-actions">
           <button class="act-btn" onclick="event.stopPropagation();showThread('${t.id}')" title="返信">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -1794,6 +1962,260 @@ function ctxBlock(){
 }
 function unblockUser(handle){blockedSet.delete(handle);saveBlocked();renderFeed(document.getElementById('search-input').value.toLowerCase());showToast('ブロックを解除しました');}
 function closeCtx(){document.getElementById('ctx-menu').style.display='none';}
+
+// ══════════════════════════════════════
+// Community Notes (⑧)
+// ══════════════════════════════════════
+// メモリキャッシュ: { [tweetId]: { id, text, sources[], authorHandle, authorName, ts, helpful, notHelpful, _userRating } }
+const communityNotes = {};
+let cnTargetTweetId = null;
+
+// ── DB: ノート一覧取得 ──
+async function fetchCommunityNotes(){
+  const {data, error} = await sb.from('community_notes')
+    .select('*').order('created_at', {ascending: false});
+  if(error){ console.error('fetchCommunityNotes', error); return; }
+  data.forEach(row => {
+    // tweet_idごとに最新1件を保持（後勝ち）
+    if(!communityNotes[row.tweet_id] || row.created_at > (communityNotes[row.tweet_id]._createdAt||'')){
+      communityNotes[row.tweet_id] = dbRowToCN(row);
+    }
+  });
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+}
+
+// ── DB行 → ローカルオブジェクト変換 ──
+function dbRowToCN(row){
+  let sources = [];
+  try{ sources = Array.isArray(row.sources) ? row.sources : JSON.parse(row.sources||'[]'); }catch(e){}
+  return {
+    id: row.id,
+    text: row.text,
+    sources,
+    authorHandle: row.author_handle,
+    authorName: row.author_name||row.author_handle,
+    ts: new Date(row.created_at).getTime(),
+    helpful: row.helpful||0,
+    notHelpful: row.not_helpful||0,
+    _userRating: null,
+    _createdAt: row.created_at
+  };
+}
+
+// ── DB: ノート投稿 ──
+async function dbSaveCommunityNote(tweetId, text, sources){
+  const row = {
+    tweet_id: tweetId,
+    author_handle: currentUser.handle,
+    author_name: currentUser.name,
+    text,
+    sources,
+    helpful: 0,
+    not_helpful: 0
+  };
+  const {data, error} = await sb.from('community_notes').insert(row).select().single();
+  if(error){ console.error('dbSaveCommunityNote', error); return null; }
+  return data;
+}
+
+// ── DB: helpful / not_helpful カウント更新 ──
+async function dbUpdateCNRating(noteId, helpfulDelta, notHelpfulDelta){
+  // 現在値を取得してインクリメント
+  const {data} = await sb.from('community_notes')
+    .select('helpful, not_helpful').eq('id', noteId).single();
+  if(!data) return;
+  await sb.from('community_notes').update({
+    helpful: Math.max(0, (data.helpful||0) + helpfulDelta),
+    not_helpful: Math.max(0, (data.not_helpful||0) + notHelpfulDelta)
+  }).eq('id', noteId);
+}
+
+// ── バッジHTML ──
+function cnBadgeHTML(tweetId){
+  const note = communityNotes[tweetId];
+  if(!note) return '';
+  const preview = note.text.length > 90 ? note.text.slice(0,90)+'…' : note.text;
+  return `<div class="cn-badge" onclick="event.stopPropagation();openCNModal('${tweetId}')">
+    <div class="cn-badge-header">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01"/><path d="M12 12v4"/></svg>
+      閲覧したユーザーが他のユーザーにとって役立つと思う背景情報を追加しました
+    </div>
+    <div class="cn-badge-text">${esc(preview)}</div>
+  </div>`;
+}
+
+function ctxOpenNote(){
+  const id = ctxTargetTweetId;
+  closeCtx();
+  if(!id) return;
+  openCNModal(id);
+}
+
+function openCNModal(tweetId){
+  if(!currentUser){showToast('ノートを書くにはログインが必要です');return;}
+  cnTargetTweetId = tweetId;
+  const note = communityNotes[tweetId];
+  const existWrap = document.getElementById('cn-existing-wrap');
+  const ta = document.getElementById('cn-ta');
+
+  if(note){
+    existWrap.style.display='block';
+    document.getElementById('cn-existing-text').textContent = note.text;
+    const srcList = document.getElementById('cn-existing-sources');
+    srcList.innerHTML = (note.sources||[]).filter(Boolean).map(url=>
+      `<li class="cn-source-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <a class="cn-source-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${esc(url.length>50?url.slice(0,50)+'…':url)}</a>
+      </li>`
+    ).join('');
+    document.getElementById('cn-existing-author').textContent = '@'+note.authorHandle;
+    document.getElementById('cn-existing-time').textContent = timeAgo(note.ts);
+    // 評価ボタンの状態を反映
+    const helpBtn = document.getElementById('cn-rate-helpful');
+    const nothelpBtn = document.getElementById('cn-rate-not-helpful');
+    helpBtn.style.background='transparent';
+    nothelpBtn.style.background='transparent';
+    // helpful / notHelpful カウント表示
+    helpBtn.textContent = '役に立った'+(note.helpful?` (${note.helpful})`:'');
+    nothelpBtn.textContent = '役に立たなかった'+(note.notHelpful?` (${note.notHelpful})`:'');
+    if(note._userRating==='helpful') helpBtn.style.background='rgba(29,155,240,.15)';
+    if(note._userRating==='not_helpful') nothelpBtn.style.background='rgba(255,255,255,.1)';
+  } else {
+    existWrap.style.display='none';
+  }
+
+  ta.value='';
+  cnOnInput();
+  const sw = document.getElementById('cn-sources-compose');
+  sw.querySelectorAll('.cn-src-row').forEach((r,i)=>{ if(i>0) r.remove(); else r.querySelector('input').value=''; });
+
+  const overlay = document.getElementById('cn-overlay');
+  overlay.style.display='flex';
+  setTimeout(()=>overlay.classList.add('open'),10);
+  ta.focus();
+}
+
+function closeCNModal(){
+  const overlay = document.getElementById('cn-overlay');
+  overlay.classList.remove('open');
+  setTimeout(()=>{ overlay.style.display='none'; },280);
+}
+
+function cnOverlayClick(e){
+  if(e.target===document.getElementById('cn-overlay')) closeCNModal();
+}
+
+function cnOnInput(){
+  const ta = document.getElementById('cn-ta');
+  const len = ta.value.trim().length;
+  const charEl = document.getElementById('cn-char');
+  const total = ta.value.length;
+  charEl.textContent = total+' / 500';
+  charEl.className = 'cn-char'+(total>450?' warn':'')+(total>490?' danger':'');
+  document.getElementById('cn-submit-btn').disabled = len < 20;
+}
+
+function cnAddSource(){
+  const sw = document.getElementById('cn-sources-compose');
+  if(sw.querySelectorAll('.cn-src-row').length >= 4){showToast('出典は最大4つまでです');return;}
+  const row = document.createElement('div');
+  row.className = 'cn-src-row';
+  row.innerHTML = `<input class="cn-src-input" placeholder="https://..." type="url">
+    <button class="cn-src-remove" onclick="this.parentElement.remove()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  sw.appendChild(row);
+}
+
+function cnRateNote(rating){
+  if(!cnTargetTweetId) return;
+  const note = communityNotes[cnTargetTweetId];
+  if(!note) return;
+
+  const helpBtn = document.getElementById('cn-rate-helpful');
+  const nothelpBtn = document.getElementById('cn-rate-not-helpful');
+
+  if(note._userRating===rating){
+    // 評価取り消し
+    const wasHelpful = rating==='helpful';
+    if(wasHelpful){ note.helpful=Math.max(0,(note.helpful||0)-1); dbUpdateCNRating(note.id,-1,0); }
+    else { note.notHelpful=Math.max(0,(note.notHelpful||0)-1); dbUpdateCNRating(note.id,0,-1); }
+    note._userRating=null;
+    helpBtn.style.background='transparent';
+    nothelpBtn.style.background='transparent';
+    helpBtn.textContent='役に立った'+(note.helpful?` (${note.helpful})`:'');
+    nothelpBtn.textContent='役に立たなかった'+(note.notHelpful?` (${note.notHelpful})`:'');
+    showToast('評価を取り消しました');
+    return;
+  }
+
+  // 前の評価を取り消してから新しい評価を追加
+  if(note._userRating==='helpful'){ note.helpful=Math.max(0,(note.helpful||0)-1); dbUpdateCNRating(note.id,-1,0); }
+  if(note._userRating==='not_helpful'){ note.notHelpful=Math.max(0,(note.notHelpful||0)-1); dbUpdateCNRating(note.id,0,-1); }
+
+  note._userRating = rating;
+  if(rating==='helpful'){
+    note.helpful=(note.helpful||0)+1;
+    dbUpdateCNRating(note.id,1,0);
+    helpBtn.style.background='rgba(29,155,240,.15)';
+    nothelpBtn.style.background='transparent';
+    showToast('「役に立った」と評価しました');
+  } else {
+    note.notHelpful=(note.notHelpful||0)+1;
+    dbUpdateCNRating(note.id,0,1);
+    helpBtn.style.background='transparent';
+    nothelpBtn.style.background='rgba(255,255,255,.1)';
+    showToast('「役に立たなかった」と評価しました');
+  }
+  helpBtn.textContent='役に立った'+(note.helpful?` (${note.helpful})`:'');
+  nothelpBtn.textContent='役に立たなかった'+(note.notHelpful?` (${note.notHelpful})`:'');
+}
+
+async function cnSubmit(){
+  if(!currentUser){showToast('ノートを書くにはログインが必要です');return;}
+  const text = document.getElementById('cn-ta').value.trim();
+  if(text.length < 20){showToast('20文字以上入力してください');return;}
+  const sources = [...document.querySelectorAll('#cn-sources-compose .cn-src-input')]
+    .map(i=>i.value.trim()).filter(Boolean);
+  const tweetId = cnTargetTweetId;
+
+  // ボタンを一時的に無効化（二重送信防止）
+  const submitBtn = document.getElementById('cn-submit-btn');
+  submitBtn.disabled = true;
+  submitBtn.textContent = '投稿中…';
+
+  // DB保存
+  const saved = await dbSaveCommunityNote(tweetId, text, sources);
+  if(!saved){
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'ノートを投稿';
+    showToast('投稿に失敗しました。もう一度お試しください');
+    return;
+  }
+
+  // ローカルキャッシュを更新
+  communityNotes[tweetId] = dbRowToCN(saved);
+
+  closeCNModal();
+  showToast('コミュニティノートを投稿しました');
+
+  // フィード上のカードを更新
+  refreshCard(tweetId);
+
+  // スレッドビューが開いていればバッジを差し込む
+  const threadView = document.getElementById('view-thread');
+  if(threadView.classList.contains('active')){
+    const mainTweet = document.getElementById('thread-main-tweet');
+    if(mainTweet){
+      const existing = mainTweet.querySelector('.cn-badge');
+      if(existing) existing.remove();
+      const wrap = document.createElement('div');
+      wrap.innerHTML = cnBadgeHTML(tweetId);
+      const actions = mainTweet.querySelector('.tweet-actions, .thread-actions');
+      if(actions && wrap.firstElementChild) actions.parentNode.insertBefore(wrap.firstElementChild, actions);
+    }
+  }
+}
 
 // ══════════════════════════════════════
 // DM
@@ -2333,6 +2755,9 @@ async function appStart(){
 
     // ツイート取得
     await fetchTweets();
+
+    // コミュニティノート取得
+    await fetchCommunityNotes();
 
     // リアルタイム購読開始
     startRealtime();

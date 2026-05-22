@@ -220,7 +220,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .reply-ta{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;resize:none;outline:none;min-height:68px;}
 .reply-ta:focus{border-color:var(--accent);}
 .thread-reply-tree{border-bottom:1px solid var(--border);}
-.thread-reply-node{margin-left:calc(min(var(--reply-depth), 1) * 18px);border-left:1px solid var(--border);}
+.thread-reply-node{margin-left:0;border-left:1px solid var(--border);}
 .thread-reply-node[style*="--reply-depth:0"]{margin-left:0;border-left:none;}
 .thread-reply-node .tweet-card{border-bottom:none;}
 .thread-reply-node + .thread-reply-node{border-top:1px solid var(--border);}
@@ -947,6 +947,7 @@ let repostTargetId = null;
 let ctxTargetHandle = null, ctxTargetTweetId = null;
 let viewStack = ['feed'];
 let activeThreadId = null;
+let threadHistory = [];
 let sbChannel = null; // realtime channel
 
 // ── Notifications ──
@@ -988,13 +989,23 @@ function goView(id){
 }
 function goFeed(){
   viewStack=['feed'];
+  threadHistory=[];
+  activeThreadId=null;
   _activate('feed');
   // 別ビュー滞在中に溜まった新着があれば正しい位置でバーを再表示
   if(pendingNewTweets.length>0) setTimeout(_showNewBar,50);
 }
 function goBack(){
+  if(viewStack[viewStack.length-1]==='thread'&&threadHistory.length){
+    showThread(threadHistory.pop(), true);
+    return;
+  }
   if(viewStack.length>1) viewStack.pop();
   _activate(viewStack[viewStack.length-1]);
+  if(viewStack[viewStack.length-1]!=='thread'){
+    threadHistory=[];
+    activeThreadId=null;
+  }
 }
 function _activate(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -1614,18 +1625,27 @@ function renderThreadReplies(parentId, depth=0, seen=new Set()){
   return tweets
     .filter(t=>t.replyTo===parentId)
     .sort((a,b)=>a.ts-b.ts)
-    .map(t=>`<div class="thread-reply-node" style="--reply-depth:${Math.min(depth,1)};margin-left:${Math.min(depth,1)*18}px;${depth===0?'border-left:none;':''}">${tweetCardHTML(t)}${renderThreadReplies(t.id,depth+1,seen)}</div>`)
+    .map(t=>{
+      const indent=depth===1?18:0;
+      return `<div class="thread-reply-node" style="margin-left:${indent}px;${depth===0?'border-left:none;':''}">${tweetCardHTML(t)}${renderThreadReplies(t.id,depth+1,seen)}</div>`;
+    })
     .join('');
 }
 
-function showThread(tweetId){
+function showThread(tweetId, fromHistory=false){
   const parent=tweets.find(t=>t.id===tweetId); if(!parent)return;
+  const threadView=document.getElementById('view-thread');
+  const threadOpen=threadView&&threadView.classList.contains('active');
+  if(!fromHistory&&threadOpen&&activeThreadId&&activeThreadId!==tweetId){
+    threadHistory.push(activeThreadId);
+  } else if(!threadOpen&&!fromHistory){
+    threadHistory=[];
+  }
   activeThreadId=tweetId;
   const liked=likedSet.has(tweetId);
   const reposted=repostedSet.has(tweetId);
   const replyCount=countThreadReplies(tweetId);
   const repliesHtml=renderThreadReplies(tweetId);
-  const replies={length:replyCount};
   const _imgs=parent.imageUrls&&parent.imageUrls.length?parent.imageUrls:(parent.imageUrl?[parent.imageUrl]:[]);
   let imgHtml='';
   if(_imgs.length){const _n=Math.min(_imgs.length,4);const _cls=`g${_n}`;const _allUrls=JSON.stringify(_imgs.slice(0,4)).replace(/"/g,"'");imgHtml=`<div class="img-grid ${_cls}" onclick="openLightbox(${_allUrls},0)">${_imgs.slice(0,4).map((url,i)=>{const isLast=i===3&&_imgs.length>4;return`<div class="${isLast?'img-grid-more':''}" ${isLast?`data-more="+${_imgs.length-3}"`:''}><img src="${esc(url)}" loading="lazy" alt=""></div>`;}).join('')}</div>`;}
@@ -1667,7 +1687,7 @@ function showThread(tweetId){
       </div>
     </div>
     ${composeHtml}
-    ${replies.length?`<div style="font-size:13px;font-weight:700;color:var(--text2);padding:10px 16px;">返信 ${replies.length}件</div>`:''}
+    ${replyCount?`<div style="font-size:13px;font-weight:700;color:var(--text2);padding:10px 16px;">返信 ${replyCount}件</div>`:''}
     ${repliesHtml?`<div class="thread-reply-tree">${repliesHtml}</div>`:''}
   `;
   goView('thread');
@@ -2493,6 +2513,14 @@ function updateDmBadge(){
   if(n>0){b.style.display='flex';b.textContent=n;mb.style.display='flex';mb.textContent=n;}
   else{b.style.display='none';mb.style.display='none';}
 }
+function scrollDmToBottom(){
+  const el=document.getElementById('dm-messages');
+  if(!el) return;
+  el.scrollTop=el.scrollHeight;
+  setTimeout(()=>{ el.scrollTop=el.scrollHeight; },0);
+  setTimeout(()=>{ el.scrollTop=el.scrollHeight; },80);
+}
+
 async function dmUser(handle){
   if(!currentUser){openProfileModal();return;}
   if(handle===currentUser.handle){showToast('自分自身にはDMできません');return;}
@@ -2508,6 +2536,7 @@ async function dmUser(handle){
   if(bar) bar.style.display='none';
   await renderDmMessages(handle);
   goView('dm-chat');
+  scrollDmToBottom();
   // dm-messagesのスクロールイベントでバナー自動非表示
   const msgs=document.getElementById('dm-messages');
   msgs.onscroll=()=>{
@@ -2523,7 +2552,7 @@ async function renderDmMessages(handle){
   const key=dmKey(currentUser.handle,handle);
   dmStore[key]=msgs.map(m=>({from:m.from_handle,to:m.to_handle,text:m.text,ts:new Date(m.created_at).getTime(),read:m.read}));
   el.innerHTML=msgs.length?msgs.map(m=>{const mine=m.from_handle===currentUser.handle;return`<div style="display:flex;flex-direction:column;align-items:${mine?'flex-end':'flex-start'};"><div class="dm-bubble ${mine?'mine':'theirs'}">${esc(m.text)}<div class="dm-btime">${timeAgo(new Date(m.created_at).getTime())}</div></div></div>`;}).join(''):`<div class="empty-msg" style="padding:24px 0;">メッセージはまだありません</div>`;
-  el.scrollTop=el.scrollHeight;
+  scrollDmToBottom();
   // 既読処理：相手からの未読メッセージをすべて既読に
   const hasUnread=dmStore[key].some(m=>m.to===currentUser.handle&&!m.read);
   if(hasUnread){

@@ -220,7 +220,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .reply-ta{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;resize:none;outline:none;min-height:68px;}
 .reply-ta:focus{border-color:var(--accent);}
 .thread-reply-tree{border-bottom:1px solid var(--border);}
-.thread-reply-node{margin-left:calc(min(var(--reply-depth), 2) * 18px);border-left:1px solid var(--border);}
+.thread-reply-node{margin-left:calc(min(var(--reply-depth), 1) * 18px);border-left:1px solid var(--border);}
 .thread-reply-node[style*="--reply-depth:0"]{margin-left:0;border-left:none;}
 .thread-reply-node .tweet-card{border-bottom:none;}
 .thread-reply-node + .thread-reply-node{border-top:1px solid var(--border);}
@@ -946,6 +946,7 @@ let pollVotedMap = JSON.parse(localStorage.getItem('mn_poll_voted')||'{}'); // {
 let repostTargetId = null;
 let ctxTargetHandle = null, ctxTargetTweetId = null;
 let viewStack = ['feed'];
+let activeThreadId = null;
 let sbChannel = null; // realtime channel
 
 // ── Notifications ──
@@ -1187,7 +1188,7 @@ function startRealtime(){
         // ── 自分の投稿へのコメント通知 ──
         if(currentUser){
           const parent=tweets.find(x=>x.id===t.replyTo);
-          if(parent && parent.user.handle===currentUser.handle){
+          if(parent && shouldNotifyCurrentUserForReply(t)){
             addNotification({
               id:'n'+Date.now()+Math.random().toString(36).slice(2,5),
               tweetId:t.replyTo,
@@ -1221,7 +1222,7 @@ function startRealtime(){
           if(parentEl){
             // 現在表示中のスレッドへの返信か確認
             const replyListHeader=document.querySelector('#thread-content [style*="返信"]');
-            showThread(t.replyTo);
+            showThread(activeThreadId||t.replyTo);
           }
         }
       } else {
@@ -1613,16 +1614,18 @@ function renderThreadReplies(parentId, depth=0, seen=new Set()){
   return tweets
     .filter(t=>t.replyTo===parentId)
     .sort((a,b)=>a.ts-b.ts)
-    .map(t=>`<div class="thread-reply-node" style="--reply-depth:${Math.min(depth,2)}">${tweetCardHTML(t)}${renderThreadReplies(t.id,depth+1,seen)}</div>`)
+    .map(t=>`<div class="thread-reply-node" style="--reply-depth:${Math.min(depth,1)};margin-left:${Math.min(depth,1)*18}px;${depth===0?'border-left:none;':''}">${tweetCardHTML(t)}${renderThreadReplies(t.id,depth+1,seen)}</div>`)
     .join('');
 }
 
 function showThread(tweetId){
   const parent=tweets.find(t=>t.id===tweetId); if(!parent)return;
+  activeThreadId=tweetId;
   const liked=likedSet.has(tweetId);
   const reposted=repostedSet.has(tweetId);
   const replyCount=countThreadReplies(tweetId);
   const repliesHtml=renderThreadReplies(tweetId);
+  const replies={length:replyCount};
   const _imgs=parent.imageUrls&&parent.imageUrls.length?parent.imageUrls:(parent.imageUrl?[parent.imageUrl]:[]);
   let imgHtml='';
   if(_imgs.length){const _n=Math.min(_imgs.length,4);const _cls=`g${_n}`;const _allUrls=JSON.stringify(_imgs.slice(0,4)).replace(/"/g,"'");imgHtml=`<div class="img-grid ${_cls}" onclick="openLightbox(${_allUrls},0)">${_imgs.slice(0,4).map((url,i)=>{const isLast=i===3&&_imgs.length>4;return`<div class="${isLast?'img-grid-more':''}" ${isLast?`data-more="+${_imgs.length-3}"`:''}><img src="${esc(url)}" loading="lazy" alt=""></div>`;}).join('')}</div>`;}
@@ -2350,13 +2353,13 @@ async function loadPastNotifications(){
   if(!currentUser) return;
   readNotifIds = new Set(JSON.parse(localStorage.getItem('mn_notif_read_'+currentUser.handle)||'[]'));
   // 自分の投稿IDを取得（トップレベル・返信問わずすべて）
-  const myTweets = tweets.filter(t => t.user.handle === currentUser.handle);
-  if(myTweets.length === 0) return;
-  const myIds = myTweets.map(t => t.id);
+  const myRootIds = new Set(tweets.filter(t => t.user.handle === currentUser.handle).map(t => getThreadRootId(t.id)));
+  const targetIds = tweets.filter(t => myRootIds.has(getThreadRootId(t.id))).map(t => t.id);
+  if(targetIds.length === 0) return;
   // その投稿への返信を最大10件取得（新しい順）
   const {data, error} = await sb.from('tweets')
     .select('*')
-    .in('reply_to', myIds)
+    .in('reply_to', targetIds)
     .order('created_at', {ascending: false})
     .limit(10);
   if(error || !data) return;
@@ -2374,7 +2377,7 @@ async function loadPastNotifications(){
   // リアルタイムで既に追加済みのものは重複させない
   // （tweetId が同じものはリアルタイム通知と同一扱いでスキップ）
   past.forEach(n => {
-    const duplicate = notifications.some(x => x.id === n.id || x.tweetId === n.tweetId);
+    const duplicate = notifications.some(x => x.id === n.id);
     if(!duplicate) notifications.push(n);
   });
   // 新しい順にソート、最大10件

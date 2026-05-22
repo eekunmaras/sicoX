@@ -219,6 +219,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .reply-compose-thread{display:flex;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);}
 .reply-ta{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--font);font-size:14px;padding:10px 12px;resize:none;outline:none;min-height:68px;}
 .reply-ta:focus{border-color:var(--accent);}
+.thread-reply-tree{border-bottom:1px solid var(--border);}
+.thread-reply-node{margin-left:calc(min(var(--reply-depth), 2) * 18px);border-left:1px solid var(--border);}
+.thread-reply-node[style*="--reply-depth:0"]{margin-left:0;border-left:none;}
+.thread-reply-node .tweet-card{border-bottom:none;}
+.thread-reply-node + .thread-reply-node{border-top:1px solid var(--border);}
 
 /* ── User page ── */
 .user-cover{height:130px;position:relative;}
@@ -1562,12 +1567,62 @@ function onSearch(){
 // ══════════════════════════════════════
 // Thread
 // ══════════════════════════════════════
+function getThreadRootId(tweetId){
+  let t=tweets.find(x=>x.id===tweetId);
+  const seen=new Set();
+  while(t&&t.replyTo&&!seen.has(t.id)){
+    seen.add(t.id);
+    const parent=tweets.find(x=>x.id===t.replyTo);
+    if(!parent) break;
+    t=parent;
+  }
+  return t?.id||tweetId;
+}
+
+function isInThread(tweet, rootId){
+  if(!tweet) return false;
+  if(tweet.id===rootId) return true;
+  return getThreadRootId(tweet.id)===rootId;
+}
+
+function getThreadAudienceHandles(rootId){
+  const handles=new Set();
+  tweets.forEach(t=>{
+    if(isInThread(t, rootId)) handles.add(t.user.handle);
+  });
+  return handles;
+}
+
+function shouldNotifyCurrentUserForReply(reply){
+  if(!currentUser||!reply?.replyTo||reply.user.handle===currentUser.handle) return false;
+  const rootId=getThreadRootId(reply.replyTo);
+  return getThreadAudienceHandles(rootId).has(currentUser.handle);
+}
+
+function countThreadReplies(parentId, seen=new Set()){
+  if(seen.has(parentId)) return 0;
+  seen.add(parentId);
+  return tweets
+    .filter(t=>t.replyTo===parentId)
+    .reduce((sum,t)=>sum+1+countThreadReplies(t.id, seen),0);
+}
+
+function renderThreadReplies(parentId, depth=0, seen=new Set()){
+  if(seen.has(parentId)) return '';
+  seen.add(parentId);
+  return tweets
+    .filter(t=>t.replyTo===parentId)
+    .sort((a,b)=>a.ts-b.ts)
+    .map(t=>`<div class="thread-reply-node" style="--reply-depth:${Math.min(depth,2)}">${tweetCardHTML(t)}${renderThreadReplies(t.id,depth+1,seen)}</div>`)
+    .join('');
+}
+
 function showThread(tweetId){
   const parent=tweets.find(t=>t.id===tweetId); if(!parent)return;
   const liked=likedSet.has(tweetId);
   const reposted=repostedSet.has(tweetId);
-  const replyCount=tweets.filter(t=>t.replyTo===tweetId).length;
-  const replies=tweets.filter(t=>t.replyTo===tweetId).sort((a,b)=>a.ts-b.ts);
+  const replyCount=countThreadReplies(tweetId);
+  const repliesHtml=renderThreadReplies(tweetId);
   const _imgs=parent.imageUrls&&parent.imageUrls.length?parent.imageUrls:(parent.imageUrl?[parent.imageUrl]:[]);
   let imgHtml='';
   if(_imgs.length){const _n=Math.min(_imgs.length,4);const _cls=`g${_n}`;const _allUrls=JSON.stringify(_imgs.slice(0,4)).replace(/"/g,"'");imgHtml=`<div class="img-grid ${_cls}" onclick="openLightbox(${_allUrls},0)">${_imgs.slice(0,4).map((url,i)=>{const isLast=i===3&&_imgs.length>4;return`<div class="${isLast?'img-grid-more':''}" ${isLast?`data-more="+${_imgs.length-3}"`:''}><img src="${esc(url)}" loading="lazy" alt=""></div>`;}).join('')}</div>`;}
@@ -1610,7 +1665,7 @@ function showThread(tweetId){
     </div>
     ${composeHtml}
     ${replies.length?`<div style="font-size:13px;font-weight:700;color:var(--text2);padding:10px 16px;">返信 ${replies.length}件</div>`:''}
-    ${replies.map(t=>tweetCardHTML(t)).join('')}
+    ${repliesHtml?`<div class="thread-reply-tree">${repliesHtml}</div>`:''}
   `;
   goView('thread');
 }

@@ -1192,6 +1192,22 @@ function startRealtime(){
               ts:t.ts,
               read:false
             });
+          } else if(!parent && currentUser){
+            // tweetsキャッシュに親がない場合はDBを確認して通知を作成
+            (async()=>{
+              const {data}=await sb.from('tweets').select('user_handle').eq('id',t.replyTo).single();
+              if(data && data.user_handle===currentUser.handle){
+                addNotification({
+                  id:'n'+Date.now()+Math.random().toString(36).slice(2,5),
+                  tweetId:t.replyTo,
+                  fromHandle:t.user.handle,
+                  fromName:t.user.name,
+                  text:t.text,
+                  ts:t.ts,
+                  read:false
+                });
+              }
+            })();
           }
         }
         const threadView=document.getElementById('view-thread');
@@ -2278,8 +2294,8 @@ async function cnSubmit(){
 async function loadPastNotifications(){
   if(!currentUser) return;
   readNotifIds = new Set(JSON.parse(localStorage.getItem('mn_notif_read_'+currentUser.handle)||'[]'));
-  // 自分の投稿IDを取得
-  const myTweets = tweets.filter(t => t.user.handle === currentUser.handle && !t.replyTo);
+  // 自分の投稿IDを取得（トップレベル・返信問わずすべて）
+  const myTweets = tweets.filter(t => t.user.handle === currentUser.handle);
   if(myTweets.length === 0) return;
   const myIds = myTweets.map(t => t.id);
   // その投稿への返信を最大10件取得（新しい順）
@@ -2301,8 +2317,10 @@ async function loadPastNotifications(){
       read: readNotifIds.has('p' + row.id) // localStorageで既読判定
     }));
   // リアルタイムで既に追加済みのものは重複させない
+  // （tweetId が同じものはリアルタイム通知と同一扱いでスキップ）
   past.forEach(n => {
-    if(!notifications.some(x => x.id === n.id)) notifications.push(n);
+    const duplicate = notifications.some(x => x.id === n.id || x.tweetId === n.tweetId);
+    if(!duplicate) notifications.push(n);
   });
   // 新しい順にソート、最大10件
   notifications.sort((a,b) => b.ts - a.ts);
@@ -2317,12 +2335,14 @@ function saveReadNotifIds(){
 }
 
 function addNotification(notif){
+  // 既読IDセットに含まれていれば既読状態にする
+  if(readNotifIds.has(notif.id)) notif.read = true;
   notifications.unshift(notif);
   if(notifications.length > 10) notifications = notifications.slice(0,10);
   renderNotifList();
   updateNotifBadge();
-  // トースト
-  showToast('💬 ' + notif.fromName + 'があなたの投稿にコメントしました');
+  // 未読の場合のみトースト表示
+  if(!notif.read) showToast('💬 ' + notif.fromName + 'があなたの投稿にコメントしました');
 }
 
 function unreadNotifCount(){
@@ -2376,9 +2396,7 @@ function toggleNotifDropdown(e){
   const isOpen = dd.classList.contains('open');
   if(isOpen){ closeNotifDropdown(); }
   else {
-    notifications.forEach(n=>{ n.read=true; readNotifIds.add(n.id); });
-    saveReadNotifIds();
-    updateNotifBadge();
+    // 開く時は表示のみ（既読化は閉じる時に行う）
     renderNotifList();
     dd.classList.add('open');
     notifDropdownOpen = true;
@@ -2389,14 +2407,14 @@ function toggleNotifDropdown(e){
 function _notifOutsideClick(e){
   const dd = document.getElementById('notif-dropdown');
   if(dd && !dd.contains(e.target)){
-    dd.classList.remove('open');
-    notifDropdownOpen = false;
+    closeNotifDropdown();
   }
 }
 
 function closeNotifDropdown(){
   const dd = document.getElementById('notif-dropdown');
-  if(dd) dd.classList.remove('open');
+  if(!dd || !dd.classList.contains('open')) return;
+  dd.classList.remove('open');
   notifDropdownOpen = false;
 }
 

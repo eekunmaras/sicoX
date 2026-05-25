@@ -2146,6 +2146,10 @@ function postTweet(){
   renderFeed(document.getElementById('search-input').value.toLowerCase());
   showToast('ポストしました！');
   dbPostTweet(t); // DB保存（非同期・バックグラウンド）
+  // ── @grok メンション検知（親ツイート） ──
+  if(/^@grok/i.test(text)){
+    callGroqAndReply(t.id, text);
+  }
 }
 
 // ══════════════════════════════════════

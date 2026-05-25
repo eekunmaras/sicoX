@@ -1766,17 +1766,19 @@ async function submitReply(parentId){
   ta.value='';
   showThread(parentId);
   showToast('返信しました！');
-  await dbPostTweet(t); // DB保存
-  // ── @grok メンション検知 → Groq API呼び出し ──
+  // ── @grok メンション検知 → Groq API呼び出し（await前に実行して確実に動かす）──
   if(/^@grok/i.test(text)){
     callGroqAndReply(parentId, text);
   } else {
     // 親ツイートに @grok が含まれていれば、その返信にも自動応答
     const parentTweet=tweets.find(tw=>tw.id===parentId);
+    console.log('[Grok] 親ツイートチェック:', parentId, parentTweet?.text, 'match:', parentTweet ? /@grok/i.test(parentTweet.text) : false);
     if(parentTweet && /@grok/i.test(parentTweet.text)){
+      console.log('[Grok] 親ツイートに@grok検知 → callGroqAndReplyInherited呼び出し');
       callGroqAndReplyInherited(t.id, parentId, parentTweet, text);
     }
   }
+  await dbPostTweet(t); // DB保存
 }
 
 // ══════════════════════════════════════

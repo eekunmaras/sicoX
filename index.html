@@ -917,7 +917,7 @@ const GROQ_MODEL   = 'llama-3.3-70b-versatile'; // 使用モデル（変更可�
 // grokボットのユーザー情報（固定）
 const GROK_USER = {
   handle:    'grok',
-  name:      'Grog AI',
+  name:      'Grok',
   color:     '#7c3aed',
   avatarUrl: 'https://raw.githubusercontent.com/eekunmaras/sicoX/main/grok.png',
   bio:       'AI アシスタント'
@@ -1809,7 +1809,7 @@ async function callGroqAndReply(parentId, userText){
   try{
     // Groq へ送るメッセージを組み立てる
     const systemPrompt=
-      'あなたはSicoXというSNSに常駐するAIアシスタント「Grog」です。'+
+      'あなたはSicoXというSNSに常駐するAIアシスタント「Grok」です。'+
       'ユーザーから参照ポストと質問・依頼が渡されます。'+
       '参照ポストの内容を踏まえて、簡潔・フレンドリーな日本語で答えてください。'+
       'ツイート1件分の分量（目安280文字以内）にまとめてください。';

@@ -1062,12 +1062,12 @@ function focusSearch(){ document.getElementById('search-input').focus(); }
 // Supabase DB 操作
 // ══════════════════════════════════════
 
-// ツイート一覧取得
+// ツイート一覧取得（親ツイートのみ）
 async function fetchTweets(){
   latestOffset=0;
   hasMoreLatest=true;
   const {data,error}=await sb.from('tweets')
-    .select('*').order('created_at',{ascending:false}).limit(PAGE_SIZE);
+    .select('*').is('reply_to',null).order('created_at',{ascending:false}).limit(PAGE_SIZE);
   if(error){console.error(error);return;}
   tweets=data.map(dbRowToTweet);
   hasMoreLatest=(data.length===PAGE_SIZE);
@@ -1080,7 +1080,7 @@ async function fetchMoreTweets(){
   if(btn){btn.disabled=true;btn.textContent='読み込み中…';}
   latestOffset+=PAGE_SIZE;
   const {data,error}=await sb.from('tweets')
-    .select('*').order('created_at',{ascending:false})
+    .select('*').is('reply_to',null).order('created_at',{ascending:false})
     .range(latestOffset, latestOffset+PAGE_SIZE-1);
   if(error){console.error(error);if(btn){btn.disabled=false;btn.textContent='もっと見る';}return;}
   tweets=tweets.concat(data.map(dbRowToTweet));
@@ -1088,16 +1088,28 @@ async function fetchMoreTweets(){
   renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
-// おすすめタブ：DB側でいいね数降順＋新しさで30件取得
+// おすすめタブ：直近2日以内のいいね数＋返信数の合計順（同率は最新順）
 async function fetchRecommendedTweets(){
+  const twoDaysAgo=new Date(Date.now()-2*24*60*60*1000).toISOString();
+  // 直近2日の全ツイート（親＋返信）を取得してスコア計算
   const {data,error}=await sb.from('tweets')
     .select('*')
-    .is('reply_to',null)
-    .order('likes',{ascending:false})
-    .order('created_at',{ascending:false})
-    .limit(PAGE_SIZE);
+    .gte('created_at',twoDaysAgo)
+    .limit(500);
   if(error){console.error(error);return;}
-  recTweets=data.map(dbRowToTweet);
+  const allRecent=data.map(dbRowToTweet);
+  // 親ツイートごとの返信数をカウント
+  const replyCounts={};
+  allRecent.forEach(t=>{if(t.replyTo) replyCounts[t.replyTo]=(replyCounts[t.replyTo]||0)+1;});
+  // 親ツイートのみ抽出し、スコア順（同率は最新順）でソート
+  const parents=allRecent.filter(t=>!t.replyTo&&!blockedSet.has(t.user.handle));
+  parents.sort((a,b)=>{
+    const sA=(a.likes||0)+(replyCounts[a.id]||0);
+    const sB=(b.likes||0)+(replyCounts[b.id]||0);
+    if(sB!==sA) return sB-sA;
+    return b.ts-a.ts;
+  });
+  recTweets=parents.slice(0,PAGE_SIZE);
   renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
@@ -1738,8 +1750,16 @@ function renderThreadReplies(parentId, depth=0, seen=new Set()){
     .join('');
 }
 
-function showThread(tweetId, fromHistory=false){
+async function showThread(tweetId, fromHistory=false){
   const parent=tweets.find(t=>t.id===tweetId); if(!parent)return;
+  // DBから返信をロード（まだ tweets に存在しない場合のみ）
+  const hasRepliesLoaded=tweets.some(t=>t.replyTo===tweetId);
+  if(!hasRepliesLoaded){
+    const {data:rd}=await sb.from('tweets').select('*').eq('reply_to',tweetId).order('created_at',{ascending:true});
+    if(rd&&rd.length){
+      rd.forEach(row=>{if(!tweets.find(t=>t.id===row.id)) tweets.push(dbRowToTweet(row));});
+    }
+  }
   const threadView=document.getElementById('view-thread');
   const threadOpen=threadView&&threadView.classList.contains('active');
   if(!fromHistory&&threadOpen&&activeThreadId&&activeThreadId!==tweetId){

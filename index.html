@@ -909,17 +909,17 @@ const GATE_KEY   = 'mn_gate_ok';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ══════════════════════════════════════
-// Groq AI Bot 設定 (@grog)
+// Groq AI Bot 設定 (@grok)
 // ══════════════════════════════════════
 const GROQ_API_KEY = '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';
 const GROQ_MODEL   = 'llama-3.3-70b-versatile'; // 使用モデル（変更可）
 
-// grogボットのユーザー情報（固定）
-const GROG_USER = {
-  handle:    'grog',
+// grokボットのユーザー情報（固定）
+const GROK_USER = {
+  handle:    'grok',
   name:      'Grog AI',
   color:     '#7c3aed',
-  avatarUrl: null,
+  avatarUrl: 'https://raw.githubusercontent.com/eekunmaras/sicoX/main/grok.png',
   bio:       'AI アシスタント'
 };
 
@@ -1520,7 +1520,7 @@ function tweetCardHTML(t){
 
   const liked=likedSet.has(t.id);
   const reposted=repostedSet.has(t.id);
-  const replyCount=tweets.filter(r=>r.replyTo===t.id).length;
+  const replyCount=countThreadReplies(t.id);
   const repostCount=tweets.filter(r=>r.isRepost&&r.quoteOf===t.id&&!r.text).length;
 
   // Repost label
@@ -1759,19 +1759,19 @@ async function submitReply(parentId){
   showThread(parentId);
   showToast('返信しました！');
   await dbPostTweet(t); // DB保存
-  // ── @grog メンション検知 → Groq API呼び出し ──
-  if(/^@grog\b/i.test(text)){
+  // ── @grok メンション検知 → Groq API呼び出し ──
+  if(/^@grok\b/i.test(text)){
     callGroqAndReply(parentId, text);
   }
 }
 
 // ══════════════════════════════════════
-// Groq AI Bot (@grog) 本体
+// Groq AI Bot (@grok) 本体
 // ══════════════════════════════════════
 async function callGroqAndReply(parentId, userText){
   // APIキー未設定ガード
   if(!GROQ_API_KEY){
-    const errTweet={id:uid(),user:{...GROG_USER},
+    const errTweet={id:uid(),user:{...GROK_USER},
       text:'⚠️ Groq APIキーが未設定です。コード内の GROQ_API_KEY に取得したキーを貼り付けてください。',
       imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,
       replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
@@ -1786,12 +1786,12 @@ async function callGroqAndReply(parentId, userText){
   const parentText=parent?parent.text:'';
   const parentAuthor=parent?parent.user.name:'';
 
-  // "@grog " 以降をプロンプトとして切り出す
-  const prompt=userText.replace(/^@grog\s*/i,'').trim();
+  // "@grok " 以降をプロンプトとして切り出す
+  const prompt=userText.replace(/^@grok\s*/i,'').trim();
 
   // 「考え中…」仮ツイートを先に挿入してスレッドに表示
   const tempId=uid();
-  const tempTweet={id:tempId,user:{...GROG_USER},
+  const tempTweet={id:tempId,user:{...GROK_USER},
     text:'⏳ 考え中…',
     imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,
     replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
@@ -1842,7 +1842,7 @@ async function callGroqAndReply(parentId, userText){
     const idx=tweets.findIndex(t=>t.id===tempId);
     if(idx>=0) tweets.splice(idx,1);
 
-    const replyTweet={id:uid(),user:{...GROG_USER},
+    const replyTweet={id:uid(),user:{...GROK_USER},
       text:answer,
       imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,
       replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null};

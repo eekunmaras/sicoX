@@ -1770,6 +1770,12 @@ async function submitReply(parentId){
   // ── @grok メンション検知 → Groq API呼び出し ──
   if(/^@grok/i.test(text)){
     callGroqAndReply(parentId, text);
+  } else {
+    // 親ツイートに @grok が含まれていれば、その返信にも自動応答
+    const parentTweet=tweets.find(tw=>tw.id===parentId);
+    if(parentTweet && /@grok/i.test(parentTweet.text)){
+      callGroqAndReplyInherited(t.id, parentId, parentTweet, text);
+    }
   }
 }
 
@@ -1866,6 +1872,86 @@ async function callGroqAndReply(parentId, userText){
       showThread(parentId);
     }
     console.error('[Grog] API error:', err);
+  }
+}
+
+// ══════════════════════════════════════
+// Groq AI Bot – 親ツイートに @grok がある場合の返信への自動応答
+// ══════════════════════════════════════
+async function callGroqAndReplyInherited(replyTargetId, threadRootId, parentTweet, replyText){
+  if(!GROQ_API_KEY){
+    const errTweet={id:uid(),user:{...GROK_USER},
+      text:'⚠️ Groq APIキーが未設定です。コード内の GROQ_API_KEY に取得したキーを貼り付けてください。',
+      imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,
+      replyTo:replyTargetId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
+    tweets.push(errTweet);
+    showThread(threadRootId);
+    await dbPostTweet(errTweet);
+    return;
+  }
+
+  // 「考え中…」仮ツイートを先に挿入
+  const tempId=uid();
+  const tempTweet={id:tempId,user:{...GROK_USER},
+    text:'⏳ 考え中…',
+    imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,
+    replyTo:replyTargetId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
+  tweets.push(tempTweet);
+  showThread(threadRootId);
+
+  try{
+    const systemPrompt=
+      'あなたはSicoXというSNSに常駐するAIアシスタント「Grok」です。'+
+      'あなたが宛先として含まれているポストに対して返信が来ました。'+
+      '元のポストと返信の内容を踏まえて、簡潔・フレンドリーな日本語で答えてください。'+
+      'ツイート1件分の分量（目安280文字以内）にまとめてください。';
+
+    const userMessage=
+      `【@grokが含まれていた元のポスト / @${parentTweet.user.handle}】\n${parentTweet.text}\n\n`+
+      `【その返信 / @${currentUser.handle}】\n${replyText}`;
+
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+GROQ_API_KEY
+      },
+      body:JSON.stringify({
+        model:GROQ_MODEL,
+        max_tokens:400,
+        messages:[
+          {role:'system',content:systemPrompt},
+          {role:'user',  content:userMessage}
+        ]
+      })
+    });
+
+    if(!res.ok){
+      const body=await res.text();
+      throw new Error('HTTP '+res.status+': '+body.slice(0,120));
+    }
+    const data=await res.json();
+    const answer=(data.choices?.[0]?.message?.content||'').trim()||'（応答を取得できませんでした）';
+
+    // 仮ツイートを削除して本物の返答ツイートを追加
+    const idx=tweets.findIndex(t=>t.id===tempId);
+    if(idx>=0) tweets.splice(idx,1);
+
+    const replyTweet={id:uid(),user:{...GROK_USER},
+      text:answer,
+      imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,
+      replyTo:replyTargetId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
+    tweets.push(replyTweet);
+    showThread(threadRootId);
+    await dbPostTweet(replyTweet);
+
+  }catch(err){
+    const idx=tweets.findIndex(t=>t.id===tempId);
+    if(idx>=0){
+      tweets[idx].text='❌ Grok エラー: '+(err.message||'不明なエラー');
+      showThread(threadRootId);
+    }
+    console.error('[Grok] inherited reply error:', err);
   }
 }
 

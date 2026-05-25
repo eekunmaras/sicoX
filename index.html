@@ -944,10 +944,6 @@ function checkGate(){
 const IMGUR_CID = 'e484a9032da395e';
 
 let tweets = [];
-let recTweets = []; // おすすめタブ専用（DB側でスコア順取得）
-const PAGE_SIZE = 30;
-let latestOffset = 0;
-let hasMoreLatest = true;
 let members = {};
 let currentUser = null;
 let likedSet    = new Set(JSON.parse(localStorage.getItem('mn_liked')||'[]'));
@@ -1064,40 +1060,10 @@ function focusSearch(){ document.getElementById('search-input').focus(); }
 
 // ツイート一覧取得
 async function fetchTweets(){
-  latestOffset=0;
-  hasMoreLatest=true;
   const {data,error}=await sb.from('tweets')
-    .select('*').order('created_at',{ascending:false}).limit(PAGE_SIZE);
+    .select('*').order('created_at',{ascending:false}).limit(200);
   if(error){console.error(error);return;}
   tweets=data.map(dbRowToTweet);
-  hasMoreLatest=(data.length===PAGE_SIZE);
-  renderFeed(document.getElementById('search-input').value.toLowerCase());
-}
-
-// 最新タブ：追加ページ読み込み
-async function fetchMoreTweets(){
-  const btn=document.getElementById('load-more-btn');
-  if(btn){btn.disabled=true;btn.textContent='読み込み中…';}
-  latestOffset+=PAGE_SIZE;
-  const {data,error}=await sb.from('tweets')
-    .select('*').order('created_at',{ascending:false})
-    .range(latestOffset, latestOffset+PAGE_SIZE-1);
-  if(error){console.error(error);if(btn){btn.disabled=false;btn.textContent='もっと見る';}return;}
-  tweets=tweets.concat(data.map(dbRowToTweet));
-  hasMoreLatest=(data.length===PAGE_SIZE);
-  renderFeed(document.getElementById('search-input').value.toLowerCase());
-}
-
-// おすすめタブ：DB側でいいね数降順＋新しさで30件取得
-async function fetchRecommendedTweets(){
-  const {data,error}=await sb.from('tweets')
-    .select('*')
-    .is('reply_to',null)
-    .order('likes',{ascending:false})
-    .order('created_at',{ascending:false})
-    .limit(PAGE_SIZE);
-  if(error){console.error(error);return;}
-  recTweets=data.map(dbRowToTweet);
   renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
@@ -1647,35 +1613,22 @@ function refreshCard(tweetId){
 // ══════════════════════════════════════
 function renderFeed(filter=''){
   const feed=document.getElementById('feed');
-  let pool;
-  if(currentTab==='recommend'&&!filter){
-    // おすすめ：DBから取得済みの専用配列を使用（全件走査不要）
-    pool=recTweets.filter(t=>!blockedSet.has(t.user.handle));
-  } else {
-    pool=tweets.filter(t=>!t.replyTo);
-    if(filter) pool=tweets.filter(t=>
-      t.text.toLowerCase().includes(filter)||
-      t.user.name.toLowerCase().includes(filter)||
-      ('@'+t.user.handle).includes(filter)
-    );
-    else pool=[...pool].sort((a,b)=>b.ts-a.ts);
-  }
-  const loadMoreHTML=(!filter&&currentTab==='latest'&&hasMoreLatest)
-    ?`<div style="text-align:center;padding:20px 16px;"><button id="load-more-btn" onclick="fetchMoreTweets()" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:9999px;padding:10px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font);transition:background .15s;" onmouseover="this.style.background='rgba(29,155,240,.1)'" onmouseout="this.style.background='transparent'">もっと見る</button></div>`
-    :'';
-  feed.innerHTML=pool.length?pool.map(t=>tweetCardHTML(t)).join('')+loadMoreHTML:`<div class="empty-msg">${filter?'「'+esc(filter)+'」に一致するツイートはありません':'まだツイートがありません'}</div>`;
+  let pool=tweets.filter(t=>!t.replyTo);
+  if(filter) pool=tweets.filter(t=>
+    t.text.toLowerCase().includes(filter)||
+    t.user.name.toLowerCase().includes(filter)||
+    ('@'+t.user.handle).includes(filter)
+  );
+  if(currentTab==='recommend'&&!filter) pool=[...pool].sort((a,b)=>tweetScore(b)-tweetScore(a));
+  else pool=[...pool].sort((a,b)=>b.ts-a.ts);
+  feed.innerHTML=pool.length?pool.map(t=>tweetCardHTML(t)).join(''):`<div class="empty-msg">${filter?'「'+esc(filter)+'」に一致するツイートはありません':'まだツイートがありません'}</div>`;
 }
 
 function switchTab(tab){
   currentTab=tab;
   document.getElementById('tab-latest').classList.toggle('active',tab==='latest');
   document.getElementById('tab-rec').classList.toggle('active',tab==='recommend');
-  if(tab==='recommend'){
-    // おすすめタブ：DB側からスコア順で取得（クライアント全件走査を回避）
-    fetchRecommendedTweets();
-  } else {
-    renderFeed(document.getElementById('search-input').value.toLowerCase());
-  }
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
 function onSearch(){

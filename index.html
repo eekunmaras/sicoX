@@ -1465,7 +1465,15 @@ function linkPreviewHTML(text){
 }
 
 function bodyWithLinks(text){
-  return esc(text).replace(URL_RE, url=>`<a href="${esc(url)}" target="_blank" onclick="event.stopPropagation();" style="color:var(--accent);text-decoration:none;">${esc(url)}</a>`);
+  // まずエスケープしてURL・@grokメンションをハイライト
+  let html = esc(text);
+  // @grok を青字に（スペースなしで続いていても対応）
+  html = html.replace(/(@grok)/gi,
+    '<span style="color:var(--accent);font-weight:600;">$1</span>');
+  // URLをリンクに
+  html = html.replace(URL_RE, url =>
+    `<a href="${esc(url)}" target="_blank" onclick="event.stopPropagation();" style="color:var(--accent);text-decoration:none;">${esc(url)}</a>`);
+  return html;
 }
 
 // ══════════════════════════════════════
@@ -1760,7 +1768,7 @@ async function submitReply(parentId){
   showToast('返信しました！');
   await dbPostTweet(t); // DB保存
   // ── @grok メンション検知 → Groq API呼び出し ──
-  if(/^@grok\b/i.test(text)){
+  if(/^@grok/i.test(text)){
     callGroqAndReply(parentId, text);
   }
 }

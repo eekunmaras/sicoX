@@ -945,7 +945,6 @@ const IMGUR_CID = 'e484a9032da395e';
 
 let tweets = [];
 let recTweets = []; // おすすめタブ専用（DB側でスコア順取得）
-let dbReplyCounts = {}; // tweetId -> DBから取得した返信数キャッシュ
 const PAGE_SIZE = 30;
 let latestOffset = 0;
 let hasMoreLatest = true;
@@ -1063,16 +1062,15 @@ function focusSearch(){ document.getElementById('search-input').focus(); }
 // Supabase DB 操作
 // ══════════════════════════════════════
 
-// ツイート一覧取得（親ツイートのみ）
+// ツイート一覧取得
 async function fetchTweets(){
   latestOffset=0;
   hasMoreLatest=true;
   const {data,error}=await sb.from('tweets')
-    .select('*').is('reply_to',null).order('created_at',{ascending:false}).limit(PAGE_SIZE);
+    .select('*').order('created_at',{ascending:false}).limit(PAGE_SIZE);
   if(error){console.error(error);return;}
   tweets=data.map(dbRowToTweet);
   hasMoreLatest=(data.length===PAGE_SIZE);
-  await bulkFetchReplyCounts(tweets.map(t=>t.id));
   renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
@@ -1082,47 +1080,24 @@ async function fetchMoreTweets(){
   if(btn){btn.disabled=true;btn.textContent='読み込み中…';}
   latestOffset+=PAGE_SIZE;
   const {data,error}=await sb.from('tweets')
-    .select('*').is('reply_to',null).order('created_at',{ascending:false})
+    .select('*').order('created_at',{ascending:false})
     .range(latestOffset, latestOffset+PAGE_SIZE-1);
   if(error){console.error(error);if(btn){btn.disabled=false;btn.textContent='もっと見る';}return;}
-  const newTweets=data.map(dbRowToTweet);
-  tweets=tweets.concat(newTweets);
+  tweets=tweets.concat(data.map(dbRowToTweet));
   hasMoreLatest=(data.length===PAGE_SIZE);
-  await bulkFetchReplyCounts(newTweets.map(t=>t.id));
   renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
-// 指定IDリストの返信数をDBから一括取得してキャッシュ
-async function bulkFetchReplyCounts(ids){
-  if(!ids||!ids.length) return;
-  const {data}=await sb.from('tweets').select('reply_to').in('reply_to',ids);
-  if(data) data.forEach(r=>{
-    if(r.reply_to) dbReplyCounts[r.reply_to]=(dbReplyCounts[r.reply_to]||0)+1;
-  });
-}
-
-// おすすめタブ：直近2日以内のいいね数＋返信数の合計順（同率は最新順）
+// おすすめタブ：DB側でいいね数降順＋新しさで30件取得
 async function fetchRecommendedTweets(){
-  const twoDaysAgo=new Date(Date.now()-2*24*60*60*1000).toISOString();
-  // 直近2日の全ツイート（親＋返信）を取得してスコア計算
   const {data,error}=await sb.from('tweets')
     .select('*')
-    .gte('created_at',twoDaysAgo)
-    .limit(500);
+    .is('reply_to',null)
+    .order('likes',{ascending:false})
+    .order('created_at',{ascending:false})
+    .limit(PAGE_SIZE);
   if(error){console.error(error);return;}
-  const allRecent=data.map(dbRowToTweet);
-  // 親ツイートごとの返信数をカウント
-  const replyCounts={};
-  allRecent.forEach(t=>{if(t.replyTo) replyCounts[t.replyTo]=(replyCounts[t.replyTo]||0)+1;});
-  // 親ツイートのみ抽出し、スコア順（同率は最新順）でソート
-  const parents=allRecent.filter(t=>!t.replyTo&&!blockedSet.has(t.user.handle));
-  parents.sort((a,b)=>{
-    const sA=(a.likes||0)+(replyCounts[a.id]||0);
-    const sB=(b.likes||0)+(replyCounts[b.id]||0);
-    if(sB!==sA) return sB-sA;
-    return b.ts-a.ts;
-  });
-  recTweets=parents.slice(0,PAGE_SIZE);
+  recTweets=data.map(dbRowToTweet);
   renderFeed(document.getElementById('search-input').value.toLowerCase());
 }
 
@@ -1745,13 +1720,9 @@ function shouldNotifyCurrentUserForReply(reply){
 function countThreadReplies(parentId, seen=new Set()){
   if(seen.has(parentId)) return 0;
   seen.add(parentId);
-  const inMemory=tweets.filter(t=>t.replyTo===parentId);
-  if(inMemory.length>0){
-    // メモリ上に返信がある場合は再帰カウント
-    return inMemory.reduce((sum,t)=>sum+1+countThreadReplies(t.id, seen),0);
-  }
-  // メモリになければDBキャッシュを使用
-  return dbReplyCounts[parentId]||0;
+  return tweets
+    .filter(t=>t.replyTo===parentId)
+    .reduce((sum,t)=>sum+1+countThreadReplies(t.id, seen),0);
 }
 
 function renderThreadReplies(parentId, depth=0, seen=new Set()){
@@ -1767,16 +1738,8 @@ function renderThreadReplies(parentId, depth=0, seen=new Set()){
     .join('');
 }
 
-async function showThread(tweetId, fromHistory=false){
+function showThread(tweetId, fromHistory=false){
   const parent=tweets.find(t=>t.id===tweetId); if(!parent)return;
-  // DBから返信をロード（まだ tweets に存在しない場合のみ）
-  const hasRepliesLoaded=tweets.some(t=>t.replyTo===tweetId);
-  if(!hasRepliesLoaded){
-    const {data:rd}=await sb.from('tweets').select('*').eq('reply_to',tweetId).order('created_at',{ascending:true});
-    if(rd&&rd.length){
-      rd.forEach(row=>{if(!tweets.find(t=>t.id===row.id)) tweets.push(dbRowToTweet(row));});
-    }
-  }
   const threadView=document.getElementById('view-thread');
   const threadOpen=threadView&&threadView.classList.contains('active');
   if(!fromHistory&&threadOpen&&activeThreadId&&activeThreadId!==tweetId){
@@ -1847,7 +1810,6 @@ async function submitReply(parentId){
   const text=ta.value.trim(); if(!text)return;
   const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
   tweets.push(t);
-  dbReplyCounts[parentId]=(dbReplyCounts[parentId]||0)+1; // キャッシュも更新
   ta.value='';
   showThread(parentId);
   showToast('返信しました！');

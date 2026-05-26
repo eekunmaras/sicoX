@@ -3593,13 +3593,12 @@ document.getElementById('ranking-close').addEventListener('click',closeRanking);
 document.getElementById('tweet-btn').addEventListener('click',()=>{parent.postMessage({type:'puyo:tweet',score:score},'*');});
 
 /* ── ③ タッチ操作：指に追従する左右移動 ── */
-let tx0,ty0,startColA,isDragH;
+let tx0,ty0,isDragH;
 const TAP_LIMIT=10,DOWN_TH=30;
 boardCv.addEventListener('touchstart',e=>{
   e.preventDefault();
   const t=e.touches[0];
   tx0=t.clientX;ty0=t.clientY;
-  startColA=current?current.a.c:0;
   isDragH=false;
 },{passive:false});
 boardCv.addEventListener('touchmove',e=>{
@@ -3612,12 +3611,11 @@ boardCv.addEventListener('touchmove',e=>{
     if(Math.abs(totalDx)>TAP_LIMIT&&Math.abs(totalDx)>Math.abs(totalDy)) isDragH=true;
     else return;
   }
-  /* 指の絶対位置（開始点からの変位）でターゲット列を決定 */
+  /* 指のボード上の絶対位置からターゲット列を直接決定 */
   const rect=boardCv.getBoundingClientRect();
   const cellPx=rect.width/COLS;
-  const deltaCol=Math.round((t.clientX-tx0)/cellPx);
-  const targetCol=startColA+deltaCol;
-  const steps=targetCol-current.a.c;
+  const fingerCol=Math.min(COLS-1,Math.max(0,Math.floor((t.clientX-rect.left)/cellPx)));
+  const steps=fingerCol-current.a.c;
   if(steps!==0){
     const dir=steps>0?1:-1;
     for(let i=0;i<Math.abs(steps);i++) tryMove(0,dir);

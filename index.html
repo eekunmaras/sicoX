@@ -1146,42 +1146,6 @@ async function dbFetchTaikaRanking(){
   }));
 }
 
-async function dbSavePuyoScore(score){
-  if(!currentUser) return null;
-  const cleanScore=Math.max(0, parseInt(score, 10)||0);
-  const row={
-    game_id:'puyo',
-    user_handle:currentUser.handle,
-    user_name:currentUser.name,
-    score:cleanScore,
-    created_at:new Date().toISOString()
-  };
-  const {data,error}=await sb.from('taika_scores').insert(row).select().single();
-  if(error){ console.warn('puyo score save error', JSON.stringify(error)); return null; }
-  return data;
-}
-
-async function dbFetchPuyoRanking(){
-  const {data,error}=await sb.from('taika_scores')
-    .select('*')
-    .eq('game_id','puyo')
-    .order('score',{ascending:false})
-    .order('created_at',{ascending:true})
-    .limit(500);
-  if(error){ console.warn('puyo ranking error', JSON.stringify(error)); return null; }
-  const bestByUser=new Map();
-  (data||[]).forEach(row=>{
-    if(!bestByUser.has(row.user_handle)) bestByUser.set(row.user_handle,row);
-  });
-  return [...bestByUser.values()].slice(0,10).map((row,i)=>({
-    rank:i+1,
-    handle:row.user_handle,
-    name:row.user_name||row.user_handle,
-    score:row.score,
-    ts:new Date(row.created_at).getTime()
-  }));
-}
-
 async function dbToggleLike(tweetId,delta){
   const {data}=await sb.from('tweets').select('likes').eq('id',tweetId).single();
   if(!data) return;
@@ -3007,7 +2971,6 @@ function closeGameSelect(){
 const GAMES={
   taika:{
     title:'タイカゲーム',
-    icon:'https://raw.githubusercontent.com/eekunmaras/sicoX/d075e0c02488b15219397982963f0bfb9ba47c50/taika.png',
     html: `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -3298,293 +3261,10 @@ resize();
 <\/script>
 </body>
 </html>`
-  },
-  puyo:{
-    title:'PUYO!',
-    icon:'/PUYO.png',
-    html:`<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>PUYO!</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@700;900&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{font-family:'M PLUS Rounded 1c',sans-serif;background:linear-gradient(180deg,#0a1a4e 0%,#0d2a6e 50%,#1a3a8e 100%);min-height:100dvh;display:flex;flex-direction:column;align-items:center;overflow:hidden;touch-action:none;}
-#top-bar{width:100%;max-width:400px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,#002288,#0033aa);border-bottom:2px solid #3366ff;padding:6px 12px;}
-#game-title{font-size:26px;font-weight:900;color:#fff;text-shadow:0 0 15px #55aaff,2px 2px 0 #001166;letter-spacing:3px;}
-#score-area{text-align:right;}
-#score-label{font-size:10px;color:#88bbff;letter-spacing:2px;}
-#score-val{font-size:24px;font-weight:900;color:#fff;letter-spacing:2px;text-shadow:0 0 10px #55ddff;}
-#main{display:flex;gap:6px;padding:6px 8px 0;width:100%;max-width:400px;align-items:flex-start;}
-#board-wrap{position:relative;width:fit-content;flex-shrink:0;border:3px solid #3366cc;border-radius:4px;overflow:hidden;box-shadow:0 0 24px rgba(0,80,255,0.5),inset 0 0 30px rgba(0,0,50,0.7);}
-canvas#board{display:block;touch-action:none;}
-#side-col{display:flex;flex-direction:column;gap:8px;min-width:62px;}
-.side-box{background:linear-gradient(180deg,#001a6e,#000e44);border:2px solid #2255aa;border-radius:6px;padding:6px 4px;text-align:center;}
-.side-lbl{font-size:9px;color:#6699cc;letter-spacing:1px;margin-bottom:2px;}
-canvas.next-cv{display:block;margin:0 auto;}
-#chain-box{min-height:40px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-#chain-num-lbl{font-size:9px;color:#6699cc;letter-spacing:1px;}
-#chain-num-val{font-size:22px;font-weight:900;color:#ffdd00;text-shadow:0 0 10px #ff8800;min-height:28px;line-height:1;}
-#ranking-btn{background:#001166;border:1px solid #3366ff;color:#88bbff;border-radius:6px;padding:4px 8px;font-size:10px;cursor:pointer;font-family:inherit;letter-spacing:1px;width:100%;}
-#ranking-btn:active{background:#002288;}
-#chain-overlay{position:absolute;inset:0;pointer-events:none;z-index:10;display:flex;align-items:center;justify-content:center;}
-#chain-big{font-weight:900;color:#fff;font-size:0;line-height:1;text-align:center;text-shadow:0 0 20px #ffaa00,3px 3px 0 #882200;transition:font-size 0.08s ease-out;}
-.spop{position:absolute;font-size:16px;font-weight:900;pointer-events:none;z-index:20;color:#ffee44;text-shadow:0 0 8px #ff8800,2px 2px 0 #553300;animation:spopAnim 0.75s ease-out forwards;}
-@keyframes spopAnim{0%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}100%{opacity:0;transform:translateX(-50%) translateY(-55px) scale(1.5);}}
-.pt{position:absolute;border-radius:50%;pointer-events:none;z-index:15;width:10px;height:10px;animation:ptAnim 0.45s ease-out forwards;}
-@keyframes ptAnim{0%{opacity:1;transform:translate(0,0) scale(1);}100%{opacity:0;transform:var(--tx) scale(0);}}
-#flash{position:fixed;inset:0;pointer-events:none;z-index:80;background:#fff;opacity:0;}
-#overlay{position:fixed;inset:0;z-index:100;background:rgba(0,8,40,0.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
-#ov-title{font-size:54px;font-weight:900;color:#fff;letter-spacing:4px;text-shadow:0 0 30px #55aaff,3px 3px 0 #001166;}
-.ov-lbl{font-size:13px;color:#88bbff;letter-spacing:2px;}
-.ov-val{font-size:42px;font-weight:900;color:#fff;text-shadow:0 0 15px #ffdd44;}
-#play-btn{background:linear-gradient(135deg,#ff6600,#ffaa00);color:#fff;border:none;border-radius:50px;padding:14px 48px;font-size:22px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 4px 20px rgba(255,140,0,0.7),0 2px 0 #884400;transition:transform 0.1s,box-shadow 0.1s;}
-#play-btn:active{transform:scale(0.94) translateY(2px);box-shadow:0 2px 10px rgba(255,140,0,0.5);}
-#tweet-btn{background:linear-gradient(135deg,#1d9bf0,#0077cc);color:#fff;border:none;border-radius:50px;padding:10px 32px;font-size:16px;font-weight:900;font-family:inherit;cursor:pointer;box-shadow:0 3px 12px rgba(29,155,240,0.5);display:none;}
-#tweet-btn:active{opacity:.8;}
-#tweet-btn:disabled{opacity:.55;cursor:default;}
-#hint{font-size:10px;color:rgba(120,170,255,0.55);text-align:center;padding:4px;line-height:1.8;}
-/* ランキングモーダル */
-#ranking-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:center;justify-content:center;}
-#ranking-modal.open{display:flex;}
-#ranking-box{background:#000e44;border:2px solid #3366cc;border-radius:14px;padding:16px 20px;min-width:220px;max-height:80vh;overflow-y:auto;}
-#ranking-box h3{font-size:14px;color:#88bbff;margin-bottom:10px;text-align:center;letter-spacing:2px;}
-.rr{display:grid;grid-template-columns:34px 1fr auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(51,102,204,0.3);font-size:13px;color:#88aacc;}
-.rr:last-child{border-bottom:none;}
-.rr strong{color:#ffdd44;}
-.rank-empty{padding:12px 0;color:#4466aa;font-size:13px;text-align:center;line-height:1.7;}
-#ranking-close{display:block;width:100%;margin-top:12px;background:#001166;border:1px solid #3366cc;color:#88bbff;border-radius:8px;padding:7px;font-size:13px;cursor:pointer;font-family:inherit;}
-</style>
-</head>
-<body>
-<div id="flash"></div>
-<div id="top-bar">
-  <div id="game-title">PUYO!</div>
-  <div id="score-area">
-    <div id="score-label">SCORE</div>
-    <div id="score-val">00000000</div>
-  </div>
-</div>
-<div id="main">
-  <div id="board-wrap">
-    <canvas id="board" style="touch-action:none;"></canvas>
-    <div id="chain-overlay"><div id="chain-big"></div></div>
-  </div>
-  <div id="side-col">
-    <div class="side-box">
-      <div class="side-lbl">NEXT</div>
-      <canvas class="next-cv" id="cv-next" width="54" height="108"></canvas>
-    </div>
-    <div class="side-box">
-      <div class="side-lbl">2ND</div>
-      <canvas class="next-cv" id="cv-next2" width="42" height="84"></canvas>
-    </div>
-    <div class="side-box" id="chain-box">
-      <div id="chain-num-lbl">CHAIN</div>
-      <div id="chain-num-val"></div>
-    </div>
-    <div class="side-box">
-      <div class="side-lbl">LEVEL</div>
-      <div id="level-val" style="font-size:22px;font-weight:900;color:#88ffcc;text-shadow:0 0 10px #00ffaa;line-height:1.2;">1</div>
-    </div>
-    <div class="side-box">
-      <button id="ranking-btn" onclick="openRanking()">🏆 ランキング</button>
-    </div>
-  </div>
-</div>
-<div id="hint">📱タップ:回転 ←→スワイプ:移動 ↓スワイプ:落下<br>⌨ ←→:移動 ↑/Z:回転 Space:落下</div>
-
-<div id="overlay">
-  <div id="ov-title">PUYO!</div>
-  <div id="ov-score-wrap" style="display:none;text-align:center;">
-    <div class="ov-lbl">SCORE</div>
-    <div class="ov-val" id="ov-score-val">0</div>
-  </div>
-  <button id="tweet-btn">𝕏 スコアをポスト</button>
-  <button id="play-btn">ゲームスタート</button>
-  <div id="ov-how" style="font-size:11px;color:#6688bb;text-align:center;line-height:1.9;max-width:260px;">
-    📱 <b style="color:#88bbff">左右スワイプ</b> で移動<br>
-    📱 <b style="color:#88bbff">タップ</b> で回転<br>
-    📱 <b style="color:#88bbff">下スワイプ</b> で高速落下<br>
-    ⌨ ←→ で移動 ／ ↑ or Z で回転 ／ Space で落下<br>
-    同色4個以上でまとめて消える！
-  </div>
-</div>
-
-<div id="ranking-modal">
-  <div id="ranking-box">
-    <h3>🏆 PUYO! ランキング</h3>
-    <div id="ranking-list" class="rank-empty">読込中…</div>
-    <button id="ranking-close">閉じる</button>
-  </div>
-</div>
-
-<script>
-const COLS=6,ROWS=14,VIS=12,CELL=46,SPAWN_COL=Math.floor(COLS/2);
-const PAL={base:['#e03030','#2255ee','#22bb44','#ddbb00','#9922dd'],light:['#ff9999','#88aaff','#88eebb','#ffee88','#cc88ff'],dark:['#770010','#001188','#006622','#886600','#550088'],glow:['#ff3333','#3366ff','#33ee55','#ffcc00','#aa33ff']};
-const N_COL=5;
-const boardCv=document.getElementById('board');
-const bx=boardCv.getContext('2d');
-boardCv.width=COLS*CELL; boardCv.height=VIS*CELL;
-const cvNext=document.getElementById('cv-next'),cvNext2=document.getElementById('cv-next2');
-const nx=cvNext.getContext('2d'),nx2=cvNext2.getContext('2d');
-const boardWrap=document.getElementById('board-wrap');
-let grid=Array.from({length:ROWS},()=>Array(COLS).fill(null));
-let score,chainCount,current,queue,isOver,busy,fallTimer,pieceCount;
-const SPEED_TABLE=[[0,950],[12,800],[25,660],[40,530],[57,410],[76,305],[98,215],[123,145],[152,95],[185,65]];
-function getLevel(){let lv=1;for(let i=0;i<SPEED_TABLE.length;i++){if(pieceCount>=SPEED_TABLE[i][0])lv=i+1;else break;}return lv;}
-function getFallMs(){let ms=SPEED_TABLE[0][1];for(const[thresh,speed]of SPEED_TABLE){if(pieceCount>=thresh)ms=speed;else break;}return ms;}
-function updateSpeed(){document.getElementById('level-val').textContent=getLevel();clearInterval(fallTimer);fallTimer=setInterval(tick,getFallMs());}
-let tx0,ty0,tt0;const SW=26;
-const rci=()=>Math.floor(Math.random()*N_COL);
-const makeSeed=()=>({a:rci(),b:rci()});
-function spawnCurrent(seed){return{a:{ci:seed.a,r:2,c:SPAWN_COL},b:{ci:seed.b,r:1,c:SPAWN_COL}};}
-function init(){
-  grid=Array.from({length:ROWS},()=>Array(COLS).fill(null));
-  score=0;chainCount=0;isOver=false;busy=false;pieceCount=0;
-  setScore(0);
-  document.getElementById('chain-num-val').textContent='';
-  document.getElementById('level-val').textContent='1';
-  hideChainBig();
-  queue=[makeSeed(),makeSeed(),makeSeed()];
-  current=null;clearInterval(fallTimer);doSpawn();updateSpeed();
-  document.getElementById('tweet-btn').style.display='none';
-  document.getElementById('tweet-btn').disabled=false;
-  document.getElementById('tweet-btn').textContent='𝕏 スコアをポスト';
-}
-function drawPuyo(ctx,ci,px,py,sz,al=1){
-  if(ci===null||ci===undefined||ci<0||ci>=N_COL)return;
-  const r=sz*0.44;ctx.save();ctx.globalAlpha=al;
-  ctx.fillStyle=PAL.dark[ci];ctx.beginPath();ctx.ellipse(px+sz*.5,py+sz*.55,r*.9,r*.8,0,0,Math.PI*2);ctx.fill();
-  const g=ctx.createRadialGradient(px+sz*.5,py+sz*.5,0,px+sz*.5,py+sz*.5,r);
-  g.addColorStop(0,PAL.light[ci]);g.addColorStop(0.45,PAL.base[ci]);g.addColorStop(1,PAL.dark[ci]);
-  ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(px+sz*.5,py+sz*.5,r,r*.95,0,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.58)';ctx.beginPath();ctx.ellipse(px+sz*.35,py+sz*.3,r*.27,r*.19,-.4,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(px+sz*.37,py+sz*.52,r*.14,r*.17,0,0,Math.PI*2);ctx.fill();
-  ctx.beginPath();ctx.ellipse(px+sz*.63,py+sz*.52,r*.14,r*.17,0,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#111';ctx.beginPath();ctx.ellipse(px+sz*.39,py+sz*.53,r*.07,r*.09,0,0,Math.PI*2);ctx.fill();
-  ctx.beginPath();ctx.ellipse(px+sz*.65,py+sz*.53,r*.07,r*.09,0,0,Math.PI*2);ctx.fill();
-  ctx.restore();
-}
-function gy(r){return(r-2)*CELL;}
-function drawBoard(){
-  bx.clearRect(0,0,boardCv.width,boardCv.height);
-  for(let r=0;r<VIS;r++)for(let c=0;c<COLS;c++){bx.fillStyle=(r+c)%2===0?'rgba(255,255,255,0.025)':'rgba(0,0,0,0.04)';bx.fillRect(c*CELL,r*CELL,CELL,CELL);}
-  bx.strokeStyle='rgba(60,120,255,0.1)';bx.lineWidth=1;
-  for(let r=0;r<=VIS;r++){bx.beginPath();bx.moveTo(0,r*CELL);bx.lineTo(COLS*CELL,r*CELL);bx.stroke();}
-  for(let c=0;c<=COLS;c++){bx.beginPath();bx.moveTo(c*CELL,0);bx.lineTo(c*CELL,VIS*CELL);bx.stroke();}
-  for(let r=2;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c]!==null)drawPuyo(bx,grid[r][c],c*CELL,gy(r),CELL);}
-  if(current&&!isOver){
-    const ghost=calcGhost();
-    if(ghost.a.r>=2)drawPuyo(bx,ghost.a.ci,ghost.a.c*CELL,gy(ghost.a.r),CELL,0.17);
-    if(ghost.b.r>=2)drawPuyo(bx,ghost.b.ci,ghost.b.c*CELL,gy(ghost.b.r),CELL,0.17);
-    if(current.a.r>=2)drawPuyo(bx,current.a.ci,current.a.c*CELL,gy(current.a.r),CELL);
-    if(current.b.r>=2)drawPuyo(bx,current.b.ci,current.b.c*CELL,gy(current.b.r),CELL);
   }
 }
-function drawSide(){
-  const s1=46,ox1=(cvNext.width-s1)/2;
-  nx.clearRect(0,0,cvNext.width,cvNext.height);
-  drawPuyo(nx,queue[0].b,ox1,2,s1);drawPuyo(nx,queue[0].a,ox1,s1+4,s1);
-  const s2=36,ox2=(cvNext2.width-s2)/2;
-  nx2.clearRect(0,0,cvNext2.width,cvNext2.height);
-  drawPuyo(nx2,queue[1].b,ox2,2,s2);drawPuyo(nx2,queue[1].a,ox2,s2+4,s2);
-}
-function calcGhost(){
-  let ga={...current.a},gb={...current.b};
-  if(ga.c===gb.c){while(true){const lower=ga.r>gb.r?ga:gb;if(lower.r+1>=ROWS)break;if(lower.r+1>=2&&grid[lower.r+1][lower.c]!==null)break;ga.r++;gb.r++;}}
-  else{const fallOne=(p)=>{while(true){if(p.r+1>=ROWS)break;if(p.r+1>=2&&grid[p.r+1][p.c]!==null)break;p.r++;}};fallOne(ga);fallOne(gb);}
-  return{a:ga,b:gb};
-}
-function cellFree(r,c){if(c<0||c>=COLS)return false;if(r>=ROWS)return false;if(r<0)return true;return grid[r][c]===null;}
-function canPlace(ar,ac,br,bc){return cellFree(ar,ac)&&cellFree(br,bc);}
-function tryMove(dr,dc){if(!current||busy||isOver)return false;const{a,b}=current;if(canPlace(a.r+dr,a.c+dc,b.r+dr,b.c+dc)){a.r+=dr;a.c+=dc;b.r+=dr;b.c+=dc;drawBoard();return true;}return false;}
-function tryRotate(cw){if(!current||busy||isOver)return;const a=current.a,b=current.b;const dr=b.r-a.r,dc=b.c-a.c;const ndr=cw?dc:-dc,ndc=cw?-dr:dr;const kicks=[[0,0],[0,cw?1:-1],[0,cw?-1:1],[-1,0],[1,0]];for(const[kr,kc]of kicks){const nar=a.r+kr,nac=a.c+kc,nbr=nar+ndr,nbc=nac+ndc;if(canPlace(nar,nac,nbr,nbc)){a.r=nar;a.c=nac;b.r=nbr;b.c=nbc;drawBoard();return;}}}
-function tick(){if(busy||isOver||!current)return;if(!tryMove(1,0))lock();}
-function hardDrop(){if(busy||isOver||!current)return;while(tryMove(1,0)){}lock();}
-function lock(){if(!current||busy)return;busy=true;const{a,b}=current;if(a.r>=0&&a.r<ROWS)grid[a.r][a.c]=a.ci;if(b.r>=0&&b.r<ROWS)grid[b.r][b.c]=b.ci;current=null;gravity();drawBoard();setTimeout(()=>resolve(0),100);}
-function resolve(chain){
-  const groups=getGroups().filter(g=>g.length>=4);
-  if(!groups.length){busy=false;chainCount=0;document.getElementById('chain-num-val').textContent='';hideChainBig();doSpawn();return;}
-  const n=chain+1;chainCount=n;
-  document.getElementById('chain-num-val').textContent=n;showChainBig(n);
-  const removed=groups.reduce((s,g)=>s+g.length,0);const pts=removed*10*n*n;
-  setScore(score+pts);showScorePop(pts,groups);
-  groups.forEach(g=>g.forEach(({r,c})=>spawnParticles(c,r,grid[r][c])));
-  if(n>=3)flash();
-  groups.forEach(g=>g.forEach(({r,c})=>{grid[r][c]=null;}));drawBoard();
-  setTimeout(()=>{gravity();drawBoard();setTimeout(()=>resolve(n),260);},340);
-}
-function getGroups(){const vis=Array.from({length:ROWS},()=>Array(COLS).fill(false));const res=[];for(let r=2;r<ROWS;r++)for(let c=0;c<COLS;c++){if(grid[r][c]!==null&&!vis[r][c]){const g=[];bfs(r,c,grid[r][c],vis,g);if(g.length)res.push(g);}}return res;}
-function bfs(sr,sc,ci,vis,g){const q=[{r:sr,c:sc}];vis[sr][sc]=true;while(q.length){const{r,c}=q.shift();g.push({r,c});for(const[dr,dc]of[[-1,0],[1,0],[0,-1],[0,1]]){const nr=r+dr,nc=c+dc;if(nr<2||nr>=ROWS||nc<0||nc>=COLS)continue;if(vis[nr][nc]||grid[nr][nc]!==ci)continue;vis[nr][nc]=true;q.push({r:nr,c:nc});}}}
-function gravity(){for(let c=0;c<COLS;c++){let emp=ROWS-1;for(let r=ROWS-1;r>=2;r--){if(grid[r][c]!==null){grid[emp][c]=grid[r][c];if(emp!==r)grid[r][c]=null;emp--;}}}}
-function doSpawn(){
-  if(isOver)return;
-  const seed=queue.shift();queue.push(makeSeed());current=spawnCurrent(seed);
-  const prevLv=getLevel();pieceCount++;const newLv=getLevel();if(newLv!==prevLv)updateSpeed();
-  drawSide();
-  const{a,b}=current;
-  if((a.r>=2&&grid[a.r][a.c]!==null)||(b.r>=2&&grid[b.r][b.c]!==null)){
-    isOver=true;clearInterval(fallTimer);current=null;drawBoard();
-    setTimeout(showGameOver,500);return;
-  }drawBoard();
-}
-function showChainBig(n){const el=document.getElementById('chain-big');const lbl=['','１れんさ!','２れんさ!!','３れんさ!!!','４れんさ!!!!','５れんさ!!!!!'];el.textContent=n<=5?lbl[n]:n+'れんさ!!!!!';const sz=Math.min(30+n*5,54);el.style.fontSize=sz+'px';el.style.color=n>=3?'#ffee00':'#ffffff';el.style.textShadow=n>=3?'0 0 20px #ff6600,0 0 40px #ff3300,3px 3px 0 #882200':'0 0 15px #88ccff,2px 2px 0 #001166';}
-function hideChainBig(){document.getElementById('chain-big').style.fontSize='0px';}
-function flash(){const f=document.getElementById('flash');f.style.transition='none';f.style.opacity='0.4';requestAnimationFrame(()=>requestAnimationFrame(()=>{f.style.transition='opacity 0.15s';f.style.opacity='0';}));}
-function showScorePop(pts,groups){if(!groups.length||!groups[0].length)return;const mid=groups[0][Math.floor(groups[0].length/2)];const px=mid.c*CELL+CELL/2,py=gy(mid.r);const el=document.createElement('div');el.className='spop';el.textContent='+'+pts.toLocaleString();el.style.cssText+=\`left:\${px}px;top:\${py}px;\`;boardWrap.appendChild(el);setTimeout(()=>el.remove(),800);}
-function spawnParticles(gc,gr,ci){if(ci===null||ci===undefined)return;const cx=gc*CELL+CELL/2,cy=gy(gr)+CELL/2;for(let i=0;i<8;i++){const ang=(Math.PI*2/8)*i+Math.random()*0.4;const d=28+Math.random()*28;const tx=Math.cos(ang)*d,ty=Math.sin(ang)*d;const el=document.createElement('div');el.className='pt';el.style.cssText=\`left:\${cx-5}px;top:\${cy-5}px;background:\${PAL.base[ci]};box-shadow:0 0 5px \${PAL.glow[ci]};--tx:translate(\${tx}px,\${ty}px);animation-delay:\${Math.random()*0.04}s;\`;boardWrap.appendChild(el);setTimeout(()=>el.remove(),550);}}
-function setScore(s){score=s;document.getElementById('score-val').textContent=String(s).padStart(8,'0');}
-function showGameOver(){
-  parent.postMessage({type:'puyo:score',score:score},'*');
-  document.getElementById('ov-title').textContent='GAME OVER';
-  document.getElementById('ov-score-val').textContent=score.toLocaleString();
-  document.getElementById('ov-score-wrap').style.display='block';
-  document.getElementById('tweet-btn').style.display='block';
-  document.getElementById('play-btn').textContent='もう一度';
-  document.getElementById('ov-how').style.display='none';
-  document.getElementById('overlay').style.display='flex';
-}
-function openRanking(){
-  document.getElementById('ranking-list').className='rank-empty';
-  document.getElementById('ranking-list').textContent='読込中…';
-  document.getElementById('ranking-modal').classList.add('open');
-  parent.postMessage({type:'puyo:ranking:request'},'*');
-}
-function closeRanking(){document.getElementById('ranking-modal').classList.remove('open');}
-function renderRanking(list){
-  const el=document.getElementById('ranking-list');
-  if(!list){el.className='rank-empty';el.innerHTML='ランキングを取得できませんでした。';return;}
-  if(!list.length){el.className='rank-empty';el.textContent='まだ記録がありません';return;}
-  el.className='';
-  el.innerHTML=list.map(r=>'<div class="rr"><strong>'+r.rank+'</strong><span>'+escHtml(r.name)+'<br><small>@'+escHtml(r.handle)+'</small></span><strong>'+r.score.toLocaleString()+'</strong></div>').join('');
-}
-function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-window.addEventListener('message',e=>{
-  const msg=e.data||{};
-  if(msg.type==='puyo:ranking')renderRanking(msg.ranking||[]);
-  if(msg.type==='puyo:ranking:error')renderRanking(null);
-  if(msg.type==='puyo:tweet:done'){
-    const btn=document.getElementById('tweet-btn');
-    if(btn){btn.textContent=msg.ok?'ポストしました！':'名前設定が必要です';btn.disabled=!!msg.ok;}
-  }
-});
-document.getElementById('ranking-modal').addEventListener('click',e=>{if(e.target===document.getElementById('ranking-modal'))closeRanking();});
-document.getElementById('ranking-close').addEventListener('click',closeRanking);
-document.getElementById('tweet-btn').addEventListener('click',()=>{parent.postMessage({type:'puyo:tweet',score:score},'*');});
-boardCv.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches[0];tx0=t.clientX;ty0=t.clientY;tt0=Date.now();},{passive:false});
-boardCv.addEventListener('touchend',e=>{e.preventDefault();if(isOver||busy||!current)return;const t=e.changedTouches[0];const dx=t.clientX-tx0,dy=t.clientY-ty0;const ax=Math.abs(dx),ay=Math.abs(dy);if(ax<SW&&ay<SW){tryRotate(true);}else if(ax>ay){const steps=Math.max(1,Math.round(ax/CELL));for(let i=0;i<steps;i++)tryMove(0,dx>0?1:-1);}else if(dy>SW){hardDrop();}},{passive:false});
-boardCv.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
-document.addEventListener('keydown',e=>{if(isOver)return;switch(e.key){case 'ArrowLeft':e.preventDefault();tryMove(0,-1);break;case 'ArrowRight':e.preventDefault();tryMove(0,1);break;case 'ArrowDown':e.preventDefault();tryMove(1,0);break;case 'ArrowUp':case 'z':case 'Z':e.preventDefault();tryRotate(true);break;case 'x':case 'X':e.preventDefault();tryRotate(false);break;case ' ':e.preventDefault();hardDrop();break;}});
-document.getElementById('play-btn').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';init();});
-drawBoard();
-<\/script>
-</body>
-</html>`
-  }
-}
+
+function sendToGameFrame(message){
   const frame=document.getElementById('game-frame');
   if(frame&&frame.contentWindow) frame.contentWindow.postMessage(message,'*');
 }
@@ -3597,23 +3277,6 @@ function postTaikaScoreTweet(score){
   tweets.unshift(t);
   renderFeed(document.getElementById('search-input').value.toLowerCase());
   showToast('タイカゲームのスコアをポストしました！');
-  dbPostTweet(t);
-  return true;
-}
-
-function sendToGameFrame(message){
-  const frame=document.getElementById('game-frame');
-  if(frame&&frame.contentWindow) frame.contentWindow.postMessage(message,'*');
-}
-
-function postPuyoScoreTweet(score){
-  if(!currentUser){ openProfileModal(); return false; }
-  const cleanScore=Math.max(0, parseInt(score, 10)||0);
-  const text=`${currentUser.name}さんはPUYO!ゲームで${cleanScore.toLocaleString()}点でした`;
-  const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:null,quoteOf:null,isRepost:false,repostBy:null,poll:null};
-  tweets.unshift(t);
-  renderFeed(document.getElementById('search-input').value.toLowerCase());
-  showToast('PUYO!のスコアをポストしました！');
   dbPostTweet(t);
   return true;
 }
@@ -3635,19 +3298,6 @@ window.addEventListener('message',async e=>{
     const ok=postTaikaScoreTweet(msg.score);
     sendToGameFrame({type:'taika:tweet:done',ok});
   }
-  if(msg.type==='puyo:score'){
-    if(currentUser) await dbSavePuyoScore(msg.score);
-    const ranking=await dbFetchPuyoRanking();
-    sendToGameFrame(ranking?{type:'puyo:ranking',ranking}:{type:'puyo:ranking:error'});
-  }
-  if(msg.type==='puyo:ranking:request'){
-    const ranking=await dbFetchPuyoRanking();
-    sendToGameFrame(ranking?{type:'puyo:ranking',ranking}:{type:'puyo:ranking:error'});
-  }
-  if(msg.type==='puyo:tweet'){
-    const ok=postPuyoScoreTweet(msg.score);
-    sendToGameFrame({type:'puyo:tweet:done',ok});
-  }
 });
 
 function openGame(gameId){
@@ -3656,10 +3306,7 @@ function openGame(gameId){
   const titleEl=document.getElementById('game-frame-title');
   const iconEl=document.getElementById('game-frame-icon');
   titleEl.textContent='';
-  if(iconEl){
-    iconEl.src=g.icon||'';
-    iconEl.style.display=g.icon?'block':'none';
-  }
+  if(iconEl){ iconEl.style.display='block'; }
   const frame=document.getElementById('game-frame');
   frame.srcdoc=g.html;
   document.getElementById('game-frame-overlay').classList.add('open');
@@ -3835,9 +3482,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
     <div class="game-grid">
       <div class="game-icon-btn game-icon-btn-img" onclick="openGame('taika')">
         <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/d075e0c02488b15219397982963f0bfb9ba47c50/taika.png" alt="タイカゲーム" class="game-app-icon">
-      </div>
-      <div class="game-icon-btn game-icon-btn-img" onclick="openGame('puyo')">
-        <img src="/PUYO.png" alt="PUYO!" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:72px;display:block;text-align:center;\\'>🎮</span>')">
       </div>
     </div>
     <button class="game-select-close" onclick="closeGameSelect()">閉じる</button>

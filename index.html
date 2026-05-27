@@ -3082,6 +3082,12 @@ function openShop(){
     .catch(()=>{ valEl.textContent='—'; detailEl.textContent='取得に失敗しました'; });
 }
 function closeShop(){ closeModal('shop-modal'); }
+function shopSwitchTab(panelId, btn){
+  document.querySelectorAll('#shop-modal .shop-tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('#shop-modal .shop-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById(panelId).classList.add('active');
+  btn.classList.add('active');
+}
 
 function openGameSelect(){
   document.getElementById('game-select-overlay').classList.add('open');
@@ -3450,22 +3456,74 @@ canvas.next-cv{display:block;margin:0 auto;}
 
 
 /* ── Shop modal extras ── */
-.shop-pts-bar{display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,rgba(255,193,7,.12),rgba(255,152,0,.07));border:1px solid rgba(255,193,7,.28);border-radius:14px;margin-bottom:18px;}
-.shop-pts-num{font-size:26px;font-weight:900;color:#f5a623;line-height:1;}
-.shop-pts-unit{font-size:12px;color:var(--text2);font-weight:600;}
-.shop-pts-detail{font-size:11px;color:var(--text2);margin-top:2px;}
-.shop-coming{background:linear-gradient(135deg,#1a3a5c,#0d2a45);border:1px solid rgba(29,155,240,.28);border-radius:14px;padding:28px 16px;text-align:center;margin-bottom:18px;}
-.shop-coming p{font-size:13px;color:var(--text2);line-height:1.65;margin-top:8px;}
-.shop-sec{font-size:12px;font-weight:700;color:var(--text2);letter-spacing:.07em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.shop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px;}
-.shop-card{background:var(--bg3);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:relative;}
-.shop-card-img{width:100%;aspect-ratio:1;background:linear-gradient(135deg,#1a1a2e,#16213e);display:flex;align-items:center;justify-content:center;font-size:40px;}
-.shop-card-body{padding:9px 11px 11px;}
-.shop-card-name{font-size:13px;font-weight:700;margin-bottom:4px;}
-.shop-card-price{font-size:12px;font-weight:800;color:#f5a623;}
-.shop-card-soon{position:absolute;top:7px;right:7px;background:rgba(29,155,240,.88);color:#fff;font-size:9px;font-weight:700;border-radius:9999px;padding:2px 7px;}
-.shop-card-btn{width:100%;margin-top:7px;background:var(--accent);color:#fff;border:none;border-radius:9999px;padding:6px;font-size:12px;font-weight:700;cursor:not-allowed;opacity:.45;font-family:var(--font);}
-.shop-empty-hist{text-align:center;padding:20px 0;color:var(--text2);font-size:13px;}
+/* Points Hero */
+.shop-hero{position:relative;border-radius:20px;padding:20px;margin-bottom:20px;overflow:hidden;background:linear-gradient(135deg,#0a0a0a 0%,#111827 50%,#0a0a0a 100%);border:1px solid rgba(255,193,7,.2);}
+.shop-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 50%,rgba(255,193,7,.12) 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,rgba(29,155,240,.08) 0%,transparent 60%);pointer-events:none;}
+.shop-hero-inner{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.shop-pts-coin{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#f5a623,#e08e0a);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 0 24px rgba(245,166,35,.35),0 2px 8px rgba(0,0,0,.4);}
+.shop-pts-info{flex:1;}
+.shop-pts-label{font-size:11px;color:var(--text2);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;}
+.shop-pts-amount{display:flex;align-items:baseline;gap:5px;}
+.shop-pts-num{font-size:32px;font-weight:900;color:#f5a623;line-height:1;font-variant-numeric:tabular-nums;}
+.shop-pts-unit{font-size:13px;color:rgba(245,166,35,.7);font-weight:700;}
+.shop-pts-detail{font-size:11px;color:var(--text2);margin-top:3px;}
+.shop-pts-cta{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.shop-pts-cta-btn{display:flex;align-items:center;gap:5px;background:rgba(29,155,240,.12);border:1px solid rgba(29,155,240,.3);color:var(--accent);font-size:11px;font-weight:700;padding:6px 10px;border-radius:9999px;cursor:pointer;transition:all .2s;white-space:nowrap;font-family:var(--font);}
+.shop-pts-cta-btn:hover{background:rgba(29,155,240,.22);border-color:rgba(29,155,240,.5);}
+/* Hero shimmer */
+.shop-hero-shine{position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent);animation:shopShine 3.5s ease-in-out infinite;}
+@keyframes shopShine{0%{left:-100%}60%,100%{left:150%}}
+
+/* Coming soon banner */
+.shop-coming{position:relative;overflow:hidden;background:linear-gradient(135deg,#060d1a 0%,#0a1628 60%,#06111f 100%);border:1px solid rgba(29,155,240,.2);border-radius:16px;padding:24px 18px;text-align:center;margin-bottom:20px;}
+.shop-coming-icon{font-size:32px;margin-bottom:8px;display:block;}
+.shop-coming-title{font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px;}
+.shop-coming p{font-size:12px;color:var(--text2);line-height:1.7;margin:0;}
+.shop-coming-dots{display:flex;justify-content:center;gap:5px;margin-top:14px;}
+.shop-coming-dot{width:6px;height:6px;border-radius:50%;background:rgba(29,155,240,.3);}
+.shop-coming-dot.active{background:var(--accent);box-shadow:0 0 8px rgba(29,155,240,.6);}
+
+/* Section headers */
+.shop-sec{display:flex;align-items:center;gap:8px;margin-bottom:12px;margin-top:4px;}
+.shop-sec-line{flex:1;height:1px;background:var(--border);}
+.shop-sec-label{font-size:10px;font-weight:800;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;}
+.shop-sec-icon{font-size:12px;opacity:.6;}
+
+/* Grid */
+.shop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:22px;}
+
+/* Cards */
+.shop-card{background:var(--bg3);border:1px solid var(--border);border-radius:16px;overflow:hidden;position:relative;transition:transform .2s,border-color .2s,box-shadow .2s;cursor:default;}
+.shop-card:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.12);box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.shop-card-img{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:44px;position:relative;overflow:hidden;}
+.shop-card-img.grad-a{background:linear-gradient(135deg,#1a0a2e,#2d1b69,#1a0a2e);}
+.shop-card-img.grad-b{background:linear-gradient(135deg,#0a1a2e,#0d3b6e,#0a1a2e);}
+.shop-card-img.grad-c{background:linear-gradient(135deg,#1a0a0a,#3d1515,#1a0a0a);}
+.shop-card-img.grad-d{background:linear-gradient(135deg,#0a1a0a,#143d14,#0a1a0a);}
+.shop-card-img-glow{position:absolute;inset:0;opacity:.3;filter:blur(20px);background:inherit;}
+.shop-card-emoji{position:relative;z-index:1;filter:drop-shadow(0 4px 12px rgba(0,0,0,.5));}
+.shop-card-body{padding:10px 12px 12px;}
+.shop-card-name{font-size:12px;font-weight:700;margin-bottom:5px;color:var(--text);}
+.shop-card-price{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:800;color:#f5a623;}
+.shop-card-price-icon{font-size:10px;}
+.shop-card-soon{position:absolute;top:8px;left:8px;display:flex;align-items:center;gap:3px;background:rgba(0,0,0,.65);backdrop-filter:blur(8px);color:rgba(255,255,255,.7);font-size:9px;font-weight:700;border-radius:6px;padding:3px 7px;border:1px solid rgba(255,255,255,.1);}
+.shop-card-soon::before{content:'';width:5px;height:5px;border-radius:50%;background:#f5a623;box-shadow:0 0 6px rgba(245,166,35,.8);flex-shrink:0;}
+.shop-card-btn{width:100%;margin-top:8px;background:linear-gradient(135deg,rgba(29,155,240,.15),rgba(29,155,240,.08));color:rgba(255,255,255,.3);border:1px solid rgba(255,255,255,.08);border-radius:9999px;padding:7px;font-size:11px;font-weight:700;cursor:not-allowed;font-family:var(--font);letter-spacing:.03em;}
+.shop-card-btn.available{background:linear-gradient(135deg,var(--accent),#1a8cd8);color:#fff;border-color:transparent;cursor:pointer;opacity:1;}
+.shop-card-btn.available:hover{filter:brightness(1.1);}
+
+/* Purchase History */
+.shop-hist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.shop-empty-hist{text-align:center;padding:28px 16px;color:var(--text2);font-size:13px;background:var(--bg3);border-radius:14px;border:1px dashed var(--border);}
+.shop-empty-hist-icon{font-size:32px;margin-bottom:8px;opacity:.5;}
+.shop-empty-hist-text{font-size:12px;color:var(--text2);}
+
+/* Tab switcher */
+.shop-tabs{display:flex;gap:4px;margin-bottom:18px;background:var(--bg3);padding:4px;border-radius:12px;}
+.shop-tab{flex:1;padding:7px 4px;text-align:center;font-size:12px;font-weight:700;color:var(--text2);border-radius:9px;cursor:pointer;transition:all .2s;font-family:var(--font);border:none;background:transparent;}
+.shop-tab.active{background:var(--bg4);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.4);}
+.shop-tab-panel{display:none;}
+.shop-tab-panel.active{display:block;}
 </style>
 </head>
 <body>
@@ -4034,88 +4092,173 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 <div class="modal-overlay" id="shop-modal">
   <div class="modal" style="max-width:480px;">
     <button class="modal-close" onclick="closeModal('shop-modal')">✕</button>
-    <div style="text-align:center;margin-bottom:16px;">
-      <div style="font-size:28px;margin-bottom:4px;">🛍️</div>
-      <div class="modal-title" style="font-size:18px;margin-bottom:0;">SicoX ショップ</div>
-    </div>
 
-    <!-- ポイントバー -->
-    <div class="shop-pts-bar">
-      <div style="font-size:26px;">💰</div>
-      <div style="flex:1;">
-        <div class="shop-pts-unit">所持ポイント</div>
-        <div style="display:flex;align-items:baseline;gap:4px;">
-          <div class="shop-pts-num" id="shop-points-val">—</div>
-          <div class="shop-pts-unit">pt</div>
-        </div>
-        <div class="shop-pts-detail" id="shop-points-detail">読み込み中…</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:10px;color:var(--text2);margin-bottom:3px;">ポイントを増やす</div>
-        <div style="font-size:11px;color:var(--accent);cursor:pointer;font-weight:700;" onclick="closeModal('shop-modal');openGameSelect();">🎮 ゲームをプレイ →</div>
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#f5a623,#e08e0a);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">🛍️</div>
+      <div>
+        <div style="font-size:17px;font-weight:800;line-height:1.2;">SicoX ショップ</div>
+        <div style="font-size:11px;color:var(--text2);">ポイントでアイテムをゲット</div>
       </div>
     </div>
 
-    <!-- 準備中バナー -->
-    <div class="shop-coming">
-      <div style="font-size:36px;">🏗️</div>
-      <div style="font-size:16px;font-weight:800;margin-top:8px;">ショップ準備中</div>
-      <p>ゲームで貯めたポイントを使って<br>アイテムや特典と交換できるショップを<br>近日公開予定です！今のうちに貯めよう🎮</p>
-    </div>
-
-    <!-- 近日公開アイテム -->
-    <div class="shop-sec">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg>
-      近日公開予定
-    </div>
-    <div class="shop-grid">
-      <div class="shop-card">
-        <div class="shop-card-soon">準備中</div>
-        <div class="shop-card-img">🎨</div>
-        <div class="shop-card-body">
-          <div class="shop-card-name">プロフィールフレーム</div>
-          <div class="shop-card-price">💰 500 pt</div>
-          <button class="shop-card-btn" disabled>準備中</button>
+    <!-- Points Hero -->
+    <div class="shop-hero">
+      <div class="shop-hero-shine"></div>
+      <div class="shop-hero-inner">
+        <div class="shop-pts-coin">💰</div>
+        <div class="shop-pts-info">
+          <div class="shop-pts-label">所持ポイント</div>
+          <div class="shop-pts-amount">
+            <div class="shop-pts-num" id="shop-points-val">—</div>
+            <div class="shop-pts-unit">pt</div>
+          </div>
+          <div class="shop-pts-detail" id="shop-points-detail">読み込み中…</div>
         </div>
-      </div>
-      <div class="shop-card">
-        <div class="shop-card-soon">準備中</div>
-        <div class="shop-card-img">✨</div>
-        <div class="shop-card-body">
-          <div class="shop-card-name">特別バッジ</div>
-          <div class="shop-card-price">💰 1,000 pt</div>
-          <button class="shop-card-btn" disabled>準備中</button>
-        </div>
-      </div>
-      <div class="shop-card">
-        <div class="shop-card-soon">準備中</div>
-        <div class="shop-card-img">🎭</div>
-        <div class="shop-card-body">
-          <div class="shop-card-name">カスタムテーマ</div>
-          <div class="shop-card-price">💰 2,000 pt</div>
-          <button class="shop-card-btn" disabled>準備中</button>
-        </div>
-      </div>
-      <div class="shop-card">
-        <div class="shop-card-soon">準備中</div>
-        <div class="shop-card-img">🏆</div>
-        <div class="shop-card-body">
-          <div class="shop-card-name">称号アイテム</div>
-          <div class="shop-card-price">💰 3,000 pt</div>
-          <button class="shop-card-btn" disabled>準備中</button>
+        <div class="shop-pts-cta">
+          <div class="shop-pts-cta-btn" onclick="closeModal('shop-modal');openGameSelect();">
+            <svg viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px;"><path d="M21 6H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1zm-9 8.5H9.5V17H8v-2.5H5.5V13H8v-2.5h1.5V13H12v1.5zm4.85-1.25a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zm2.5 2a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5z"/></svg>
+            ゲームで稼ぐ →
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 購入履歴 -->
-    <div class="shop-sec" style="margin-top:4px;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      購入履歴
+    <!-- Tabs -->
+    <div class="shop-tabs">
+      <button class="shop-tab active" onclick="shopSwitchTab('shop-tab-items',this)">アイテム</button>
+      <button class="shop-tab" onclick="shopSwitchTab('shop-tab-history',this)">購入履歴</button>
     </div>
-    <div class="shop-empty-hist" id="shop-history-list">
-      <div style="font-size:28px;margin-bottom:6px;">🛒</div>
-      まだ購入履歴はありません
+
+    <!-- Items Tab -->
+    <div id="shop-tab-items" class="shop-tab-panel active">
+
+      <!-- Coming Soon Banner -->
+      <div class="shop-coming">
+        <span class="shop-coming-icon">🏗️</span>
+        <div class="shop-coming-title">ショップ 近日公開</div>
+        <p>ゲームで貯めたポイントを使って<br>アイテムや特典と交換できます！<br>今のうちにポイントを貯めておこう</p>
+        <div class="shop-coming-dots">
+          <div class="shop-coming-dot active"></div>
+          <div class="shop-coming-dot"></div>
+          <div class="shop-coming-dot"></div>
+        </div>
+      </div>
+
+      <!-- Profile Section -->
+      <div class="shop-sec">
+        <span class="shop-sec-icon">✨</span>
+        <span class="shop-sec-label">プロフィール</span>
+        <div class="shop-sec-line"></div>
+      </div>
+      <div class="shop-grid">
+        <div class="shop-card">
+          <div class="shop-card-soon">準備中</div>
+          <div class="shop-card-img grad-a">
+            <div class="shop-card-img-glow"></div>
+            <span class="shop-card-emoji">🎨</span>
+          </div>
+          <div class="shop-card-body">
+            <div class="shop-card-name">プロフィールフレーム</div>
+            <div class="shop-card-price"><span class="shop-card-price-icon">💰</span>500 pt</div>
+            <button class="shop-card-btn" disabled>準備中</button>
+          </div>
+        </div>
+        <div class="shop-card">
+          <div class="shop-card-soon">準備中</div>
+          <div class="shop-card-img grad-b">
+            <div class="shop-card-img-glow"></div>
+            <span class="shop-card-emoji">🏷️</span>
+          </div>
+          <div class="shop-card-body">
+            <div class="shop-card-name">カスタム名前色</div>
+            <div class="shop-card-price"><span class="shop-card-price-icon">💰</span>800 pt</div>
+            <button class="shop-card-btn" disabled>準備中</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Badge Section -->
+      <div class="shop-sec">
+        <span class="shop-sec-icon">🏆</span>
+        <span class="shop-sec-label">バッジ</span>
+        <div class="shop-sec-line"></div>
+      </div>
+      <div class="shop-grid">
+        <div class="shop-card">
+          <div class="shop-card-soon">準備中</div>
+          <div class="shop-card-img grad-c">
+            <div class="shop-card-img-glow"></div>
+            <span class="shop-card-emoji">✨</span>
+          </div>
+          <div class="shop-card-body">
+            <div class="shop-card-name">特別バッジ</div>
+            <div class="shop-card-price"><span class="shop-card-price-icon">💰</span>1,000 pt</div>
+            <button class="shop-card-btn" disabled>準備中</button>
+          </div>
+        </div>
+        <div class="shop-card">
+          <div class="shop-card-soon">準備中</div>
+          <div class="shop-card-img grad-d">
+            <div class="shop-card-img-glow"></div>
+            <span class="shop-card-emoji">👑</span>
+          </div>
+          <div class="shop-card-body">
+            <div class="shop-card-name">ゴールドバッジ</div>
+            <div class="shop-card-price"><span class="shop-card-price-icon">💰</span>2,000 pt</div>
+            <button class="shop-card-btn" disabled>準備中</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Theme Section -->
+      <div class="shop-sec">
+        <span class="shop-sec-icon">🎭</span>
+        <span class="shop-sec-label">テーマ</span>
+        <div class="shop-sec-line"></div>
+      </div>
+      <div class="shop-grid">
+        <div class="shop-card">
+          <div class="shop-card-soon">準備中</div>
+          <div class="shop-card-img" style="background:linear-gradient(135deg,#1a1a2e,#16213e,#0f3460);">
+            <div class="shop-card-img-glow"></div>
+            <span class="shop-card-emoji">🌌</span>
+          </div>
+          <div class="shop-card-body">
+            <div class="shop-card-name">カスタムテーマ</div>
+            <div class="shop-card-price"><span class="shop-card-price-icon">💰</span>2,000 pt</div>
+            <button class="shop-card-btn" disabled>準備中</button>
+          </div>
+        </div>
+        <div class="shop-card">
+          <div class="shop-card-soon">準備中</div>
+          <div class="shop-card-img" style="background:linear-gradient(135deg,#2d1b69,#11998e,#1a0a2e);">
+            <div class="shop-card-img-glow"></div>
+            <span class="shop-card-emoji">🏆</span>
+          </div>
+          <div class="shop-card-body">
+            <div class="shop-card-name">称号アイテム</div>
+            <div class="shop-card-price"><span class="shop-card-price-icon">💰</span>3,000 pt</div>
+            <button class="shop-card-btn" disabled>準備中</button>
+          </div>
+        </div>
+      </div>
+
     </div>
+
+    <!-- History Tab -->
+    <div id="shop-tab-history" class="shop-tab-panel">
+      <div class="shop-sec" style="margin-top:0;">
+        <span class="shop-sec-icon">📋</span>
+        <span class="shop-sec-label">購入履歴</span>
+        <div class="shop-sec-line"></div>
+      </div>
+      <div class="shop-empty-hist" id="shop-history-list">
+        <div class="shop-empty-hist-icon">🛒</div>
+        <div class="shop-empty-hist-text">まだ購入履歴はありません</div>
+      </div>
+    </div>
+
   </div>
 </div>
 

@@ -538,6 +538,10 @@ body.modal-open{overflow:hidden;}
 .shop-empty-hist{text-align:center;padding:40px 16px;color:#bbb;}
 .shop-empty-hist-icon{font-size:36px;margin-bottom:8px;opacity:.5;}
 .shop-empty-hist-text{font-size:13px;color:#aaa;}
+/* ポイント不足バッジ */
+.shop-item{position:relative;}
+.shop-item.low-pt .shop-item-thumb::after{content:'不足';position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);color:#ffb3b3;font-size:8px;font-weight:800;text-align:center;padding:4px 0;letter-spacing:.04em;}
+.shop-item.low-pt .shop-item-price{color:#bbb;}
 </style>
 </head>
 <body>
@@ -3117,14 +3121,39 @@ function openShop(){
   document.body.classList.add('modal-open');
   const valEl=document.getElementById('shop-points-val');
   const detailEl=document.getElementById('shop-points-detail');
-  valEl.textContent='…';detailEl.textContent='読み込み中…';
+  valEl.textContent='…';
+  if(detailEl) detailEl.textContent='読み込み中…';
   Promise.all([dbFetchEarnedPoints(currentUser.handle),dbFetchSpentPoints(currentUser.handle)])
     .then(([earned,spent])=>{
-      const avail=earned-spent;
+      const avail=Math.max(0, earned-spent);
       valEl.textContent=avail.toLocaleString();
-      detailEl.textContent=`獲得 ${earned.toLocaleString()}pt ／ 使用 ${spent.toLocaleString()}pt`;
+      if(detailEl) detailEl.textContent=`獲得 ${earned.toLocaleString()}pt ／ 使用 ${spent.toLocaleString()}pt`;
+      updateShopItemStates(avail);
     })
-    .catch(()=>{ valEl.textContent='—'; detailEl.textContent='取得に失敗しました'; });
+    .catch(()=>{ valEl.textContent='—'; if(detailEl) detailEl.textContent='取得に失敗しました'; });
+}
+
+// 所持ポイントに応じて各アイテムの購入可否を更新
+function updateShopItemStates(avail){
+  document.querySelectorAll('#shop-modal .shop-item[data-cost]').forEach(item=>{
+    const cost=parseInt(item.dataset.cost,10);
+    if(cost>avail){ item.classList.add('low-pt'); }
+    else { item.classList.remove('low-pt'); }
+  });
+}
+
+// アイテムカードタップ時の処理
+function shopItemClick(el){
+  const cost=parseInt(el.dataset.cost,10);
+  const rawVal=document.getElementById('shop-points-val').textContent.replace(/,/g,'');
+  const avail=parseInt(rawVal,10);
+  if(isNaN(avail)){showToast('ポイントを取得中です。しばらくお待ちください');return;}
+  if(cost>avail){
+    showToast(`ポイントが不足しています（必要: ${cost.toLocaleString()}pt／所持: ${avail.toLocaleString()}pt）`);
+    return;
+  }
+  // 購入機能は準備中
+  showToast('現在このアイテムは準備中です。もうしばらくお待ちください🙏');
 }
 function closeShop(){ closeModal('shop-modal'); }
 function shopSwitchTab(panelId, btn){
@@ -4152,6 +4181,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-pts-unit">pt</div>
         </div>
         <div class="shop-pts-label">所持ポイント</div>
+        <div id="shop-points-detail" style="font-size:9px;color:#bbb;margin-top:1px;">読み込み中…</div>
       </div>
       <button class="shop-pts-game-btn" onclick="closeModal('shop-modal');openGameSelect();">🎮&nbsp;ゲームで稼ぐ</button>
     </div>
@@ -4169,7 +4199,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
       <div class="shop-sec-lbl">購入できるアイテム</div>
       <div class="shop-grid">
 
-        <div class="shop-item">
+        <div class="shop-item" data-cost="300" onclick="shopItemClick(this)">
           <div class="shop-item-thumb ti-a">🌟</div>
           <div class="shop-item-body">
             <div class="shop-item-name">スターバッジ</div>
@@ -4177,7 +4207,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           </div>
         </div>
 
-        <div class="shop-item">
+        <div class="shop-item" data-cost="500" onclick="shopItemClick(this)">
           <div class="shop-item-thumb ti-e">🌊</div>
           <div class="shop-item-body">
             <div class="shop-item-name">ネームカラー（ブルー）</div>

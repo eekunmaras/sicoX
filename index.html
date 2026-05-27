@@ -751,6 +751,16 @@ body.modal-open{overflow:hidden;}
       <input type="file" id="av-file" accept="image/*" style="display:none" onchange="onAvSelect(event)">
     </div>
     <div id="av-up-status" style="font-size:11px;color:var(--text2);text-align:center;margin-bottom:8px;min-height:14px;"></div>
+    <!-- ── ポイント表示 ── -->
+    <div id="profile-points-wrap" style="display:none;margin:6px 0 14px;padding:12px 16px;background:linear-gradient(135deg,rgba(255,193,7,.12),rgba(255,152,0,.08));border:1px solid rgba(255,193,7,.35);border-radius:14px;text-align:center;">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.08em;margin-bottom:4px;">💰 所持ポイント</div>
+      <div style="display:flex;align-items:baseline;justify-content:center;gap:6px;">
+        <span id="profile-points-val" style="font-size:28px;font-weight:900;color:#f5a623;line-height:1;">0</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text2);">pt</span>
+      </div>
+      <div id="profile-points-sub" style="font-size:11px;color:var(--text2);margin-top:4px;">（獲得 <span id="profile-points-earned">0</span>pt ／ 使用 <span id="profile-points-spent">0</span>pt）</div>
+    </div>
+    <div id="profile-points-loading" style="text-align:center;margin:8px 0 14px;font-size:12px;color:var(--text2);">⏳ ポイント取得中…</div>
     <div class="field-label">表示名</div>
     <input class="txt-field" id="profile-name" placeholder="例：田中 太郎" maxlength="20">
     <div class="field-label">@ハンドル（半角英数字・_）</div>
@@ -2218,6 +2228,51 @@ function applyUser(){
   document.getElementById('name-banner').style.display='none';
 }
 
+// ══════════════════════════════════════
+// ポイントシステム
+// ══════════════════════════════════════
+
+async function dbFetchEarnedPoints(handle){
+  const {data,error}=await sb.from('taika_scores').select('score').eq('user_handle',handle);
+  if(error||!data) return 0;
+  return data.reduce((sum,row)=>sum+(row.score||0), 0);
+}
+
+async function dbFetchSpentPoints(handle){
+  // point_transactions テーブル未作成の場合は 0 を返す（ショップ機能実装後に有効化）
+  try{
+    const {data,error}=await sb.from('point_transactions')
+      .select('delta').eq('user_handle',handle).lt('delta',0);
+    if(error||!data) return 0;
+    return data.reduce((sum,row)=>sum+Math.abs(row.delta||0), 0);
+  }catch(e){ return 0; }
+}
+
+async function loadUserPoints(handle){
+  const wrap=document.getElementById('profile-points-wrap');
+  const loading=document.getElementById('profile-points-loading');
+  const valEl=document.getElementById('profile-points-val');
+  const earnedEl=document.getElementById('profile-points-earned');
+  const spentEl=document.getElementById('profile-points-spent');
+  if(!handle){wrap.style.display='none';loading.style.display='none';return;}
+  wrap.style.display='none';
+  loading.style.display='block';
+  try{
+    const [earned,spent]=await Promise.all([
+      dbFetchEarnedPoints(handle),
+      dbFetchSpentPoints(handle)
+    ]);
+    const available=earned-spent;
+    valEl.textContent=available.toLocaleString();
+    earnedEl.textContent=earned.toLocaleString();
+    spentEl.textContent=spent.toLocaleString();
+    loading.style.display='none';
+    wrap.style.display='block';
+  }catch(e){
+    loading.textContent='⚠️ ポイント取得に失敗しました';
+  }
+}
+
 function openProfileModal(){
   pendingAvUrl=null;pendingCoverUrl=null;
   document.getElementById('av-up-status').textContent='';
@@ -2230,7 +2285,12 @@ function openProfileModal(){
     p.style.background=currentUser.color||'#444';
     p.innerHTML=currentUser.avatarUrl?`<img src="${esc(currentUser.avatarUrl)}" alt="" style="width:72px;height:72px;object-fit:cover;">`:`${esc(initials(currentUser.name))}`;
     if(currentUser.coverUrl){const ci=document.getElementById('cover-edit-wrap');ci.innerHTML=`<img src="${esc(currentUser.coverUrl)}" style="width:100%;height:100%;object-fit:cover;"><div class="cover-edit-overlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>カバーを変更</div>`;document.getElementById('cover-edit-wrap').onclick=()=>document.getElementById('cover-file').click();}
-  }else{document.getElementById('profile-name').value='';document.getElementById('profile-handle').value='';document.getElementById('profile-bio').value='';p.textContent='?';p.style.background='#444';}
+    loadUserPoints(currentUser.handle);
+  }else{
+    document.getElementById('profile-name').value='';document.getElementById('profile-handle').value='';document.getElementById('profile-bio').value='';p.textContent='?';p.style.background='#444';
+    document.getElementById('profile-points-wrap').style.display='none';
+    document.getElementById('profile-points-loading').style.display='none';
+  }
   document.getElementById('profile-modal').classList.add('open');
   document.body.classList.add('modal-open');
 }

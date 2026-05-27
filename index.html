@@ -4378,7 +4378,8 @@ function loadImages(){
     charImgs[i]=img;
   }
   const ei=new Image();
-  ei.onload=()=>{enemyImg=ei;};
+  ei.onload=()=>{enemyImg=ei;drawEnemy();};
+  ei.onerror=()=>{setTimeout(()=>{const ei2=new Image();ei2.onload=()=>{enemyImg=ei2;drawEnemy();};ei2.src=_base+'pazdora7.png?r='+Date.now();},800);};
   ei.src=_base+'pazdora7.png';
   if(phase!=='START')initChars();
 }
@@ -4658,7 +4659,7 @@ function endGame(){
   phase='OVER';stopTimer();drag=null;lastScore=score;
   // スコア送信
   parent.postMessage({type:'puzzled:score',score},'*');
-  const r=score>=2000?'SS':score>=1500?'S':score>=800?'A':score>=400?'B':'C';
+  const r=score>=5500?'SS':score>=4500?'S':score>=3000?'A':score>=1500?'B':'C';
   const rd={SS:'ドラゴンズ神！',S:'エース級！',A:'レギュラー',B:'二軍スタート',C:'育成選手'}[r];
   const rk=document.getElementById('go-rank');
   rk.textContent=r;rk.className='r-'+r;

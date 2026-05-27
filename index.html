@@ -3455,34 +3455,50 @@ canvas.next-cv{display:block;margin:0 auto;}
 #ranking-close{display:block;width:100%;margin-top:12px;background:#001166;border:1px solid #3366cc;color:#88bbff;border-radius:8px;padding:7px;font-size:13px;cursor:pointer;font-family:inherit;}
 
 
-/* ── Shop modal ── */
+/* ── Shop modal – Mercari style ── */
+#shop-modal .modal{background:#f0f0f0;padding:0;overflow:hidden;border:none;}
+#shop-modal .modal-close{display:none;}
+
+/* Red Mercari header */
+.shop-mc-header{background:#e9383f;display:flex;align-items:center;padding:0;}
+.shop-mc-header-inner{display:flex;align-items:center;gap:8px;padding:13px 16px;flex:1;}
+.shop-mc-logo{font-size:13px;font-weight:900;color:#fff;letter-spacing:-.3px;}
+.shop-mc-title{font-size:16px;font-weight:800;color:#fff;}
+.shop-mc-close{background:transparent;border:none;color:rgba(255,255,255,.85);font-size:22px;cursor:pointer;width:46px;height:46px;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;}
+.shop-mc-close:hover{background:rgba(0,0,0,.12);}
+
 /* Points bar */
-.shop-pts-bar{display:flex;align-items:center;gap:12px;padding:14px 16px;background:#111;border:1px solid var(--border);border-radius:14px;margin-bottom:16px;}
-.shop-pts-coin{font-size:22px;flex-shrink:0;line-height:1;}
+.shop-pts-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff;border-bottom:1px solid #e0e0e0;margin-bottom:0;border-radius:0;}
+.shop-pts-coin{font-size:18px;flex-shrink:0;line-height:1;}
 .shop-pts-mid{flex:1;min-width:0;}
-.shop-pts-row{display:flex;align-items:baseline;gap:4px;flex-wrap:nowrap;}
-.shop-pts-num{font-size:26px;font-weight:900;color:#f5a623;line-height:1;white-space:nowrap;}
-.shop-pts-unit{font-size:12px;color:rgba(245,166,35,.8);font-weight:700;flex-shrink:0;}
-.shop-pts-label{font-size:11px;color:var(--text2);margin-top:2px;}
-.shop-pts-game-btn{display:flex;align-items:center;gap:5px;background:var(--accent);color:#fff;font-size:12px;font-weight:700;padding:8px 12px;border-radius:9999px;cursor:pointer;white-space:nowrap;flex-shrink:0;border:none;font-family:var(--font);transition:background .15s;}
-.shop-pts-game-btn:hover{background:var(--ah);}
+.shop-pts-row{display:flex;align-items:baseline;gap:3px;flex-wrap:nowrap;}
+.shop-pts-num{font-size:22px;font-weight:900;color:#e9383f;line-height:1;white-space:nowrap;}
+.shop-pts-unit{font-size:11px;color:#e9383f;font-weight:700;flex-shrink:0;}
+.shop-pts-label{font-size:10px;color:#999;margin-top:1px;}
+.shop-pts-game-btn{display:flex;align-items:center;gap:5px;background:#e9383f;color:#fff;font-size:11px;font-weight:700;padding:7px 11px;border-radius:9999px;cursor:pointer;white-space:nowrap;flex-shrink:0;border:none;font-family:var(--font);transition:background .15s;}
+.shop-pts-game-btn:hover{background:#c92e34;}
 
 /* Tabs */
-.shop-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:16px;}
-.shop-tab{flex:1;padding:10px 4px;text-align:center;font-size:13px;font-weight:600;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;transition:color .15s;background:transparent;border-top:none;border-left:none;border-right:none;font-family:var(--font);}
-.shop-tab.active{color:var(--text);border-bottom-color:var(--accent);}
+.shop-tabs{display:flex;border-bottom:2px solid #e0e0e0;margin-bottom:0;background:#fff;}
+.shop-tab{flex:1;padding:11px 4px;text-align:center;font-size:13px;font-weight:600;color:#888;border-bottom:2px solid transparent;margin-bottom:-2px;cursor:pointer;transition:color .15s;background:transparent;border-top:none;border-left:none;border-right:none;font-family:var(--font);}
+.shop-tab.active{color:#e9383f;border-bottom-color:#e9383f;}
 .shop-tab-panel{display:none;}
 .shop-tab-panel.active{display:block;}
 
-/* Section label */
-.shop-sec-lbl{font-size:12px;font-weight:700;color:var(--text2);margin:0 0 10px;padding-left:2px;}
+/* Scrollable panels */
+#shop-tab-items{background:#f0f0f0;padding:10px 8px 16px;max-height:60vh;overflow-y:auto;}
+#shop-tab-history{background:#f0f0f0;padding:10px 8px 16px;max-height:60vh;overflow-y:auto;}
 
-/* Mercari-style grid */
-.shop-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px;}
+/* Section label */
+.shop-sec-lbl{font-size:10px;font-weight:700;color:#aaa;margin:4px 0 8px 2px;letter-spacing:.06em;text-transform:uppercase;}
+
+/* 3-column Mercari grid */
+.shop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:14px;}
 
 /* Item card */
-.shop-item{border-radius:12px;overflow:hidden;background:var(--bg3);border:1px solid var(--border);display:flex;flex-direction:column;}
-.shop-item-thumb{width:100%;aspect-ratio:1;position:relative;display:flex;align-items:center;justify-content:center;font-size:48px;flex-shrink:0;}
+.shop-item{border-radius:4px;overflow:hidden;background:#fff;border:none;display:flex;flex-direction:column;cursor:pointer;transition:opacity .1s;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+.shop-item:active{opacity:.75;}
+.shop-item-thumb{width:100%;aspect-ratio:1;position:relative;display:flex;align-items:center;justify-content:center;font-size:34px;flex-shrink:0;}
 .shop-item-thumb.ti-a{background:linear-gradient(145deg,#1a0a2e,#2d1b69);}
 .shop-item-thumb.ti-b{background:linear-gradient(145deg,#0a1a2e,#0d3b6e);}
 .shop-item-thumb.ti-c{background:linear-gradient(145deg,#1a2a0a,#2a4d0a);}
@@ -3490,22 +3506,21 @@ canvas.next-cv{display:block;margin:0 auto;}
 .shop-item-thumb.ti-e{background:linear-gradient(145deg,#0a1a1a,#0d4040);}
 .shop-item-thumb.ti-f{background:linear-gradient(145deg,#1a1a0a,#3d3d00);}
 /* Coming-soon overlay */
-.shop-item-thumb-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;}
-.shop-item-sold-badge{background:rgba(0,0,0,.7);color:rgba(255,255,255,.8);font-size:10px;font-weight:700;padding:4px 10px;border-radius:4px;letter-spacing:.05em;}
+.shop-item-thumb-overlay{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;}
+.shop-item-sold-badge{background:rgba(255,255,255,.92);color:#555;font-size:9px;font-weight:800;padding:3px 8px;border-radius:3px;letter-spacing:.04em;}
 /* Card body */
-.shop-item-body{padding:8px 10px 10px;display:flex;flex-direction:column;gap:4px;flex:1;}
-.shop-item-name{font-size:12px;font-weight:600;color:var(--text);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.shop-item-price{display:flex;align-items:center;gap:3px;font-size:13px;font-weight:800;color:#f5a623;}
-.shop-item-price-icon{font-size:10px;}
-.shop-item-btn{margin-top:auto;padding-top:6px;}
-.shop-buy-btn{width:100%;padding:7px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);border:none;background:var(--accent);color:#fff;transition:background .15s;}
-.shop-buy-btn:hover{background:var(--ah);}
-.shop-buy-btn.disabled{background:#222;color:rgba(255,255,255,.3);cursor:not-allowed;}
+.shop-item-body{padding:5px 6px 7px;display:flex;flex-direction:column;gap:2px;flex:1;}
+.shop-item-name{font-size:10px;font-weight:500;color:#333;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.shop-item-price{display:flex;align-items:center;gap:1px;font-size:12px;font-weight:800;color:#e9383f;margin-top:2px;}
+.shop-item-price-icon{font-size:9px;}
+/* Hide buy button – tap card to purchase (Mercari style) */
+.shop-item-btn{display:none;}
+.shop-buy-btn{display:none;}
 
 /* Empty history */
-.shop-empty-hist{text-align:center;padding:32px 16px;color:var(--text2);}
-.shop-empty-hist-icon{font-size:36px;margin-bottom:8px;opacity:.4;}
-.shop-empty-hist-text{font-size:13px;}
+.shop-empty-hist{text-align:center;padding:40px 16px;color:#bbb;}
+.shop-empty-hist-icon{font-size:36px;margin-bottom:8px;opacity:.5;}
+.shop-empty-hist-text{font-size:13px;color:#aaa;}
 </style>
 </head>
 <body>
@@ -4073,15 +4088,14 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 <!-- Shop modal -->
 <div class="modal-overlay" id="shop-modal">
   <div class="modal" style="max-width:480px;">
-    <button class="modal-close" onclick="closeModal('shop-modal')">✕</button>
 
-    <!-- Header -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-      <div style="font-size:22px;line-height:1;">🛍️</div>
-      <div>
-        <div style="font-size:16px;font-weight:800;">SicoX ショップ</div>
-        <div style="font-size:11px;color:var(--text2);">ポイントでアイテムをゲット</div>
+    <!-- Mercari-style red header -->
+    <div class="shop-mc-header">
+      <div class="shop-mc-header-inner">
+        <span style="font-size:20px;line-height:1;">🛍️</span>
+        <span class="shop-mc-title">SicoX ショップ</span>
       </div>
+      <button class="shop-mc-close" onclick="closeModal('shop-modal')">✕</button>
     </div>
 
     <!-- Points bar -->
@@ -4115,7 +4129,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-item-body">
             <div class="shop-item-name">スターバッジ</div>
             <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>300 pt</div>
-            <div class="shop-item-btn"><button class="shop-buy-btn">購入する</button></div>
           </div>
         </div>
 
@@ -4124,7 +4137,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-item-body">
             <div class="shop-item-name">ネームカラー（ブルー）</div>
             <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>500 pt</div>
-            <div class="shop-item-btn"><button class="shop-buy-btn">購入する</button></div>
           </div>
         </div>
 
@@ -4142,7 +4154,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-item-body">
             <div class="shop-item-name">プロフィールフレーム</div>
             <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>500 pt</div>
-            <div class="shop-item-btn"><button class="shop-buy-btn disabled" disabled>準備中</button></div>
           </div>
         </div>
 
@@ -4154,7 +4165,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-item-body">
             <div class="shop-item-name">特別バッジ</div>
             <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>1,000 pt</div>
-            <div class="shop-item-btn"><button class="shop-buy-btn disabled" disabled>準備中</button></div>
           </div>
         </div>
 
@@ -4166,7 +4176,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-item-body">
             <div class="shop-item-name">カスタムテーマ</div>
             <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>2,000 pt</div>
-            <div class="shop-item-btn"><button class="shop-buy-btn disabled" disabled>準備中</button></div>
           </div>
         </div>
 
@@ -4178,7 +4187,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-item-body">
             <div class="shop-item-name">称号アイテム</div>
             <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>3,000 pt</div>
-            <div class="shop-item-btn"><button class="shop-buy-btn disabled" disabled>準備中</button></div>
           </div>
         </div>
 
@@ -4190,7 +4198,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-item-body">
             <div class="shop-item-name">ゴールドバッジ</div>
             <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>2,000 pt</div>
-            <div class="shop-item-btn"><button class="shop-buy-btn disabled" disabled>準備中</button></div>
           </div>
         </div>
 
@@ -4202,7 +4209,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <div class="shop-item-body">
             <div class="shop-item-name">カスタム名前色</div>
             <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>800 pt</div>
-            <div class="shop-item-btn"><button class="shop-buy-btn disabled" disabled>準備中</button></div>
           </div>
         </div>
 

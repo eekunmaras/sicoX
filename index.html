@@ -4671,6 +4671,26 @@ function endGame(){
   document.getElementById('gameover').classList.add('show');
 }
 (()=>{mkBoard();drawBoard();drawEnemy();drawMini();drawTimeBar();})();
+
+// ── 画面に収まるようスケール調整 ──
+function fitWrap(){
+  const wrap=document.getElementById('wrap');
+  // 自然高さを一旦リセットして取得
+  wrap.style.transform='';
+  const naturalW=420;
+  const naturalH=wrap.scrollHeight||689;
+  const scaleX=window.innerWidth/naturalW;
+  const scaleY=window.innerHeight/naturalH;
+  const scale=Math.min(scaleX,scaleY,1);
+  wrap.style.transformOrigin='top center';
+  wrap.style.transform=\`scale(\${scale})\`;
+  // bodyの高さをスケール後に合わせてセンタリング
+  document.body.style.minHeight=(naturalH*scale)+'px';
+  document.body.style.alignItems='flex-start';
+}
+window.addEventListener('resize',fitWrap);
+// フォントロード後に計測するため少し遅延
+setTimeout(fitWrap,120);
 <\/script>
 </body>
 </html>`

@@ -970,7 +970,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 // ══════════════════════════════════════
 // Groq AI Bot 設定 (@grok)
 // ══════════════════════════════════════
-const GROQ_API_KEY = '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';
+const GROQ_PROXY_URL = '/groq-proxy'; // Cloudflare Pages Function経由
 const GROQ_MODEL   = 'llama-3.3-70b-versatile'; // 使用モデル（変更可）
 
 // grokボットのユーザー情報（固定）
@@ -1916,17 +1916,6 @@ async function submitReply(parentId){
 // Groq AI Bot (@grok) 本体
 // ══════════════════════════════════════
 async function callGroqAndReply(parentId, userText){
-  // APIキー未設定ガード
-  if(!GROQ_API_KEY){
-    const errTweet={id:uid(),user:{...GROK_USER},
-      text:'⚠️ Groq APIキーが未設定です。コード内の GROQ_API_KEY に取得したキーを貼り付けてください。',
-      imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,
-      replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
-    tweets.push(errTweet);
-    showThread(parentId);
-    await dbPostTweet(errTweet);
-    return;
-  }
 
   // 親ツイートのテキスト取得
   const parent=tweets.find(t=>t.id===parentId);
@@ -1962,11 +1951,10 @@ async function callGroqAndReply(parentId, userText){
       userMessage=prompt||'何か教えてください。';
     }
 
-    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    const res=await fetch(GROQ_PROXY_URL,{
       method:'POST',
       headers:{
-        'Content-Type':'application/json',
-        'Authorization':'Bearer '+GROQ_API_KEY
+        'Content-Type':'application/json'
       },
       body:JSON.stringify({
         model:GROQ_MODEL,
@@ -2012,17 +2000,6 @@ async function callGroqAndReply(parentId, userText){
 // Groq AI Bot – 親ツイートに @grok がある場合の返信への自動応答
 // ══════════════════════════════════════
 async function callGroqAndReplyInherited(replyTargetId, threadRootId, parentTweet, replyText){
-  if(!GROQ_API_KEY){
-    const errTweet={id:uid(),user:{...GROK_USER},
-      text:'⚠️ Groq APIキーが未設定です。コード内の GROQ_API_KEY に取得したキーを貼り付けてください。',
-      imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,
-      replyTo:replyTargetId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
-    tweets.push(errTweet);
-    showThread(threadRootId);
-    await dbPostTweet(errTweet);
-    return;
-  }
-
   // 「考え中…」仮ツイートを先に挿入
   const tempId=uid();
   const tempTweet={id:tempId,user:{...GROK_USER},
@@ -2043,11 +2020,10 @@ async function callGroqAndReplyInherited(replyTargetId, threadRootId, parentTwee
       `【@grokが含まれていた元のポスト / @${parentTweet.user.handle}】\n${parentTweet.text}\n\n`+
       `【その返信 / @${currentUser.handle}】\n${replyText}`;
 
-    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+    const res=await fetch(GROQ_PROXY_URL,{
       method:'POST',
       headers:{
-        'Content-Type':'application/json',
-        'Authorization':'Bearer '+GROQ_API_KEY
+        'Content-Type':'application/json'
       },
       body:JSON.stringify({
         model:GROQ_MODEL,

@@ -4286,7 +4286,7 @@ body{
       <div class="sm-orb" style="background:#009900;color:#009900"></div>
       <div class="sm-orb" style="background:#cc9900;color:#cc9900"></div>
       <div class="sm-orb" style="background:#7700cc;color:#7700cc"></div>
-      <div class="sm-orb" style="background:#cc1166;color:#cc1166"></div>
+      <div class="sm-orb" style="background:#cc1166;color:#cc1166;border-radius:20%"></div>
     </div>
     <div id="start-desc">
       30秒以内に何コンボ組める？<br>
@@ -4409,21 +4409,23 @@ function drawSymbol(ctx,r,type){
 function drawOrb(ctx,cx,cy,radius,type,{alpha=1,sc=1,dimmed=false,glow=false}={}){
   if(type===null)return;
   const d=ORB[type];
+  const isSquare=(type===5); // ハート（ピンク）のみ四角形
+  const _path=()=>{ctx.beginPath();if(isSquare){ctx.roundRect(-radius,-radius,radius*2,radius*2,radius*0.22);}else{ctx.arc(0,0,radius,0,Math.PI*2);}};
   ctx.save();ctx.globalAlpha=alpha;ctx.translate(cx,cy);
   if(sc!==1)ctx.scale(sc,sc);
   if(glow){ctx.shadowColor=d.glow;ctx.shadowBlur=20;}
   const gr=ctx.createRadialGradient(-radius*.28,-radius*.32,radius*.04,0,0,radius);
   if(dimmed){gr.addColorStop(0,'rgba(155,155,175,0.55)');gr.addColorStop(1,'rgba(55,55,75,0.55)');}
   else{gr.addColorStop(0,d.hi);gr.addColorStop(.42,d.main);gr.addColorStop(1,d.lo);}
-  ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fillStyle=gr;ctx.fill();
+  _path();ctx.fillStyle=gr;ctx.fill();
   ctx.shadowBlur=0;
   if(!dimmed)drawSymbol(ctx,radius,type);
   if(!dimmed){
     const sh=ctx.createRadialGradient(-radius*.3,-radius*.36,0,-radius*.15,-radius*.2,radius*.58);
     sh.addColorStop(0,'rgba(255,255,255,0.62)');sh.addColorStop(.45,'rgba(255,255,255,0.09)');sh.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fillStyle=sh;ctx.fill();
+    _path();ctx.fillStyle=sh;ctx.fill();
   }
-  ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);
+  _path();
   ctx.strokeStyle=dimmed?'rgba(200,200,220,0.18)':\`rgba(\${d.rgb},0.55)\`;
   ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
 }

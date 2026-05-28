@@ -6,7 +6,8 @@
     "enabled": true
   },
   "assets": {
-    "directory": "."
+    "directory": ".",
+    "binding": "ASSETS"
   },
   "compatibility_flags": [
     "nodejs_compat"

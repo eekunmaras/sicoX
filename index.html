@@ -1047,6 +1047,26 @@ let activeBadgeUrl = null;  // 現在アクティブなバッジURL（新ツイ�
 let ownedBadges    = [];     // 購入済みバッジ [{id, url, purchasedAt}]
 let shopHistory    = JSON.parse(localStorage.getItem('mn_shop_history')||'[]');
 
+// ── バッジ名定義（グローバル） ──
+const BADGE_NAMES = {
+  'badge1' : '公認バッジ',
+  'badge2' : 'ミャクミャク',
+  'badge3' : '野獣',
+  'badge4' : '駒井',
+  'badge5' : 'ビックモーター',
+  'badge6' : '旧Sicotter',
+  'badge7' : '旧Sicotter Premium',
+  'badge8' : '手書きバッジ',
+  'badge9' : 'ダークドラゴンエンペラークロニクルMk:Ⅱ',
+  'badge10': 'コミック',
+  'badge11': 'アニマルキングダム',
+  'badge12': 'ソ連',
+  'badge13': '北朝鮮',
+  'badge14': 'ラブリーポッピン',
+  'badge15': 'キューティーファイン',
+  'badge16': 'クレイジージャニー'
+};
+
 
 // ── Notifications ──
 let notifications = []; // {id, tweetId, fromHandle, fromName, text, ts, read}
@@ -3324,24 +3344,6 @@ function renderShopBadgeSettings(){
   if(!wrap) return;
   if(!ownedBadges.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
-  const BADGE_NAMES={
-    'badge1' :'公認バッジ',
-    'badge2' :'ミャクミャク',
-    'badge3' :'野獣',
-    'badge4' :'駒井',
-    'badge5' :'ビックモーター',
-    'badge6' :'旧Sicotter',
-    'badge7' :'旧Sicotter Premium',
-    'badge8' :'手書きバッジ',
-    'badge9' :'ダークドラゴンエンペラークロニクルMk:Ⅱ',
-    'badge10':'コミック',
-    'badge11':'アニマルキングダム',
-    'badge12':'ソ連',
-    'badge13':'北朝鮮',
-    'badge14':'ラブリーポッピン',
-    'badge15':'キューティーファイン',
-    'badge16':'クレイジージャニー'
-  };
   wrap.innerHTML=`
     <div class="shop-sec-lbl" style="margin:6px 0 8px 2px;">バッジ設定</div>
     ${ownedBadges.map(b=>{

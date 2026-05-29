@@ -2373,9 +2373,10 @@ async function dbFetchActiveBadge(handle){
 // ── バッジ購入 ──
 async function dbBuyBadge(handle, badgeId, badgeUrl, cost){
   try{
-    // 既に所持か確認
-    const {data:exist}=await sb.from('user_badges').select('id')
+    // 既に所持か確認（エラー自体もチェック）
+    const {data:exist, error:checkErr}=await sb.from('user_badges').select('id')
       .eq('user_handle',handle).eq('badge_id',badgeId).maybeSingle();
+    if(checkErr){ console.error('user_badges check error',checkErr); return {ok:false,reason:'db_error'}; }
     if(exist) return {ok:false,reason:'already_owned'};
     // ポイント消費トランザクション
     const {error:te}=await sb.from('point_transactions').insert({
@@ -2386,7 +2387,14 @@ async function dbBuyBadge(handle, badgeId, badgeUrl, cost){
     const {error:be}=await sb.from('user_badges').insert({
       user_handle:handle, badge_id:badgeId, badge_url:badgeUrl
     });
-    if(be){ console.error('user_badges error',be); return {ok:false,reason:'badge_insert_failed'}; }
+    if(be){
+      // バッジ付与失敗 → ポイントを即返還
+      console.error('user_badges insert error',be);
+      await sb.from('point_transactions').insert({
+        user_handle:handle, delta:cost, reason:`バッジ購入キャンセル返還: ${badgeId}`, ref_id:badgeId
+      });
+      return {ok:false,reason:'badge_insert_failed'};
+    }
     return {ok:true};
   }catch(e){ return {ok:false,reason:String(e)}; }
 }

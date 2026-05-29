@@ -544,7 +544,7 @@ body.modal-open{overflow:hidden;}
 .shop-item.low-pt .shop-item-price{color:#bbb;}
 
 /* ── ユーザーバッジ（ツイート内） ── */
-.tw-badge-img{width:18px;height:18px;vertical-align:middle;margin:0 3px 1px 1px;object-fit:contain;display:inline-block;flex-shrink:0;}
+.tw-badge-img{width:18px;height:18px;align-self:center;margin:0 3px 0 1px;object-fit:contain;display:inline-block;flex-shrink:0;}
 
 /* ── ショップ バッジ設定セクション ── */
 .shop-badge-settings-section{background:#f0f0f0;padding:0 8px 8px;}
@@ -1883,8 +1883,8 @@ function showThread(tweetId, fromHistory=false){
       <div style="display:flex;gap:10px;align-items:flex-start;">
         <div onclick="showUserPage('${esc(parent.user.handle)}')">${avHTML(parent.user,'av-48 av-c')}</div>
         <div>
-          <div class="tw-name" style="font-size:16px;" onclick="showUserPage('${esc(parent.user.handle)}')">${esc(parent.user.name)}</div>
-          ${parent.badgeUrl?`<img class="tw-badge-img" src="${esc(parent.badgeUrl)}" alt="バッジ" title="公認バッジ" style="width:20px;height:20px;">`:''}
+          <div style="display:flex;align-items:center;gap:4px;"><div class="tw-name" style="font-size:16px;" onclick="showUserPage('${esc(parent.user.handle)}')">${esc(parent.user.name)}</div>
+          ${parent.badgeUrl?`<img class="tw-badge-img" src="${esc(parent.badgeUrl)}" alt="バッジ" title="公認バッジ" style="width:20px;height:20px;align-self:center;">`:''}</div>
           <div class="tw-handle" style="font-size:13px;" onclick="showUserPage('${esc(parent.user.handle)}')" >@${esc(parent.user.handle)}</div>
         </div>
       </div>

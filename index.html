@@ -558,8 +558,8 @@ body.modal-open{overflow:hidden;}
 .badge-toggle-btn.off{background:#eee;color:#666;}
 .badge-toggle-btn.off:hover{background:#ddd;}
 /* ショップ アイテム 所有済み状態 */
-.shop-item.owned .shop-item-price{color:#22aa66;}
-.shop-item.owned .shop-item-price::before{content:'✓ 所有済 ';}
+.shop-item.owned .shop-item-price{display:none;}
+.shop-item.owned .shop-item-body::after{content:'✓ 所有済み';font-size:11px;font-weight:800;color:#22aa66;display:block;margin-top:3px;}
 </style>
 </head>
 <body>
@@ -3288,7 +3288,7 @@ async function shopBadgeClick(el){
     return;
   }
 
-  if(!confirm(`公認バッジを ${cost.toLocaleString()}pt で購入しますか？`)) return;
+  if(!confirm(`${BADGE_NAMES[badgeId]||badgeId} を ${cost.toLocaleString()}pt で購入しますか？`)) return;
 
   // 購入処理
   showToast('購入処理中…');
@@ -3306,8 +3306,8 @@ async function shopBadgeClick(el){
     }
     updateShopItemStates(newAvail);
     renderShopBadgeSettings();
-    addShopHistory({name:'公認バッジ',badgeUrl,cost,ts:Date.now()});
-    showToast('公認バッジを購入しました！🎉');
+    addShopHistory({name:BADGE_NAMES[badgeId]||badgeId,badgeUrl,cost,ts:Date.now()});
+    showToast(`${BADGE_NAMES[badgeId]||badgeId}を購入しました！🎉`);
   } else if(result.reason==='already_owned'){
     ownedBadges.push({id:badgeId,url:badgeUrl});
     renderShopBadgeSettings();
@@ -3324,7 +3324,24 @@ function renderShopBadgeSettings(){
   if(!wrap) return;
   if(!ownedBadges.length){ wrap.style.display='none'; return; }
   wrap.style.display='block';
-  const BADGE_NAMES={'badge1':'公認バッジ'};
+  const BADGE_NAMES={
+    'badge1' :'公認バッジ',
+    'badge2' :'ミャクミャク',
+    'badge3' :'野獣',
+    'badge4' :'駒井',
+    'badge5' :'ビックモーター',
+    'badge6' :'旧Sicotter',
+    'badge7' :'旧Sicotter Premium',
+    'badge8' :'手書きバッジ',
+    'badge9' :'ダークドラゴンエンペラークロニクルMk:Ⅱ',
+    'badge10':'コミック',
+    'badge11':'アニマルキングダム',
+    'badge12':'ソ連',
+    'badge13':'北朝鮮',
+    'badge14':'ラブリーポッピン',
+    'badge15':'キューティーファイン',
+    'badge16':'クレイジージャニー'
+  };
   wrap.innerHTML=`
     <div class="shop-sec-lbl" style="margin:6px 0 8px 2px;">バッジ設定</div>
     ${ownedBadges.map(b=>{
@@ -5277,82 +5294,221 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           </div>
         </div>
 
+        <!-- ミャクミャク -->
+        <div class="shop-item" id="shop-item-badge2"
+          data-badge-id="badge2" data-badge-url="badge2.png" data-cost="100000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#2d0a3a,#7b1fa2);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge2.png" alt="ミャクミャク" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🎪</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">ミャクミャク</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>100,000 pt</div>
+          </div>
+        </div>
+
+        <!-- 野獣 -->
+        <div class="shop-item" id="shop-item-badge3"
+          data-badge-id="badge3" data-badge-url="badge3.png" data-cost="810"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#2a1a0a,#6d3a10);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge3.png" alt="野獣" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🦁</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">野獣</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>810 pt</div>
+          </div>
+        </div>
+
+        <!-- 駒井 -->
+        <div class="shop-item" id="shop-item-badge4"
+          data-badge-id="badge4" data-badge-url="badge4.png" data-cost="1"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#0a1a2e,#0d3b6e);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge4.png" alt="駒井" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>⚽</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">駒井</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>1 pt</div>
+          </div>
+        </div>
+
+        <!-- ビックモーター -->
+        <div class="shop-item" id="shop-item-badge5"
+          data-badge-id="badge5" data-badge-url="badge5.png" data-cost="5000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#0a2a0a,#1a5c1a);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge5.png" alt="ビックモーター" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🚗</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">ビックモーター</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>5,000 pt</div>
+          </div>
+        </div>
+
+        <!-- 旧Sicotter -->
+        <div class="shop-item" id="shop-item-badge6"
+          data-badge-id="badge6" data-badge-url="badge6.png" data-cost="100000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#0a1a2a,#0d3d5c);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge6.png" alt="旧Sicotter" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🐦</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">旧Sicotter</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>100,000 pt</div>
+          </div>
+        </div>
+
+        <!-- 旧Sicotter Premium -->
+        <div class="shop-item" id="shop-item-badge7"
+          data-badge-id="badge7" data-badge-url="badge7.png" data-cost="400000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#2a1a00,#7a5500);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge7.png" alt="旧Sicotter Premium" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>👑</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">旧Sicotter Premium</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>400,000 pt</div>
+          </div>
+        </div>
+
+        <!-- 手書きバッジ -->
+        <div class="shop-item" id="shop-item-badge8"
+          data-badge-id="badge8" data-badge-url="badge8.png" data-cost="150"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#2a1a0a,#6b3a1a);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge8.png" alt="手書きバッジ" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>✏️</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">手書きバッジ</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>150 pt</div>
+          </div>
+        </div>
+
+        <!-- ダークドラゴンエンペラークロニクルMk:Ⅱ -->
+        <div class="shop-item" id="shop-item-badge9"
+          data-badge-id="badge9" data-badge-url="badge9.png" data-cost="550000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#0a0a0a,#1a0a2a);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge9.png" alt="ダークドラゴンエンペラークロニクルMk:Ⅱ" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🐉</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">ダークドラゴンエンペラークロニクルMk:Ⅱ</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>550,000 pt</div>
+          </div>
+        </div>
+
+        <!-- コミック -->
+        <div class="shop-item" id="shop-item-badge10"
+          data-badge-id="badge10" data-badge-url="badge10.png" data-cost="65000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#1a0a2a,#4a0080);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge10.png" alt="コミック" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>📚</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">コミック</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>65,000 pt</div>
+          </div>
+        </div>
+
+        <!-- アニマルキングダム -->
+        <div class="shop-item" id="shop-item-badge11"
+          data-badge-id="badge11" data-badge-url="badge11.png" data-cost="70000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#0a2a0a,#1a5c2a);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge11.png" alt="アニマルキングダム" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🦁</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">アニマルキングダム</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>70,000 pt</div>
+          </div>
+        </div>
+
+        <!-- ソ連 -->
+        <div class="shop-item" id="shop-item-badge12"
+          data-badge-id="badge12" data-badge-url="badge12.png" data-cost="150000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#2a0a0a,#8b0000);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge12.png" alt="ソ連" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>☭</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">ソ連</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>150,000 pt</div>
+          </div>
+        </div>
+
+        <!-- 北朝鮮 -->
+        <div class="shop-item" id="shop-item-badge13"
+          data-badge-id="badge13" data-badge-url="badge13.png" data-cost="200000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#2a0a0a,#003580);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge13.png" alt="北朝鮮" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🇰🇵</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">北朝鮮</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>200,000 pt</div>
+          </div>
+        </div>
+
+        <!-- ラブリーポッピン -->
+        <div class="shop-item" id="shop-item-badge14"
+          data-badge-id="badge14" data-badge-url="badge14.png" data-cost="50000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#3a0a2a,#c2185b);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge14.png" alt="ラブリーポッピン" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🌸</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">ラブリーポッピン</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>50,000 pt</div>
+          </div>
+        </div>
+
+        <!-- キューティーファイン -->
+        <div class="shop-item" id="shop-item-badge15"
+          data-badge-id="badge15" data-badge-url="badge15.png" data-cost="50000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#2a1a3a,#e91e8c);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge15.png" alt="キューティーファイン" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>💖</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">キューティーファイン</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>50,000 pt</div>
+          </div>
+        </div>
+
+        <!-- クレイジージャニー -->
+        <div class="shop-item" id="shop-item-badge16"
+          data-badge-id="badge16" data-badge-url="badge16.png" data-cost="1000000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#1a0a00,#ff6600);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge16.png" alt="クレイジージャニー" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>🤪</span>'">
+          </div>
+          <div class="shop-item-body">
+            <div class="shop-item-name">クレイジージャニー</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>1,000,000 pt</div>
+          </div>
+        </div>
+
       </div>
 
       <!-- バッジ設定セクション（購入済みバッジがある場合のみ表示） -->
       <div id="shop-badge-settings-wrap" class="shop-badge-settings-section" style="display:none;"></div>
 
-      <!-- 準備中 -->
-      <div class="shop-sec-lbl">近日公開予定</div>
-      <div class="shop-grid">
-
-        <div class="shop-item">
-          <div class="shop-item-thumb ti-a">
-            🎨
-            <div class="shop-item-thumb-overlay"><span class="shop-item-sold-badge">準備中</span></div>
-          </div>
-          <div class="shop-item-body">
-            <div class="shop-item-name">プロフィールフレーム</div>
-            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>500 pt</div>
-          </div>
-        </div>
-
-        <div class="shop-item">
-          <div class="shop-item-thumb ti-b">
-            ✨
-            <div class="shop-item-thumb-overlay"><span class="shop-item-sold-badge">準備中</span></div>
-          </div>
-          <div class="shop-item-body">
-            <div class="shop-item-name">特別バッジ</div>
-            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>1,000 pt</div>
-          </div>
-        </div>
-
-        <div class="shop-item">
-          <div class="shop-item-thumb ti-c">
-            🎭
-            <div class="shop-item-thumb-overlay"><span class="shop-item-sold-badge">準備中</span></div>
-          </div>
-          <div class="shop-item-body">
-            <div class="shop-item-name">カスタムテーマ</div>
-            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>2,000 pt</div>
-          </div>
-        </div>
-
-        <div class="shop-item">
-          <div class="shop-item-thumb ti-f">
-            👑
-            <div class="shop-item-thumb-overlay"><span class="shop-item-sold-badge">準備中</span></div>
-          </div>
-          <div class="shop-item-body">
-            <div class="shop-item-name">称号アイテム</div>
-            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>3,000 pt</div>
-          </div>
-        </div>
-
-        <div class="shop-item">
-          <div class="shop-item-thumb ti-d">
-            🏆
-            <div class="shop-item-thumb-overlay"><span class="shop-item-sold-badge">準備中</span></div>
-          </div>
-          <div class="shop-item-body">
-            <div class="shop-item-name">ゴールドバッジ</div>
-            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>2,000 pt</div>
-          </div>
-        </div>
-
-        <div class="shop-item">
-          <div class="shop-item-thumb ti-b">
-            🏷️
-            <div class="shop-item-thumb-overlay"><span class="shop-item-sold-badge">準備中</span></div>
-          </div>
-          <div class="shop-item-body">
-            <div class="shop-item-name">カスタム名前色</div>
-            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>800 pt</div>
-          </div>
-        </div>
-
-      </div>
     </div>
 
     <!-- History Tab -->

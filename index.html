@@ -542,6 +542,24 @@ body.modal-open{overflow:hidden;}
 .shop-item{position:relative;}
 .shop-item.low-pt .shop-item-thumb::after{content:'不足';position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.72);color:#ffb3b3;font-size:8px;font-weight:800;text-align:center;padding:4px 0;letter-spacing:.04em;}
 .shop-item.low-pt .shop-item-price{color:#bbb;}
+
+/* ── ユーザーバッジ（ツイート内） ── */
+.tw-badge-img{width:18px;height:18px;vertical-align:middle;margin:0 3px 1px 1px;object-fit:contain;display:inline-block;flex-shrink:0;}
+
+/* ── ショップ バッジ設定セクション ── */
+.shop-badge-settings-section{background:#f0f0f0;padding:0 8px 8px;}
+.shop-badge-setting-card{display:flex;align-items:center;gap:12px;padding:11px 14px;background:#fff;border-radius:8px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+.shop-badge-setting-img{width:42px;height:42px;object-fit:contain;flex-shrink:0;}
+.shop-badge-setting-info{flex:1;min-width:0;}
+.shop-badge-setting-name{font-size:13px;font-weight:700;color:#333;margin-bottom:5px;}
+.shop-badge-setting-btns{display:flex;gap:7px;flex-wrap:wrap;}
+.badge-toggle-btn{font-size:12px;font-weight:700;padding:5px 14px;border-radius:9999px;border:none;cursor:pointer;font-family:var(--font);transition:background .15s,color .15s;}
+.badge-toggle-btn.on{background:#e9383f;color:#fff;}
+.badge-toggle-btn.off{background:#eee;color:#666;}
+.badge-toggle-btn.off:hover{background:#ddd;}
+/* ショップ アイテム 所有済み状態 */
+.shop-item.owned .shop-item-price{color:#22aa66;}
+.shop-item.owned .shop-item-price::before{content:'✓ 所有済 ';}
 </style>
 </head>
 <body>
@@ -1024,6 +1042,12 @@ let activeThreadId = null;
 let threadHistory = [];
 let sbChannel = null; // realtime channel
 
+// ── バッジ状態 ──
+let activeBadgeUrl = null;  // 現在アクティブなバッジURL（新ツイートに付与）
+let ownedBadges    = [];     // 購入済みバッジ [{id, url, purchasedAt}]
+let shopHistory    = JSON.parse(localStorage.getItem('mn_shop_history')||'[]');
+
+
 // ── Notifications ──
 let notifications = []; // {id, tweetId, fromHandle, fromName, text, ts, read}
 let notifDropdownOpen = false;
@@ -1162,6 +1186,7 @@ async function dbPostTweet(t){
     repost_by_handle:t.repostBy?.handle||null,
     repost_by_name:t.repostBy?.name||null,
     poll:t.poll?JSON.stringify(t.poll):null,
+    badge_url:t.badgeUrl||null,
     created_at:new Date(t.ts).toISOString()
   };
   const {error}=await sb.from('tweets').insert(row);
@@ -1356,7 +1381,8 @@ function dbRowToTweet(row){
     isRepost:row.is_repost||false,
     repostBy:row.repost_by_handle?{handle:row.repost_by_handle,name:row.repost_by_name}:null,
     poll:row.poll?JSON.parse(row.poll):null,
-    originalUser:null
+    originalUser:null,
+    badgeUrl:row.badge_url||null
   };
 }
 
@@ -1703,6 +1729,7 @@ function tweetCardHTML(t){
         ${replyBadge}
         <div class="tweet-header">
           <span class="tw-name" onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')">${esc(displayUser.name)}</span>
+          ${t.badgeUrl?`<img class="tw-badge-img" src="${esc(t.badgeUrl)}" alt="バッジ" title="公認バッジ">`:''}
           <span class="tw-handle" onclick="event.stopPropagation();showUserPage('${esc(displayUser.handle)}')">@${esc(displayUser.handle)}</span>
           <span class="tw-time">${timeAgo(t.ts)}</span>
           <button class="act-btn" style="margin-left:auto;padding:2px 4px;min-width:auto;" onclick="event.stopPropagation();openCtxMenu(event,'${esc(displayUser.handle)}','${t.id}')" title="メニュー">
@@ -1857,6 +1884,7 @@ function showThread(tweetId, fromHistory=false){
         <div onclick="showUserPage('${esc(parent.user.handle)}')">${avHTML(parent.user,'av-48 av-c')}</div>
         <div>
           <div class="tw-name" style="font-size:16px;" onclick="showUserPage('${esc(parent.user.handle)}')">${esc(parent.user.name)}</div>
+          ${parent.badgeUrl?`<img class="tw-badge-img" src="${esc(parent.badgeUrl)}" alt="バッジ" title="公認バッジ" style="width:20px;height:20px;">`:''}
           <div class="tw-handle" style="font-size:13px;" onclick="showUserPage('${esc(parent.user.handle)}')" >@${esc(parent.user.handle)}</div>
         </div>
       </div>
@@ -1892,7 +1920,8 @@ function onThreadInput(){
 async function submitReply(parentId){
   const ta=document.getElementById('thread-reply-ta'); if(!ta)return;
   const text=ta.value.trim(); if(!text)return;
-  const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null};
+  const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null,
+    badgeUrl:activeBadgeUrl||null};
   tweets.push(t);
   ta.value='';
   showThread(parentId);
@@ -2243,7 +2272,8 @@ function postTweet(){
   const t={id:'t'+Date.now()+Math.random().toString(36).slice(2,6),
     user:{...currentUser},text,imageUrls,imageUrl:imageUrls[0]||null,
     ts:Date.now(),likes:0,replyTo:null,quoteOf:quoteTargetId||null,
-    isRepost:false,repostBy:null,poll};
+    isRepost:false,repostBy:null,poll,
+    badgeUrl:activeBadgeUrl||null};
   tweets.unshift(t);
   document.getElementById('compose-input').value='';
   document.getElementById('char-count').textContent='280';
@@ -2319,6 +2349,59 @@ async function dbFetchSpentPoints(handle){
     if(error||!data) return 0;
     return data.reduce((sum,row)=>sum+Math.abs(row.delta||0), 0);
   }catch(e){ return 0; }
+}
+
+// ── バッジ購入済み一覧 ──
+async function dbFetchOwnedBadges(handle){
+  try{
+    const {data,error}=await sb.from('user_badges').select('*').eq('user_handle',handle);
+    if(error||!data) return [];
+    return data.map(r=>({id:r.badge_id,url:r.badge_url,purchasedAt:r.purchased_at}));
+  }catch(e){ return []; }
+}
+
+// ── アクティブバッジ取得 ──
+async function dbFetchActiveBadge(handle){
+  try{
+    const {data,error}=await sb.from('user_badge_settings')
+      .select('active_badge_id,active_badge_url').eq('user_handle',handle).single();
+    if(error||!data) return null;
+    return {id:data.active_badge_id, url:data.active_badge_url};
+  }catch(e){ return null; }
+}
+
+// ── バッジ購入 ──
+async function dbBuyBadge(handle, badgeId, badgeUrl, cost){
+  try{
+    // 既に所持か確認
+    const {data:exist}=await sb.from('user_badges').select('id')
+      .eq('user_handle',handle).eq('badge_id',badgeId).maybeSingle();
+    if(exist) return {ok:false,reason:'already_owned'};
+    // ポイント消費トランザクション
+    const {error:te}=await sb.from('point_transactions').insert({
+      user_handle:handle, delta:-cost, reason:`バッジ購入: ${badgeId}`, ref_id:badgeId
+    });
+    if(te){ console.error('point_transactions error',te); return {ok:false,reason:'transaction_failed'}; }
+    // バッジ付与
+    const {error:be}=await sb.from('user_badges').insert({
+      user_handle:handle, badge_id:badgeId, badge_url:badgeUrl
+    });
+    if(be){ console.error('user_badges error',be); return {ok:false,reason:'badge_insert_failed'}; }
+    return {ok:true};
+  }catch(e){ return {ok:false,reason:String(e)}; }
+}
+
+// ── アクティブバッジ設定 ──
+async function dbSetActiveBadge(handle, badgeId, badgeUrl){
+  try{
+    const {error}=await sb.from('user_badge_settings').upsert({
+      user_handle:handle,
+      active_badge_id:badgeId||null,
+      active_badge_url:badgeUrl||null,
+      updated_at:new Date().toISOString()
+    });
+    return !error;
+  }catch(e){ return false; }
 }
 
 async function loadUserPoints(handle){
@@ -3127,7 +3210,7 @@ function closePullup(){
 // ══════════════════════════════════════
 // Game select
 // ══════════════════════════════════════
-function openShop(){
+async function openShop(){
   if(!currentUser){showToast('プロフィールを設定してください');openProfileModal();return;}
   document.getElementById('shop-modal').classList.add('open');
   document.body.classList.add('modal-open');
@@ -3135,26 +3218,176 @@ function openShop(){
   const detailEl=document.getElementById('shop-points-detail');
   valEl.textContent='…';
   if(detailEl) detailEl.textContent='読み込み中…';
-  Promise.all([dbFetchEarnedPoints(currentUser.handle),dbFetchSpentPoints(currentUser.handle)])
-    .then(([earned,spent])=>{
-      const avail=Math.max(0, earned-spent);
-      valEl.textContent=avail.toLocaleString();
-      if(detailEl) detailEl.textContent=`獲得 ${earned.toLocaleString()}pt ／ 使用 ${spent.toLocaleString()}pt`;
-      updateShopItemStates(avail);
-    })
-    .catch(()=>{ valEl.textContent='—'; if(detailEl) detailEl.textContent='取得に失敗しました'; });
+  renderShopHistory();
+  try{
+    const [earned,spent,badges,activeBadge]=await Promise.all([
+      dbFetchEarnedPoints(currentUser.handle),
+      dbFetchSpentPoints(currentUser.handle),
+      dbFetchOwnedBadges(currentUser.handle),
+      dbFetchActiveBadge(currentUser.handle)
+    ]);
+    const avail=Math.max(0,earned-spent);
+    valEl.textContent=avail.toLocaleString();
+    if(detailEl) detailEl.textContent=`獲得 ${earned.toLocaleString()}pt ／ 使用 ${spent.toLocaleString()}pt`;
+    ownedBadges=badges;
+    activeBadgeUrl=activeBadge?.url||null;
+    updateShopItemStates(avail);
+    renderShopBadgeSettings();
+  }catch(e){
+    valEl.textContent='—';
+    if(detailEl) detailEl.textContent='取得に失敗しました';
+    console.error('openShop error',e);
+  }
 }
 
 // 所持ポイントに応じて各アイテムの購入可否を更新
 function updateShopItemStates(avail){
   document.querySelectorAll('#shop-modal .shop-item[data-cost]').forEach(item=>{
     const cost=parseInt(item.dataset.cost,10);
-    if(cost>avail){ item.classList.add('low-pt'); }
-    else { item.classList.remove('low-pt'); }
+    const bid=item.dataset.badgeId;
+    // 所有済み判定
+    if(bid&&ownedBadges.some(b=>b.id===bid)){
+      item.classList.remove('low-pt');
+      item.classList.add('owned');
+    } else {
+      item.classList.remove('owned');
+      if(cost>avail){ item.classList.add('low-pt'); }
+      else { item.classList.remove('low-pt'); }
+    }
   });
 }
 
-// アイテムカードタップ時の処理
+// バッジアイテムをタップ
+async function shopBadgeClick(el){
+  if(!currentUser){showToast('プロフィールを設定してください');return;}
+  const badgeId  = el.dataset.badgeId;
+  const badgeUrl = el.dataset.badgeUrl;
+  const cost     = parseInt(el.dataset.cost,10);
+
+  // 所有済みなら設定セクションへ誘導
+  if(ownedBadges.some(b=>b.id===badgeId)){
+    showToast('このバッジは購入済みです。「バッジ設定」から切り替えできます');
+    const sec=document.getElementById('shop-badge-settings-wrap');
+    if(sec) setTimeout(()=>sec.scrollIntoView({behavior:'smooth',block:'nearest'}),100);
+    return;
+  }
+
+  const rawVal=document.getElementById('shop-points-val').textContent.replace(/,/g,'');
+  const avail=parseInt(rawVal,10);
+  if(isNaN(avail)){showToast('ポイントを取得中です。しばらくお待ちください');return;}
+  if(cost>avail){
+    showToast(`ポイントが不足しています（必要: ${cost.toLocaleString()}pt／所持: ${avail.toLocaleString()}pt）`);
+    return;
+  }
+
+  if(!confirm(`公認バッジを ${cost.toLocaleString()}pt で購入しますか？`)) return;
+
+  // 購入処理
+  showToast('購入処理中…');
+  const result=await dbBuyBadge(currentUser.handle,badgeId,badgeUrl,cost);
+
+  if(result.ok){
+    ownedBadges.push({id:badgeId,url:badgeUrl,purchasedAt:new Date().toISOString()});
+    const newAvail=avail-cost;
+    document.getElementById('shop-points-val').textContent=newAvail.toLocaleString();
+    const detailEl=document.getElementById('shop-points-detail');
+    if(detailEl){
+      const m=detailEl.textContent.match(/獲得 ([\d,]+)pt/);
+      const earned=m?parseInt(m[1].replace(/,/g,''),10):avail;
+      detailEl.textContent=`獲得 ${earned.toLocaleString()}pt ／ 使用 ${(earned-newAvail).toLocaleString()}pt`;
+    }
+    updateShopItemStates(newAvail);
+    renderShopBadgeSettings();
+    addShopHistory({name:'公認バッジ',badgeUrl,cost,ts:Date.now()});
+    showToast('公認バッジを購入しました！🎉');
+  } else if(result.reason==='already_owned'){
+    ownedBadges.push({id:badgeId,url:badgeUrl});
+    renderShopBadgeSettings();
+    showToast('このバッジはすでに所持しています');
+  } else {
+    showToast('購入に失敗しました。しばらく後でお試しください');
+    console.error('shopBadgeClick buy failed',result);
+  }
+}
+
+// バッジ設定セクションを描画
+function renderShopBadgeSettings(){
+  const wrap=document.getElementById('shop-badge-settings-wrap');
+  if(!wrap) return;
+  if(!ownedBadges.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  const BADGE_NAMES={'badge1':'公認バッジ'};
+  wrap.innerHTML=`
+    <div class="shop-sec-lbl" style="margin:6px 0 8px 2px;">バッジ設定</div>
+    ${ownedBadges.map(b=>{
+      const isActive=activeBadgeUrl===b.url;
+      const name=BADGE_NAMES[b.id]||b.id;
+      return `<div class="shop-badge-setting-card">
+        <img class="shop-badge-setting-img" src="${esc(b.url)}" alt="${esc(name)}" onerror="this.style.display='none'">
+        <div class="shop-badge-setting-info">
+          <div class="shop-badge-setting-name">${esc(name)}</div>
+          <div class="shop-badge-setting-btns">
+            ${isActive
+              ?`<button class="badge-toggle-btn on" onclick="toggleActiveBadge('','')">✓ 使用中</button>
+                <button class="badge-toggle-btn off" onclick="toggleActiveBadge('','')">外す</button>`
+              :`<button class="badge-toggle-btn off" onclick="toggleActiveBadge('${esc(b.id)}','${esc(b.url)}')">使用する</button>`
+            }
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// バッジのON/OFFを切り替え
+async function toggleActiveBadge(badgeId,badgeUrl){
+  if(!currentUser) return;
+  const newUrl=badgeUrl||null;
+  const ok=await dbSetActiveBadge(currentUser.handle,badgeId||null,newUrl);
+  if(ok){
+    activeBadgeUrl=newUrl;
+    renderShopBadgeSettings();
+    // shop-itemのowned状態も更新（ポイント残高は変わらないので再取得不要）
+    const rawVal=document.getElementById('shop-points-val').textContent.replace(/,/g,'');
+    updateShopItemStates(parseInt(rawVal,10)||0);
+    showToast(newUrl?'バッジを設定しました！✅':'バッジを外しました');
+  } else {
+    showToast('設定の変更に失敗しました');
+  }
+}
+
+// 購入履歴に追加
+function addShopHistory(item){
+  shopHistory.unshift(item);
+  if(shopHistory.length>50) shopHistory=shopHistory.slice(0,50);
+  localStorage.setItem('mn_shop_history',JSON.stringify(shopHistory));
+  renderShopHistory();
+}
+
+// 購入履歴タブを描画
+function renderShopHistory(){
+  const el=document.getElementById('shop-history-list');
+  if(!el) return;
+  if(!shopHistory.length){
+    el.innerHTML=`<div class="shop-empty-hist">
+      <div class="shop-empty-hist-icon">🛒</div>
+      <div class="shop-empty-hist-text">まだ購入履歴はありません</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML=shopHistory.map(h=>`
+    <div style="padding:10px 12px;background:#fff;border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+      ${h.badgeUrl?`<img src="${esc(h.badgeUrl)}" style="width:32px;height:32px;object-fit:contain;" alt="">`:'<span style="font-size:24px;">🏷️</span>'}
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:#333;">${esc(h.name)}</div>
+        <div style="font-size:11px;color:#999;">${new Date(h.ts).toLocaleString('ja-JP')}</div>
+      </div>
+      <div style="font-size:13px;font-weight:800;color:#e9383f;white-space:nowrap;">-${h.cost.toLocaleString()}pt</div>
+    </div>
+  `).join('');
+}
+
+// アイテムカードタップ時の処理（バッジ以外 / 準備中アイテム用）
 function shopItemClick(el){
   const cost=parseInt(el.dataset.cost,10);
   const rawVal=document.getElementById('shop-points-val').textContent.replace(/,/g,'');
@@ -3164,7 +3397,6 @@ function shopItemClick(el){
     showToast(`ポイントが不足しています（必要: ${cost.toLocaleString()}pt／所持: ${avail.toLocaleString()}pt）`);
     return;
   }
-  // 購入機能は準備中
   showToast('現在このアイテムは準備中です。もうしばらくお待ちください🙏');
 }
 function closeShop(){ closeModal('shop-modal'); }
@@ -3173,6 +3405,7 @@ function shopSwitchTab(panelId, btn){
   document.querySelectorAll('#shop-modal .shop-tab').forEach(b=>b.classList.remove('active'));
   document.getElementById(panelId).classList.add('active');
   btn.classList.add('active');
+  if(panelId==='shop-tab-history') renderShopHistory();
 }
 
 function openGameSelect(){
@@ -4844,7 +5077,10 @@ async function appStart(){
       currentUser.color=currentUser.color||userColor(currentUser.handle);
       saveUserLS();
     }
-    if(currentUser && currentUser.handle){ applyUser(); members[currentUser.handle]={...currentUser}; await dbSaveProfile(currentUser); }
+    if(currentUser && currentUser.handle){ applyUser(); members[currentUser.handle]={...currentUser}; await dbSaveProfile(currentUser);
+      // アクティブバッジを読み込む
+      dbFetchActiveBadge(currentUser.handle).then(badge=>{ activeBadgeUrl=badge?.url||null; }).catch(()=>{});
+    }
 
     // メンバー一覧取得
     await fetchMembers();
@@ -5019,23 +5255,24 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
       <div class="shop-sec-lbl">購入できるアイテム</div>
       <div class="shop-grid">
 
-        <div class="shop-item" data-cost="300" onclick="shopItemClick(this)">
-          <div class="shop-item-thumb ti-a">🌟</div>
-          <div class="shop-item-body">
-            <div class="shop-item-name">スターバッジ</div>
-            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>300 pt</div>
+        <!-- 公認バッジ（実装済み） -->
+        <div class="shop-item" id="shop-item-badge1"
+          data-badge-id="badge1" data-badge-url="badge1.png" data-cost="100000"
+          onclick="shopBadgeClick(this)">
+          <div class="shop-item-thumb" style="background:linear-gradient(145deg,#0a2a4d,#1565a6);display:flex;align-items:center;justify-content:center;padding:14px;">
+            <img src="badge1.png" alt="公認バッジ" style="width:65%;height:65%;object-fit:contain;"
+              onerror="this.outerHTML='<span style=&quot;font-size:34px;&quot;>✅</span>'">
           </div>
-        </div>
-
-        <div class="shop-item" data-cost="500" onclick="shopItemClick(this)">
-          <div class="shop-item-thumb ti-e">🌊</div>
           <div class="shop-item-body">
-            <div class="shop-item-name">ネームカラー（ブルー）</div>
-            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>500 pt</div>
+            <div class="shop-item-name">公認バッジ</div>
+            <div class="shop-item-price"><span class="shop-item-price-icon">💰</span>100,000 pt</div>
           </div>
         </div>
 
       </div>
+
+      <!-- バッジ設定セクション（購入済みバッジがある場合のみ表示） -->
+      <div id="shop-badge-settings-wrap" class="shop-badge-settings-section" style="display:none;"></div>
 
       <!-- 準備中 -->
       <div class="shop-sec-lbl">近日公開予定</div>
@@ -5112,9 +5349,11 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 
     <!-- History Tab -->
     <div id="shop-tab-history" class="shop-tab-panel">
-      <div class="shop-empty-hist" id="shop-history-list">
-        <div class="shop-empty-hist-icon">🛒</div>
-        <div class="shop-empty-hist-text">まだ購入履歴はありません</div>
+      <div id="shop-history-list">
+        <div class="shop-empty-hist">
+          <div class="shop-empty-hist-icon">🛒</div>
+          <div class="shop-empty-hist-text">まだ購入履歴はありません</div>
+        </div>
       </div>
     </div>
 

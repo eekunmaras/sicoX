@@ -1128,6 +1128,13 @@ body.modal-open{overflow:hidden;}
 
 <body>
 
+<!-- ── App loader ── -->
+<div id="app-loader" style="display:flex;position:fixed;inset:0;z-index:99998;background:#000;flex-direction:column;align-items:center;justify-content:center;gap:20px;">
+  <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/main/logo.png" alt="SicoX" style="height:44px;width:auto;opacity:0.9;">
+  <div style="width:36px;height:36px;border-radius:50%;border:3px solid #1d3a5c;border-top-color:#1d9bf0;animation:app-spin 0.8s linear infinite;"></div>
+</div>
+<style>@keyframes app-spin{to{transform:rotate(360deg);}}</style>
+
 <div class="demo-bar" id="demo-bar"><div class="pulse"></div><strong id="demo-bar-label">接続中…</strong><span id="demo-bar-msg"></span></div>
 
 
@@ -10435,6 +10442,12 @@ async function appStart(){
 
 
 
+    // ローダー非表示
+
+    document.getElementById('app-loader').style.display='none';
+
+
+
     // バー更新（ライブモード）
 
     document.getElementById('demo-bar-label').textContent='ライブ';
@@ -10450,6 +10463,12 @@ async function appStart(){
     document.getElementById('demo-bar-label').textContent='オフライン';
 
     document.getElementById('demo-bar-msg').textContent='— DB接続失敗。ローカルモードで動作中';
+
+    // ローダー非表示
+
+    document.getElementById('app-loader').style.display='none';
+
+
 
     // フォールバック：ローカルで動かす
 
@@ -10530,6 +10549,8 @@ if(localStorage.getItem(GATE_KEY)==='1'){
   appStart();
 
 } else {
+
+  document.getElementById('app-loader').style.display='none';
 
   document.getElementById('gate').style.display='flex';
 

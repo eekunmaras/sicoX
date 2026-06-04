@@ -2163,6 +2163,8 @@ let notifDropdownOpen = false;
 
 let readNotifIds = new Set(); // localStorageで永続化する既読IDセット
 
+let lastNotifCheckTs = 0; // 前回セッション終了時のタイムスタンプ（これ以前の返信は既読扱い）
+
 
 
 // ══════════════════════════════════════
@@ -4355,7 +4357,9 @@ function doRepost(){
 
     originalUser:{...orig.user},
 
-    poll:orig.poll?JSON.parse(JSON.stringify(orig.poll)):null
+    poll:orig.poll?JSON.parse(JSON.stringify(orig.poll)):null,
+
+    badgeUrl:activeBadgeUrl||null
 
   };
 
@@ -5899,6 +5903,13 @@ async function loadPastNotifications(){
 
   readNotifIds = new Set(JSON.parse(localStorage.getItem('mn_notif_read_'+currentUser.handle)||'[]'));
 
+  // 前回セッション終了時刻を取得（これより前の返信は既読扱い）
+  lastNotifCheckTs = parseInt(localStorage.getItem('mn_notif_check_'+currentUser.handle)||'0', 10);
+
+  // 今回のセッション開始時刻を記録（次回起動時に使用）
+  const sessionStartTs = Date.now();
+  localStorage.setItem('mn_notif_check_'+currentUser.handle, String(sessionStartTs));
+
   // 自分の投稿IDを取得（トップレベル・返信問わずすべて）
 
   const myRootIds = new Set(tweets.filter(t => t.user.handle === currentUser.handle).map(t => getThreadRootId(t.id)));
@@ -5925,23 +5936,32 @@ async function loadPastNotifications(){
 
     .filter(row => row.user_handle !== currentUser.handle) // 自分の返信は除外
 
-    .map(row => ({
+    .map(row => {
 
-      id: 'p' + row.id,
+      const ts = new Date(row.created_at).getTime();
+      const notifId = 'p' + row.id;
+      // 明示的に既読にされた、またはセッション開始前から存在した返信は既読扱い
+      const isRead = readNotifIds.has(notifId) || ts <= lastNotifCheckTs;
+      if(isRead) readNotifIds.add(notifId); // 既読IDセットにも反映
+      return {
 
-      tweetId: row.reply_to,
+        id: notifId,
 
-      fromHandle: row.user_handle,
+        tweetId: row.reply_to,
 
-      fromName: row.user_name || row.user_handle,
+        fromHandle: row.user_handle,
 
-      text: row.text,
+        fromName: row.user_name || row.user_handle,
 
-      ts: new Date(row.created_at).getTime(),
+        text: row.text,
 
-      read: readNotifIds.has('p' + row.id) // localStorageで既読判定
+        ts: ts,
 
-    }));
+        read: isRead
+
+      };
+
+    });
 
   // リアルタイムで既に追加済みのものは重複させない
 

@@ -3792,7 +3792,7 @@ function showThread(tweetId, fromHistory=false){
 
   let imgHtml='';
 
-  if(_imgs.length){const _n=Math.min(_imgs.length,4);const _cls=`g${_n}`;const _allUrls=JSON.stringify(_imgs.slice(0,4)).replace(/"/g,"'");imgHtml=`<div class="img-grid ${_cls}" onclick="openLightbox(${_allUrls},0)">${_imgs.slice(0,4).map((url,i)=>{const isLast=i===3&&_imgs.length>4;return`<div class="${isLast?'img-grid-more':''}" ${isLast?`data-more="+${_imgs.length-3}"`:''}><img src="${esc(url)}" loading="lazy" alt=""></div>`;}).join('')}</div>`;}
+  if(_imgs.length&&!(parent.isRepost&&!parent.text)){const _n=Math.min(_imgs.length,4);const _cls=`g${_n}`;const _allUrls=JSON.stringify(_imgs.slice(0,4)).replace(/"/g,"'");imgHtml=`<div class="img-grid ${_cls}" onclick="openLightbox(${_allUrls},0)">${_imgs.slice(0,4).map((url,i)=>{const isLast=i===3&&_imgs.length>4;return`<div class="${isLast?'img-grid-more':''}" ${isLast?`data-more="+${_imgs.length-3}"`:''}><img src="${esc(url)}" loading="lazy" alt=""></div>`;}).join('')}</div>`;}
 
   let quoteHtml='';
 

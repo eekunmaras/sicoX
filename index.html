@@ -3485,13 +3485,15 @@ function tweetCardHTML(t){
 
     const qt=tweets.find(x=>x.id===t.quoteOf);
 
-    if(qt)quoteEmbedHtml=`<div class="quote-embed" onclick="event.stopPropagation();showThread('${qt.id}')">
+    if(qt){const _qtImgs=qt.imageUrls&&qt.imageUrls.length?qt.imageUrls:(qt.imageUrl?[qt.imageUrl]:[]);const _qtImgHtml=_qtImgs.length?`<div class="tweet-img" style="margin-top:6px;"><img src="${esc(_qtImgs[0])}" loading="lazy" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;"></div>`:'';quoteEmbedHtml=`<div class="quote-embed" onclick="event.stopPropagation();showThread('${qt.id}')">
 
       <div class="quote-embed-header"><strong>${esc(qt.user.name)}</strong> @${esc(qt.user.handle)}</div>
 
       <div class="quote-embed-body">${esc(qt.text.length>100?qt.text.slice(0,100)+'…':qt.text)}</div>
 
-    </div>`;
+      ${_qtImgHtml}
+
+    </div>`;}
 
   }
 
@@ -3795,7 +3797,7 @@ function showThread(tweetId, fromHistory=false){
 
   let quoteHtml='';
 
-  if(parent.quoteOf){const qt=tweets.find(x=>x.id===parent.quoteOf);if(qt)quoteHtml=`<div class="quote-embed" onclick="showThread('${qt.id}')"><div class="quote-embed-header"><strong>${esc(qt.user.name)}</strong> @${esc(qt.user.handle)}</div><div class="quote-embed-body">${esc(qt.text)}</div></div>`;}
+  if(parent.quoteOf){const qt=tweets.find(x=>x.id===parent.quoteOf);if(qt){const _qtImgs2=qt.imageUrls&&qt.imageUrls.length?qt.imageUrls:(qt.imageUrl?[qt.imageUrl]:[]);const _qtImgHtml2=_qtImgs2.length?`<div class="tweet-img" style="margin-top:6px;"><img src="${esc(_qtImgs2[0])}" loading="lazy" alt="" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;"></div>`:'';quoteHtml=`<div class="quote-embed" onclick="showThread('${qt.id}')"><div class="quote-embed-header"><strong>${esc(qt.user.name)}</strong> @${esc(qt.user.handle)}</div><div class="quote-embed-body">${esc(qt.text)}</div>${_qtImgHtml2}</div>`;}}
 
   const composeHtml=currentUser?`<div class="reply-compose-thread">
 
@@ -4345,11 +4347,13 @@ function doRepost(){
 
   // Create repost tweet
 
+  const _origImgUrls=orig.imageUrls&&orig.imageUrls.length?orig.imageUrls:(orig.imageUrl?[orig.imageUrl]:[]);
+
   const rt={
 
     id:uid(),user:{...currentUser},text:'',
 
-    imageUrl:null,imageUrls:[],ts:Date.now(),likes:orig.likes,
+    imageUrl:_origImgUrls[0]||null,imageUrls:[..._origImgUrls],ts:Date.now(),likes:orig.likes,
 
     replyTo:null,quoteOf:repostTargetId,
 

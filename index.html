@@ -3453,7 +3453,7 @@ function tweetCardHTML(t){
 
   let imgHtml='';
 
-  if(imgs.length){
+  if(imgs.length&&!(t.isRepost&&!t.text)){
 
     const n=Math.min(imgs.length,4);
 

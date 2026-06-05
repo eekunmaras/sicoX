@@ -1659,7 +1659,7 @@ body.modal-open{overflow:hidden;}
 
       </div>
 
-      <div id="profile-points-sub" style="font-size:11px;color:var(--text2);margin-top:4px;">（獲得 <span id="profile-points-earned">0</span>pt ／ 使用 <span id="profile-points-spent">0</span>pt）</div>
+      <div id="profile-points-sub" style="display:none;font-size:11px;color:var(--text2);margin-top:4px;">（獲得 <span id="profile-points-earned">0</span>pt ／ 使用 <span id="profile-points-spent">0</span>pt）</div>
 
     </div>
 
@@ -2349,7 +2349,7 @@ async function fetchTweets(){
 
   const {data,error}=await sb.from('tweets')
 
-    .select('*').order('created_at',{ascending:false}).limit(200);
+    .select('*').order('created_at',{ascending:false}).limit(400);
 
   if(error){console.error(error);return;}
 
@@ -10764,7 +10764,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 
         <div class="shop-pts-label">所持ポイント</div>
 
-        <div id="shop-points-detail" style="font-size:9px;color:#bbb;margin-top:1px;">読み込み中…</div>
+        <div id="shop-points-detail" style="display:none;font-size:9px;color:#bbb;margin-top:1px;">読み込み中…</div>
 
       </div>
 

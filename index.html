@@ -4368,7 +4368,7 @@ function doRepost(){
 
   const rt={
 
-    id:uid(),user:{...currentUser},text:'',
+    id:uid(),user:{...orig.user},text:'',
 
     imageUrl:_origImgUrls[0]||null,imageUrls:[..._origImgUrls],ts:Date.now(),likes:orig.likes,
 

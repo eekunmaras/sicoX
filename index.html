@@ -3500,8 +3500,25 @@ function tweetCardHTML(t){
 
 
   // The display user (for reposts, show original author)
+  // originalUser はローカル生成時のみ入る。DB経由（リアルタイム含む）は quoteOf の元ツイートから解決する
 
-  const displayUser = t.isRepost&&t.originalUser ? t.originalUser : t.user;
+  let displayUser = t.user;
+
+  if(t.isRepost&&!t.text){
+
+    if(t.originalUser){
+
+      displayUser = t.originalUser;
+
+    } else if(t.quoteOf){
+
+      const _origTweet = tweets.find(x=>x.id===t.quoteOf);
+
+      if(_origTweet) displayUser = _origTweet.user;
+
+    }
+
+  }
 
 
 

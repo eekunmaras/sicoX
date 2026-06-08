@@ -3,7 +3,7 @@
 // /sw.js として配置（index.html と同じディレクトリ）
 // ==========================================================
 
-const SW_VERSION = 'v1.2.0';
+const SW_VERSION = 'v1.2.1';
 
 // ----------------------------------------------------------
 // ユーザー通知設定の保存・読み込み（CacheStorage 経由）
@@ -14,7 +14,7 @@ const PREFS_REQUEST_KEY = 'sicox://notif-prefs';
 
 /**
  * 通知設定を CacheStorage に保存する
- * @param {Object} prefs - { newPost: bool, dm: bool, badge: bool, comment: bool }
+ * @param {Object} prefs - { notifyTweet: bool, notifyDm: bool, notifyBadge: bool, notifyComment: bool }
  */
 async function saveNotifPrefs(prefs) {
   try {
@@ -32,7 +32,7 @@ async function saveNotifPrefs(prefs) {
 
 /**
  * CacheStorage から通知設定を読み込む
- * @returns {{ newPost: bool, dm: bool, badge: bool, comment: bool } | null}
+ * @returns {{ notifyTweet: bool, notifyDm: bool, notifyBadge: bool, notifyComment: bool } | null}
  */
 async function loadNotifPrefs() {
   try {
@@ -75,11 +75,11 @@ self.addEventListener('activate', (event) => {
 // push イベント — バックグラウンドでプッシュ通知を受信する
 //
 // type 一覧:
-//   'tweet'   — 新規ポスト通知（prefs.newPost で制御）
-//   'dm'      — DM通知（prefs.dm で制御）
-//   'comment' — コメント/返信通知（prefs.comment で制御）
+//   'tweet'   — 新規ポスト通知（prefs.notifyTweet で制御）
+//   'dm'      — DM通知（prefs.notifyDm で制御）
+//   'comment' — コメント/返信通知（prefs.notifyComment で制御）
 //
-// prefs.badge が true であれば、通知表示とは独立してバッジを付与する。
+// prefs.notifyBadge が true であれば、通知表示とは独立してバッジを付与する。
 // ----------------------------------------------------------
 self.addEventListener('push', (event) => {
   // データが来ない場合のフォールバック
@@ -125,27 +125,27 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     (async () => {
       // ── ユーザー設定を読み込む ──────────────────────────────────
-      // 設定が未保存の場合はすべてオン（デフォルト）とみなす
+      // フロント側のプロパティ名（notifyTweet等）に完全統一
       const prefs = await loadNotifPrefs() ?? {
-        newPost: true,
-        dm:      true,
-        comment: true,
-        badge:   true,
+        notifyTweet:   true,
+        notifyDm:      true,
+        notifyComment: true,
+        notifyBadge:   true,
       };
 
       const notifType = data.type || 'tweet'; // 'tweet' | 'dm' | 'comment'
 
       // 通知タイプ別に「ロック画面通知を出すか」を判定
       const shouldShowNotification = (() => {
-        if (notifType === 'tweet')   return prefs.newPost !== false;
-        if (notifType === 'dm')      return prefs.dm      !== false;
-        if (notifType === 'comment') return prefs.comment !== false;
+        if (notifType === 'tweet')   return prefs.notifyTweet   !== false;
+        if (notifType === 'dm')      return prefs.notifyDm      !== false;
+        if (notifType === 'comment') return prefs.notifyComment !== false;
         return true; // 未知のタイプはデフォルト表示
       })();
 
       // バッジを付けるか（ユーザー設定 AND ペイロードの showBadge の両方を確認）
       const shouldSetBadge =
-        prefs.badge !== false &&
+        prefs.notifyBadge !== false &&
         data.showBadge !== false;
 
       // 1. ロック画面通知（設定がオンの場合のみ表示）
@@ -209,7 +209,6 @@ self.addEventListener('notificationclick', (event) => {
 // notificationclose イベント — 通知を閉じた時（任意）
 // ----------------------------------------------------------
 self.addEventListener('notificationclose', (event) => {
-  // 分析用のログなどを送る場合はここに記述（今回は何もしない）
   console.log('[SW] Notification closed:', event.notification.tag);
 });
 
@@ -226,15 +225,7 @@ self.addEventListener('message', (event) => {
   }
 
   // ★ ユーザー通知設定の同期 ★
-  // pwa-push.js または HTML 側から設定変更のたびに送信する
-  // 例: navigator.serviceWorker.controller.postMessage({
-  //       type: 'SAVE_PREFS',
-  //       prefs: { newPost: false, dm: true, comment: true, badge: true }
-  //     });
   if (event.data?.type === 'SAVE_PREFS' && event.data?.prefs) {
-    // event.waitUntil() で非同期書き込みが完了するまで SW を生かす
-    // waitUntil なしだと CacheStorage への書き込み完了前に SW が終了し、
-    // 設定が保存されず次回 push 時にデフォルト（全オン）で動作してしまう。
     event.waitUntil(saveNotifPrefs(event.data.prefs));
   }
 });

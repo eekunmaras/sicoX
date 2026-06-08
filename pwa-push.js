@@ -7,11 +7,11 @@
 //      <script src="/pwa-push.js"></script> を追加
 //   3. appStart() の中で initPushNotifications() を呼び出す
 //
-// 【通知スタック仕様】
-//   未読通知が最大 5 件たまると新規通知がストップし、
-//   ユーザーが通知をタップ or アプリを開くとリセットされて
-//   また通知が届くようになる。
-//   カウント管理は SW 側 (sw.js) の CacheStorage で行う。
+// 【設計方針】
+//   通知のカウント管理・上限制御は廃止。LINEと同様に連続通知を許容する。
+//   バッジはアプリが前面に来たタイミングでのみリセットする。
+//   SW 側は push → showNotification() に専念させ、
+//   フロントが生きている時だけバッジ操作を行う。
 // ==========================================================
 
 // ----------------------------------------------------------
@@ -40,7 +40,7 @@ async function registerServiceWorker() {
 
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', {
-      scope:         '/',
+      scope:          '/',
       updateViaCache: 'none',
     });
 
@@ -62,7 +62,6 @@ async function registerServiceWorker() {
 function handleSwMessage(event) {
   if (event.data?.type === 'notification_clicked') {
     // 通知タップでアプリがフォーカスされた → バッジと通知を消去
-    // ※ カウントリセットは SW 側の notificationclick で実施済み
     clearAppBadge();
     clearAllNotifications();
   }
@@ -102,7 +101,7 @@ async function initPushNotifications() {
   if (!subscription) {
     try {
       subscription = await reg.pushManager.subscribe({
-        userVisibleOnly:    true,
+        userVisibleOnly:      true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
       console.log('[PWA] Push 購読を作成しました');
@@ -121,18 +120,17 @@ async function initPushNotifications() {
 async function savePushSubscription(subscription, prefs = {}) {
   if (!currentUser?.handle || !subscription) return;
 
-  const subJson        = subscription.toJSON();
-  const wantBadge      = prefs.notifyBadge !== false;
-  const shouldDeliver  = (pref) => pref !== false || wantBadge;
+  const subJson   = subscription.toJSON();
+  const wantBadge = prefs.notifyBadge !== false;
 
   const record = {
     user_handle:    currentUser.handle,
     endpoint:       subJson.endpoint,
     p256dh:         subJson.keys.p256dh,
     auth:           subJson.keys.auth,
-    notify_tweet:   shouldDeliver(prefs.notifyTweet),
-    notify_dm:      shouldDeliver(prefs.notifyDm),
-    notify_comment: shouldDeliver(prefs.notifyComment),
+    notify_tweet:   prefs.notifyTweet   !== false,
+    notify_dm:      prefs.notifyDm      !== false,
+    notify_comment: prefs.notifyComment !== false,
     notify_badge:   wantBadge,
     updated_at:     new Date().toISOString(),
   };
@@ -195,7 +193,7 @@ async function setAppBadge(count = 1) {
   }
 }
 
-// バッジを消去 + SW 側のカウントもリセット
+// バッジを消去 + SW 側にも通知
 async function clearAppBadge() {
   if ('clearAppBadge' in navigator) {
     try {
@@ -205,8 +203,8 @@ async function clearAppBadge() {
     }
   }
 
-  // SW 側にも通知（カウントリセット）
-  if (navigator.serviceWorker.controller) {
+  // SW が起きていれば CLEAR_BADGE を送る
+  if (navigator.serviceWorker?.controller) {
     navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_BADGE' });
   }
 }
@@ -224,18 +222,14 @@ async function clearAllNotifications() {
 }
 
 // ----------------------------------------------------------
-// ⑤ アプリ起動・フォーカス時に自動でバッジと通知を消去する
-//   ※ clearAppBadge() 内で SW へ CLEAR_BADGE を送り、
-//      カウントも同時にリセットされるため、
-//      アプリを開くと新規通知がまた届くようになる
+// ⑤ アプリが前面に来たときにバッジと通知を消去する
 //
-// 【修正】
-//   - 起動直後の即時 clearAll() を廃止し、SW の準備完了後に 1 秒遅延してから実行。
-//     タスクキル後に SW がバックグラウンドで受信した通知を画面に表示させてから
-//     消去するため、通知がユーザーに届く前に消えてしまうのを防ぐ。
-//   - window 'focus' イベントを廃止し visibilitychange に一本化。
-//     タスクキル後の再起動では focus と visibilitychange が連続して発火し、
-//     CLEAR_BADGE が二重送信されてカウントが乱れるのを防ぐ。
+// 【設計】
+//   - visibilitychange のみ使用（focus との重複イベントを排除）。
+//   - 起動直後の即時消去は行わない。
+//     タスクキル後のコールドスタートでは visibilitychange が
+//     発火しないケースがあるため、代わりに pageshow を使う。
+//   - clearAllNotifications() はアプリが確実に前面に来てから呼ぶ。
 // ----------------------------------------------------------
 function setupAutoClearing() {
   const clearAll = () => {
@@ -243,19 +237,16 @@ function setupAutoClearing() {
     clearAllNotifications();
   };
 
-  // visibilitychange のみ使用（focus との重複を排除）
+  // タブ切り替え・アプリの前面復帰
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') clearAll();
   });
 
-  // 起動直後は SW の準備完了を待ってから 1 秒後に実行。
-  // こうすることで、バックグラウンドで受信済みの通知が
-  // 画面に表示される前にカウントがリセットされる問題を回避する。
-  if (document.visibilityState === 'visible') {
-    navigator.serviceWorker.ready.then(() => {
-      setTimeout(clearAll, 1000);
-    });
-  }
+  // タスクキル後の再起動（BFCache 復帰・コールドスタート）にも対応
+  window.addEventListener('pageshow', (e) => {
+    // e.persisted = true は BFCache から復元された場合
+    clearAll();
+  });
 }
 
 // ----------------------------------------------------------

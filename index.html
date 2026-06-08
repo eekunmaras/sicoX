@@ -6035,9 +6035,45 @@ function addNotification(notif){
 
   updateNotifBadge();
 
-  // 未読の場合のみトースト表示
+  if(!notif.read) {
+    // アプリ内トースト（常に表示）
+    showToast('💬 ' + notif.fromName + 'があなたの投稿にコメントしました');
 
-  if(!notif.read) showToast('💬 ' + notif.fromName + 'があなたの投稿にコメントしました');
+    // ★ フォアグラウンド時の OS バナー通知 & バッジ付与 ★
+    // PWA Push は基本バックグラウンド専用だが、フォアグラウンドでも
+    // Web Notifications API で OS バナーを出し、バッジも同期させる。
+    (async () => {
+      try {
+        // notifyComment がオンの場合のみバナーを出す
+        const prefs = typeof getPushPrefs === 'function' ? getPushPrefs() : {};
+        const wantNotif  = prefs.notifyComment !== false;
+        const wantBadge  = prefs.notifyBadge   !== false;
+
+        if (wantNotif && Notification.permission === 'granted') {
+          // ServiceWorker 経由でバナーを出す（OS通知として表示）
+          if (navigator.serviceWorker?.controller) {
+            // SW に直接通知表示を依頼
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification('SicoX', {
+              body: notif.fromName + 'があなたの投稿にコメントしました',
+              icon: '/icons/icon-192.png',
+              badge: '/icons/badge-72.png',
+              tag: 'sicox-comment-' + notif.tweetId,
+              data: { url: '/', type: 'comment' },
+              vibrate: [100, 50, 100],
+            });
+          }
+        }
+
+        // バッジ付与（コメント設定がオンなら、通知表示のオン/オフに関わらず付与）
+        if (wantBadge && typeof setAppBadge === 'function') {
+          await setAppBadge(unreadNotifCount());
+        }
+      } catch(e) {
+        // 権限なし・非対応環境では無視
+      }
+    })();
+  }
 
 }
 

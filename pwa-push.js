@@ -27,11 +27,12 @@ const NOTIF_PREFS_CACHE_NAME = 'sicox-notif-prefs-v1';
 const NOTIF_PREFS_REQUEST_KEY = 'sicox://notif-prefs';
 
 function toSwNotifPrefs(prefs = {}) {
+  // SW側の構造と1対1で完全に一致させる
   return {
-    newPost: prefs.notifyTweet   !== false,
-    dm:      prefs.notifyDm      !== false,
-    comment: prefs.notifyComment !== false,
-    badge:   prefs.notifyBadge   !== false,
+    notifyTweet:   prefs.notifyTweet   !== false,
+    notifyDm:      prefs.notifyDm      !== false,
+    notifyComment: prefs.notifyComment !== false,
+    notifyBadge:   prefs.notifyBadge   !== false,
   };
 }
 
@@ -170,10 +171,10 @@ async function savePushSubscription(subscription, prefs = {}) {
   const shouldDeliverPush = (bannerPref) => bannerPref !== false || wantBadge;
 
   const record = {
-    user_handle:  currentUser.handle,
-    endpoint:     subJson.endpoint,
-    p256dh:       subJson.keys.p256dh,
-    auth:         subJson.keys.auth,
+    user_handle:    currentUser.handle,
+    endpoint:      subJson.endpoint,
+    p256dh:        subJson.keys.p256dh,
+    auth:          subJson.keys.auth,
     notify_tweet:   shouldDeliverPush(prefs.notifyTweet),
     notify_dm:      shouldDeliverPush(prefs.notifyDm),
     notify_comment: shouldDeliverPush(prefs.notifyComment),
@@ -256,7 +257,7 @@ async function clearAppBadge() {
   }
 }
 
-// ★追加: 表示されている通知バナーをすべて消去する
+// 表示されている通知バナーをすべて消去する
 async function clearAllNotifications() {
   if (!('serviceWorker' in navigator)) return;
   try {
@@ -272,7 +273,7 @@ async function clearAllNotifications() {
 
 // ----------------------------------------------------------
 // ⑤ アプリ起動・フォーカス時に自動でバッジと通知を消去する
-//    index.html の appStart() または DOMContentLoaded で呼ぶ
+//   index.html の appStart() または DOMContentLoaded で呼ぶ
 // ----------------------------------------------------------
 function setupAutoClearing() {
   // バッジと通知の両方を消す関数
@@ -425,17 +426,13 @@ async function onPushPrefChange(key, value) {
   // バッジと通知の消去ハンドラを最優先で登録
   setupAutoClearing();
 
-  // 1. まずSWを登録する
   const registration = await registerServiceWorker();
-
   const prefs = getPushPrefs();
 
   if (registration) {
-    // 2. もしSWが新しくインストール中（installing）や待機中（waiting）なら、それがアクティブになるのを待つ
+    // インストール・待機・アクティブ状態を判定して安全に状態監視
     const sw = registration.installing || registration.waiting || registration.active;
-    
     if (sw) {
-      // SWの状態が 'activated'（起動完了）になるのを監視して同期する
       if (sw.state === 'activated') {
         syncPrefsToSW(prefs);
       } else {
@@ -449,7 +446,7 @@ async function onPushPrefChange(key, value) {
     }
   }
 
-  // 3. 念のためページのリロード等で既にcontrollerがいる場合も同期を通す
+  // 既にcontrollerが存在しているセッション（リロード等）用
   if (navigator.serviceWorker.controller) {
     syncPrefsToSW(prefs);
   }

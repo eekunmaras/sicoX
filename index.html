@@ -10615,9 +10615,12 @@ if(localStorage.getItem(GATE_KEY)==='1'){
 
 // バックグラウンドから復帰（タブ切り替え・PWAフォアグラウンド復帰）した際も通知をクリア
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && currentUser) {
-    markAllNotifsRead();
-  }
+  if (document.visibilityState !== 'visible') return;
+  // アプリ内通知バッジを既読化（ログイン時のみ）
+  if (currentUser) markAllNotifsRead();
+  // ★ OSアイコンバッジも消去（pwa-push.js の setupBadgeAutoClearing と二重対策）★
+  // clearAppBadge は pwa-push.js で定義。typeof チェックで未ロード時も安全に動作する。
+  if (typeof clearAppBadge === 'function') clearAppBadge();
 });
 
 

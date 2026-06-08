@@ -27,6 +27,34 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 
+const NOTIF_PREFS_CACHE_NAME = 'sicox-notif-prefs-v1';
+const NOTIF_PREFS_REQUEST_KEY = 'sicox://notif-prefs';
+
+function toSwNotifPrefs(prefs = {}) {
+  return {
+    newPost: prefs.notifyTweet   !== false,
+    dm:      prefs.notifyDm      !== false,
+    comment: prefs.notifyComment !== false,
+    badge:   prefs.notifyBadge   !== false,
+  };
+}
+
+async function savePrefsToCacheStorage(swPrefs) {
+  if (!('caches' in window)) return;
+
+  try {
+    const cache = await caches.open(NOTIF_PREFS_CACHE_NAME);
+    await cache.put(
+      new Request(NOTIF_PREFS_REQUEST_KEY),
+      new Response(JSON.stringify(swPrefs), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    );
+  } catch (err) {
+    console.warn('[PWA] 通知設定キャッシュの保存に失敗:', err);
+  }
+}
+
 // ----------------------------------------------------------
 // ユーザー設定を Service Worker の CacheStorage に同期する
 //
@@ -37,15 +65,14 @@ function urlBase64ToUint8Array(base64String) {
 //   独立して判断できるようになる。
 // ----------------------------------------------------------
 function syncPrefsToSW(prefs) {
-  if (!('serviceWorker' in navigator)) return;
-
   // pwa-push.js のキー名 → sw.js のキー名に変換して送信
-  const swPrefs = {
-    newPost: prefs.notifyTweet   !== false,
-    dm:      prefs.notifyDm      !== false,
-    comment: prefs.notifyComment !== false, // ★ コメント通知設定を追加
-    badge:   prefs.notifyBadge   !== false,
-  };
+  const swPrefs = toSwNotifPrefs(prefs);
+
+  // SW がまだ controller になっていない状態でも、次回push時に必ず読めるよう
+  // ページ側から同じ CacheStorage に直接保存しておく。
+  savePrefsToCacheStorage(swPrefs);
+
+  if (!('serviceWorker' in navigator)) return;
 
   const send = (controller) => {
     controller.postMessage({ type: 'SAVE_PREFS', prefs: swPrefs });

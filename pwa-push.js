@@ -6,6 +6,12 @@
 //   2. index.html の </body> 直前に
 //      <script src="/pwa-push.js"></script> を追加
 //   3. appStart() の中で initPushNotifications() を呼び出す
+//
+// 【変更点】
+//   SW 側での通知フィルタリングを廃止したため、
+//   CacheStorage への prefs 同期（savePrefsToCacheStorage / syncPrefsToSW）
+//   および関連する定数・関数をすべて削除。
+//   通知のON/OFFはサーバー側 push_subscriptions テーブルのみで制御する。
 // ==========================================================
 
 // ----------------------------------------------------------
@@ -21,57 +27,6 @@ function urlBase64ToUint8Array(base64String) {
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = atob(base64);
   return new Uint8Array([...rawData].map((c) => c.charCodeAt(0)));
-}
-
-const NOTIF_PREFS_CACHE_NAME = 'sicox-notif-prefs-v1';
-const NOTIF_PREFS_REQUEST_KEY = 'sicox://notif-prefs';
-
-function toSwNotifPrefs(prefs = {}) {
-  // SW側の構造と1対1で完全に一致させる
-  return {
-    notifyTweet:   prefs.notifyTweet   !== false,
-    notifyDm:      prefs.notifyDm      !== false,
-    notifyComment: prefs.notifyComment !== false,
-    notifyBadge:   prefs.notifyBadge   !== false,
-  };
-}
-
-async function savePrefsToCacheStorage(swPrefs) {
-  if (!('caches' in window)) return;
-
-  try {
-    const cache = await caches.open(NOTIF_PREFS_CACHE_NAME);
-    await cache.put(
-      new Request(NOTIF_PREFS_REQUEST_KEY),
-      new Response(JSON.stringify(swPrefs), {
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
-  } catch (err) {
-    console.warn('[PWA] 通知設定キャッシュの保存に失敗:', err);
-  }
-}
-
-// ----------------------------------------------------------
-// ユーザー設定を Service Worker の CacheStorage に同期する
-// ----------------------------------------------------------
-function syncPrefsToSW(prefs) {
-  const swPrefs = toSwNotifPrefs(prefs);
-  savePrefsToCacheStorage(swPrefs);
-
-  if (!('serviceWorker' in navigator)) return;
-
-  const send = (controller) => {
-    controller.postMessage({ type: 'SAVE_PREFS', prefs: swPrefs });
-  };
-
-  if (navigator.serviceWorker.controller) {
-    send(navigator.serviceWorker.controller);
-  } else {
-    navigator.serviceWorker.ready.then(reg => {
-      if (reg.active) send(reg.active);
-    }).catch(() => {});
-  }
 }
 
 // ----------------------------------------------------------
@@ -157,7 +112,6 @@ async function initPushNotifications() {
   }
 
   await savePushSubscription(subscription, prefs);
-  syncPrefsToSW(prefs);
 }
 
 // ----------------------------------------------------------
@@ -172,14 +126,14 @@ async function savePushSubscription(subscription, prefs = {}) {
 
   const record = {
     user_handle:    currentUser.handle,
-    endpoint:      subJson.endpoint,
-    p256dh:        subJson.keys.p256dh,
-    auth:          subJson.keys.auth,
+    endpoint:       subJson.endpoint,
+    p256dh:         subJson.keys.p256dh,
+    auth:           subJson.keys.auth,
     notify_tweet:   shouldDeliverPush(prefs.notifyTweet),
     notify_dm:      shouldDeliverPush(prefs.notifyDm),
     notify_comment: shouldDeliverPush(prefs.notifyComment),
     notify_badge:   wantBadge,
-    updated_at:   new Date().toISOString(),
+    updated_at:     new Date().toISOString(),
   };
 
   const { error } = await sb.from('push_subscriptions').upsert(record, {
@@ -214,8 +168,6 @@ async function updatePushPref(key, value) {
   const prefs = getPushPrefs();
   prefs[key] = value;
   savePushPrefs(prefs);
-
-  syncPrefsToSW(prefs);
 
   const reg = await navigator.serviceWorker.ready;
   const subscription = await reg.pushManager.getSubscription();
@@ -276,7 +228,6 @@ async function clearAllNotifications() {
 //   index.html の appStart() または DOMContentLoaded で呼ぶ
 // ----------------------------------------------------------
 function setupAutoClearing() {
-  // バッジと通知の両方を消す関数
   const clearAll = () => {
     clearAppBadge();
     clearAllNotifications();
@@ -330,8 +281,6 @@ function renderPushSettingsUI(containerId) {
   const prefs = getPushPrefs();
   const supported = ('serviceWorker' in navigator) && ('PushManager' in window);
   const permission = supported ? Notification.permission : 'unsupported';
-
-  if (supported) syncPrefsToSW(prefs);
 
   container.innerHTML = `
     <div style="padding:16px 0;border-top:1px solid var(--border);margin-top:12px;">
@@ -426,28 +375,5 @@ async function onPushPrefChange(key, value) {
   // バッジと通知の消去ハンドラを最優先で登録
   setupAutoClearing();
 
-  const registration = await registerServiceWorker();
-  const prefs = getPushPrefs();
-
-  if (registration) {
-    // インストール・待機・アクティブ状態を判定して安全に状態監視
-    const sw = registration.installing || registration.waiting || registration.active;
-    if (sw) {
-      if (sw.state === 'activated') {
-        syncPrefsToSW(prefs);
-      } else {
-        sw.addEventListener('statechange', (e) => {
-          if (e.target.state === 'activated') {
-            console.log('[PWA] SW がアクティブになったため、遅延同期を実行します');
-            syncPrefsToSW(prefs);
-          }
-        });
-      }
-    }
-  }
-
-  // 既にcontrollerが存在しているセッション（リロード等）用
-  if (navigator.serviceWorker.controller) {
-    syncPrefsToSW(prefs);
-  }
+  await registerServiceWorker();
 })();

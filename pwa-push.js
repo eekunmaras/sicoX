@@ -426,11 +426,13 @@ async function onPushPrefChange(key, value) {
 // 初期化 — DOM 読み込み完了後に SW を登録 & バッジ消去設定
 // ----------------------------------------------------------
 (async function pwaPushInit() {
+  // ★ バッジ消去ハンドラを最優先で登録（SW 登録の await より前）★
+  // await registerServiceWorker() で処理が中断されても
+  // visibilitychange・focus リスナーは確実に設定される
+  setupBadgeAutoClearing();
+
   // Service Worker の登録（バックグラウンドで行う）
   await registerServiceWorker();
-
-  // バッジ自動消去の設定
-  setupBadgeAutoClearing();
 
   // ★ SW 登録直後に現在の設定を同期する
   //   ページリロード時など initPushNotifications() が呼ばれる前でも

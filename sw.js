@@ -1,66 +1,34 @@
 // ==========================================================
-// sw.js — SicoX Service Worker (修正版)
+// sw.js — SicoX Service Worker
 //
-// 【変更点】
-//   ・バックグラウンドでの通知不具合解消のため、上限チェックを一時無効化
-//   ・ユーザーが通知をスワイプ消去した際にカウントを減らす close 処理を追加
-//   ・バッジ数は未読件数に連動
+// 【設計方針】
+//   push ハンドラは showNotification() の呼び出しのみに専念する。
+//   CacheStorage への I/O・カウント管理は一切行わない。
+//   これにより、タスクキル後のコールドスタート時でも
+//   userVisibleOnly: true の契約を確実に果たせる。
+//
+//   バッジ・カウント管理はフロントエンド側 (pwa-push.js) に委譲する。
 // ==========================================================
 
-const SW_VERSION = 'v2.1.0';
-
-// 未読通知の上限件数 (検証のため現在はチェックを無効化中)
-const MAX_NOTIF_COUNT = 5;
-
-// 未読通知カウントの保存先（CacheStorage）
-const COUNT_CACHE_NAME  = 'sicox-notif-count-v1';
-const COUNT_REQUEST_KEY = 'sicox://notif-count';
-
-// ----------------------------------------------------------
-// 未読カウントの読み込み・保存
-// ----------------------------------------------------------
-async function getNotifCount() {
-  try {
-    const cache = await caches.open(COUNT_CACHE_NAME);
-    const res   = await cache.match(new Request(COUNT_REQUEST_KEY));
-    if (!res) return 0;
-    const body = await res.json();
-    return typeof body.count === 'number' ? body.count : 0;
-  } catch {
-    return 0;
-  }
-}
-
-async function setNotifCount(count) {
-  try {
-    const cache = await caches.open(COUNT_CACHE_NAME);
-    await cache.put(
-      new Request(COUNT_REQUEST_KEY),
-      new Response(JSON.stringify({ count }), {
-        headers: { 'Content-Type': 'application/json' },
-      })
-    );
-  } catch (err) {
-    console.warn('[SW] カウント保存失敗:', err);
-  }
-}
+const SW_VERSION = 'v3.0.0';
 
 // ----------------------------------------------------------
 // インストール & アクティベート
 // ----------------------------------------------------------
 self.addEventListener('install', () => {
+  // 新しい SW をすぐに有効化する
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    // 旧バージョンのキャッシュを削除
+    // 旧バージョンのキャッシュ（カウント管理用）を全削除
     caches.keys().then(keys =>
       Promise.all(
         keys
           .filter(k =>
-            (k.startsWith('sicox-notif-prefs-') || k.startsWith('sicox-notif-count-'))
-            && k !== COUNT_CACHE_NAME
+            k.startsWith('sicox-notif-prefs-') ||
+            k.startsWith('sicox-notif-count-')
           )
           .map(k => caches.delete(k))
       )
@@ -70,73 +38,53 @@ self.addEventListener('activate', (event) => {
 
 // ----------------------------------------------------------
 // push イベント — 通知の受信
+//
+// 【重要】このハンドラは showNotification() を必ず呼ぶこと。
+//   userVisibleOnly: true の契約上、呼ばない場合はブラウザが
+//   以後の push をブロックする可能性がある。
+//   そのため、CacheStorage I/O などの重い処理は一切行わない。
 // ----------------------------------------------------------
 self.addEventListener('push', (event) => {
-  let data = {
-    title:     'SicoX',
-    body:      '新しい通知があります',
-    icon:      '/icons/icon-192.png',
-    badge:     '/icons/badge-72.png',
-    type:      'tweet',
-    url:       '/',
-    showBadge: true,
-  };
+  // デフォルト値
+  let title = 'SicoX';
+  let body  = '新しい通知があります';
+  let icon  = '/icons/icon-192.png';
+  let badge = '/icons/badge-72.png';
+  let type  = 'tweet';
+  let url   = '/';
 
+  // ペイロードのパース（失敗しても必ず通知を出す）
   if (event.data) {
     try {
-      data = { ...data, ...event.data.json() };
+      const d = event.data.json();
+      title = d.title || title;
+      body  = d.body  || body;
+      icon  = d.icon  || icon;
+      badge = d.badge || badge;
+      type  = d.type  || type;
+      url   = d.url   || url;
     } catch {
-      data.body = event.data.text() || data.body;
+      // JSON パース失敗時はデフォルト値で通知
     }
   }
 
+  // ユニークなタグ（Date.now）で通知を積み重ねる
+  const tag = `sicox-${type}-${Date.now()}`;
+
+  const options = {
+    body,
+    icon,
+    badge,
+    tag,
+    renotify:           false,
+    requireInteraction: false,
+    vibrate:            [200, 100, 200],
+    data: { url, type },
+  };
+
+  // showNotification() を必ず呼ぶ — 他の非同期処理は挟まない
   event.waitUntil(
-    (async () => {
-      const currentCount = await getNotifCount();
-
-      // 【修正】バックグラウンドで1件目すら届かなくなるバグを防ぐため、
-      //        カウントによる通知の強制ドロップ（拒否）を一時的に無効化します。
-      // if (currentCount >= MAX_NOTIF_COUNT) {
-      //   console.log(`[SW] 未読通知が上限(${MAX_NOTIF_COUNT}件)に達しているためスキップ`);
-      //   return;
-      // }
-
-      // ユニークなタグで毎回確実に通知を表示
-      const uniqueTag = `sicox-${data.type}-${Date.now()}`;
-      const newCount  = currentCount + 1;
-
-      const options = {
-        body:               data.body,
-        icon:               data.icon  || '/icons/icon-192.png',
-        badge:              data.badge || '/icons/badge-72.png',
-        tag:                uniqueTag,
-        renotify:           false,          // タグがユニークなので renotify 不要
-        requireInteraction: false,
-        vibrate:            [200, 100, 200],
-        data: {
-          url:   data.url  || '/',
-          type:  data.type,
-          count: newCount,
-        },
-      };
-
-      // 通知を表示
-      await self.registration.showNotification(data.title, options);
-
-      // カウントを更新
-      await setNotifCount(newCount);
-
-      // バッジを未読件数に合わせて更新
-      if (data.showBadge !== false && 'setAppBadge' in self.navigator) {
-        try {
-          await self.navigator.setAppBadge(newCount);
-        } catch (err) {
-          console.warn('[SW] バッジ付与に失敗:', err);
-        }
-      }
-
-      console.log(`[SW] 通知表示 (現在: ${newCount}件)`);
-    })()
+    self.registration.showNotification(title, options)
   );
 });
 
@@ -149,17 +97,8 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
-      // 未読カウントをリセット（既読扱い）
-      await setNotifCount(0);
-
-      // バッジも消去
-      if ('clearAppBadge' in self.navigator) {
-        self.navigator.clearAppBadge().catch(() => {});
-      }
-
-      // アプリウィンドウにフォーカス or 新規オープン
       const clients = await self.clients.matchAll({
-        type:               'window',
+        type:                'window',
         includeUncontrolled: true,
       });
 
@@ -176,45 +115,13 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ----------------------------------------------------------
-// 【新規追加】notificationclose イベント — 通知のスワイプ消去時
-// ----------------------------------------------------------
-self.addEventListener('notificationclose', (event) => {
-  event.waitUntil(
-    (async () => {
-      const currentCount = await getNotifCount();
-      // 通知が1つ消されたのでカウントを1減らす（0未満にはしない）
-      const newCount = Math.max(0, currentCount - 1);
-      await setNotifCount(newCount);
-
-      if ('setAppBadge' in self.navigator) {
-        try {
-          if (newCount === 0) {
-            await self.navigator.clearAppBadge();
-          } else {
-            await self.navigator.setAppBadge(newCount);
-          }
-        } catch (err) {
-          console.warn('[SW] バッジ更新失敗:', err);
-        }
-      }
-      console.log(`[SW] 通知が消去されました。残りカウント: ${newCount}`);
-    })()
-  );
-});
-
-// ----------------------------------------------------------
 // message イベント — フロントエンドからの指示受け取り
 // ----------------------------------------------------------
 self.addEventListener('message', (event) => {
-  // アプリが表示された → バッジとカウントを消去（既読扱い）
+  // アプリが表示された → バッジ消去
   if (event.data?.type === 'CLEAR_BADGE') {
-    event.waitUntil(
-      (async () => {
-        await setNotifCount(0);
-        if ('clearAppBadge' in self.navigator) {
-          self.navigator.clearAppBadge().catch(() => {});
-        }
-      })()
-    );
+    if ('clearAppBadge' in self.navigator) {
+      self.navigator.clearAppBadge().catch(() => {});
+    }
   }
 });

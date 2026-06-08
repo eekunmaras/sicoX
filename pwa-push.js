@@ -41,9 +41,10 @@ function syncPrefsToSW(prefs) {
 
   // pwa-push.js のキー名 → sw.js のキー名に変換して送信
   const swPrefs = {
-    newPost: prefs.notifyTweet !== false,
-    dm:      prefs.notifyDm    !== false,
-    badge:   prefs.notifyBadge !== false,
+    newPost: prefs.notifyTweet   !== false,
+    dm:      prefs.notifyDm      !== false,
+    comment: prefs.notifyComment !== false, // ★ コメント通知設定を追加
+    badge:   prefs.notifyBadge   !== false,
   };
 
   const send = (controller) => {
@@ -197,9 +198,10 @@ async function savePushSubscription(subscription, prefs = {}) {
     p256dh:       subJson.keys.p256dh,
     auth:         subJson.keys.auth,
     // バッジが必要なら通知タイプをオンにして push を届けさせる
-    notify_tweet: prefs.notifyTweet !== false || wantBadge,
-    notify_dm:    prefs.notifyDm    !== false || wantBadge,
-    notify_badge: wantBadge,
+    notify_tweet:   prefs.notifyTweet   !== false || wantBadge,
+    notify_dm:      prefs.notifyDm      !== false || wantBadge,
+    notify_comment: prefs.notifyComment !== false || wantBadge, // ★ コメント通知
+    notify_badge:   wantBadge,
     updated_at:   new Date().toISOString(),
   };
 
@@ -373,6 +375,19 @@ function renderPushSettingsUI(containerId) {
             <input type="checkbox" id="pref-notify-tweet"
               ${prefs.notifyTweet !== false ? 'checked' : ''}
               onchange="onPushPrefChange('notifyTweet', this.checked)"
+              style="width:18px;height:18px;cursor:pointer;">
+          </label>
+
+          <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+            <span style="font-size:14px;color:var(--text);">
+              コメント通知
+              <span style="font-size:11px;color:var(--text2);display:block;">
+                自分の投稿・参加スレッドへの返信
+              </span>
+            </span>
+            <input type="checkbox" id="pref-notify-comment"
+              ${prefs.notifyComment !== false ? 'checked' : ''}
+              onchange="onPushPrefChange('notifyComment', this.checked)"
               style="width:18px;height:18px;cursor:pointer;">
           </label>
 

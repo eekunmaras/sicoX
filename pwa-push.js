@@ -228,6 +228,14 @@ async function clearAllNotifications() {
 //   ※ clearAppBadge() 内で SW へ CLEAR_BADGE を送り、
 //      カウントも同時にリセットされるため、
 //      アプリを開くと新規通知がまた届くようになる
+//
+// 【修正】
+//   - 起動直後の即時 clearAll() を廃止し、SW の準備完了後に 1 秒遅延してから実行。
+//     タスクキル後に SW がバックグラウンドで受信した通知を画面に表示させてから
+//     消去するため、通知がユーザーに届く前に消えてしまうのを防ぐ。
+//   - window 'focus' イベントを廃止し visibilitychange に一本化。
+//     タスクキル後の再起動では focus と visibilitychange が連続して発火し、
+//     CLEAR_BADGE が二重送信されてカウントが乱れるのを防ぐ。
 // ----------------------------------------------------------
 function setupAutoClearing() {
   const clearAll = () => {
@@ -235,15 +243,19 @@ function setupAutoClearing() {
     clearAllNotifications();
   };
 
+  // visibilitychange のみ使用（focus との重複を排除）
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') clearAll();
   });
 
-  if (document.visibilityState === 'visible') clearAll();
-
-  window.addEventListener('focus', () => {
-    clearAll();
-  });
+  // 起動直後は SW の準備完了を待ってから 1 秒後に実行。
+  // こうすることで、バックグラウンドで受信済みの通知が
+  // 画面に表示される前にカウントがリセットされる問題を回避する。
+  if (document.visibilityState === 'visible') {
+    navigator.serviceWorker.ready.then(() => {
+      setTimeout(clearAll, 1000);
+    });
+  }
 }
 
 // ----------------------------------------------------------

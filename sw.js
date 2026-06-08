@@ -1,17 +1,15 @@
 // ==========================================================
-// sw.js — SicoX Service Worker
+// sw.js — SicoX Service Worker (修正版)
 //
-// 【通知スタック仕様】
-//   ・未読通知を最大 MAX_NOTIF_COUNT 件（デフォルト5件）まで表示
-//   ・上限に達した場合は新規通知を表示せずドロップ
-//   ・ユーザーが通知をタップ（既読）するか、アプリを開くと
-//     スタックがリセットされ、また新規通知が届くようになる
+// 【変更点】
+//   ・バックグラウンドでの通知不具合解消のため、上限チェックを一時無効化
+//   ・ユーザーが通知をスワイプ消去した際にカウントを減らす close 処理を追加
 //   ・バッジ数は未読件数に連動
 // ==========================================================
 
-const SW_VERSION = 'v2.0.0';
+const SW_VERSION = 'v2.1.0';
 
-// 未読通知の上限件数
+// 未読通知の上限件数 (検証のため現在はチェックを無効化中)
 const MAX_NOTIF_COUNT = 5;
 
 // 未読通知カウントの保存先（CacheStorage）
@@ -71,13 +69,7 @@ self.addEventListener('activate', (event) => {
 });
 
 // ----------------------------------------------------------
-// push イベント
-//
-// 【スタック上限ロジック】
-//   1. 現在の未読カウントを取得
-//   2. MAX_NOTIF_COUNT 以上なら通知を表示せずスキップ
-//   3. 未満なら通知を表示し、カウントを +1
-//   4. タグはユニーク（タイムスタンプ付き）にして毎回確実に届ける
+// push イベント — 通知の受信
 // ----------------------------------------------------------
 self.addEventListener('push', (event) => {
   let data = {
@@ -102,11 +94,12 @@ self.addEventListener('push', (event) => {
     (async () => {
       const currentCount = await getNotifCount();
 
-      // 上限チェック：5件溜まっていたら新規通知をスキップ
-      if (currentCount >= MAX_NOTIF_COUNT) {
-        console.log(`[SW] 未読通知が上限(${MAX_NOTIF_COUNT}件)に達しているためスキップ`);
-        return;
-      }
+      // 【修正】バックグラウンドで1件目すら届かなくなるバグを防ぐため、
+      //        カウントによる通知の強制ドロップ（拒否）を一時的に無効化します。
+      // if (currentCount >= MAX_NOTIF_COUNT) {
+      //   console.log(`[SW] 未読通知が上限(${MAX_NOTIF_COUNT}件)に達しているためスキップ`);
+      //   return;
+      // }
 
       // ユニークなタグで毎回確実に通知を表示
       const uniqueTag = `sicox-${data.type}-${Date.now()}`;
@@ -142,17 +135,13 @@ self.addEventListener('push', (event) => {
         }
       }
 
-      console.log(`[SW] 通知表示 (${newCount}/${MAX_NOTIF_COUNT}件)`);
+      console.log(`[SW] 通知表示 (現在: ${newCount}件)`);
     })()
   );
 });
 
 // ----------------------------------------------------------
 // notificationclick イベント — 通知タップ時
-//
-// 【既読処理】
-//   タップされた通知を閉じ、未読カウントを 0 にリセット。
-//   これにより次の push からまた通知が届くようになる。
 // ----------------------------------------------------------
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
@@ -187,10 +176,34 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ----------------------------------------------------------
+// 【新規追加】notificationclose イベント — 通知のスワイプ消去時
+// ----------------------------------------------------------
+self.addEventListener('notificationclose', (event) => {
+  event.waitUntil(
+    (async () => {
+      const currentCount = await getNotifCount();
+      // 通知が1つ消されたのでカウントを1減らす（0未満にはしない）
+      const newCount = Math.max(0, currentCount - 1);
+      await setNotifCount(newCount);
+
+      if ('setAppBadge' in self.navigator) {
+        try {
+          if (newCount === 0) {
+            await self.navigator.clearAppBadge();
+          } else {
+            await self.navigator.setAppBadge(newCount);
+          }
+        } catch (err) {
+          console.warn('[SW] バッジ更新失敗:', err);
+        }
+      }
+      console.log(`[SW] 通知が消去されました。残りカウント: ${newCount}`);
+    })()
+  );
+});
+
+// ----------------------------------------------------------
 // message イベント — フロントエンドからの指示受け取り
-//
-// CLEAR_BADGE  : アプリ起動・フォーカス時にバッジ＆カウントをリセット
-// SAVE_PREFS   : 通知設定の保存（後方互換のため残置）
 // ----------------------------------------------------------
 self.addEventListener('message', (event) => {
   // アプリが表示された → バッジとカウントを消去（既読扱い）

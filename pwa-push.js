@@ -422,11 +422,35 @@ async function onPushPrefChange(key, value) {
 // 初期化 — DOM 読み込み完了後に SW を登録 & バッジ・通知消去設定
 // ----------------------------------------------------------
 (async function pwaPushInit() {
-  // ★ バッジと通知の消去ハンドラを最優先で登録
+  // バッジと通知の消去ハンドラを最優先で登録
   setupAutoClearing();
 
-  await registerServiceWorker();
+  // 1. まずSWを登録する
+  const registration = await registerServiceWorker();
 
   const prefs = getPushPrefs();
-  syncPrefsToSW(prefs);
+
+  if (registration) {
+    // 2. もしSWが新しくインストール中（installing）や待機中（waiting）なら、それがアクティブになるのを待つ
+    const sw = registration.installing || registration.waiting || registration.active;
+    
+    if (sw) {
+      // SWの状態が 'activated'（起動完了）になるのを監視して同期する
+      if (sw.state === 'activated') {
+        syncPrefsToSW(prefs);
+      } else {
+        sw.addEventListener('statechange', (e) => {
+          if (e.target.state === 'activated') {
+            console.log('[PWA] SW がアクティブになったため、遅延同期を実行します');
+            syncPrefsToSW(prefs);
+          }
+        });
+      }
+    }
+  }
+
+  // 3. 念のためページのリロード等で既にcontrollerがいる場合も同期を通す
+  if (navigator.serviceWorker.controller) {
+    syncPrefsToSW(prefs);
+  }
 })();

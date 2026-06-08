@@ -6004,8 +6004,8 @@ async function loadPastNotifications(){
 
   updateNotifBadge();
 
-  // アプリを直接開いた場合も通知バッジをクリアする（既読化）
-  markAllNotifsRead();
+  // ※ 起動時の自動既読化を廃止：通知はユーザーが明示的に操作するまで残す
+  // markAllNotifsRead(); // 削除
 
 }
 
@@ -10655,12 +10655,12 @@ if(localStorage.getItem(GATE_KEY)==='1'){
 
 }
 
-// バックグラウンドから復帰（タブ切り替え・PWAフォアグラウンド復帰）した際も通知をクリア
+// バックグラウンドから復帰（タブ切り替え・PWAフォアグラウンド復帰）
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-  // アプリ内通知バッジを既読化（ログイン時のみ）
-  if (currentUser) markAllNotifsRead();
-  // ★ OSアイコンバッジも消去（pwa-push.js の setupBadgeAutoClearing と二重対策）★
+  // ※ アプリ内通知の自動既読化を廃止：ユーザーが明示的に操作するまで通知を残す
+  // if (currentUser) markAllNotifsRead(); // 削除
+  // ★ OSアイコンバッジのみ消去（pwa-push.js の setupBadgeAutoClearing と二重対策）★
   // clearAppBadge は pwa-push.js で定義。typeof チェックで未ロード時も安全に動作する。
   if (typeof clearAppBadge === 'function') clearAppBadge();
 });

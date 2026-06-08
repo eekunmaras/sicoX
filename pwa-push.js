@@ -7,15 +7,15 @@
 //      <script src="/pwa-push.js"></script> を追加
 //   3. appStart() の中で initPushNotifications() を呼び出す
 //
-// 【変更点】
-//   SW 側での通知フィルタリングを廃止したため、
-//   CacheStorage への prefs 同期（savePrefsToCacheStorage / syncPrefsToSW）
-//   および関連する定数・関数をすべて削除。
-//   通知のON/OFFはサーバー側 push_subscriptions テーブルのみで制御する。
+// 【通知スタック仕様】
+//   未読通知が最大 5 件たまると新規通知がストップし、
+//   ユーザーが通知をタップ or アプリを開くとリセットされて
+//   また通知が届くようになる。
+//   カウント管理は SW 側 (sw.js) の CacheStorage で行う。
 // ==========================================================
 
 // ----------------------------------------------------------
-// ① VAPID 公開鍵（.env や Supabase secrets から取得した値）
+// ① VAPID 公開鍵
 // ----------------------------------------------------------
 const VAPID_PUBLIC_KEY = 'BP5a5eqrkxqo1LxtZYuIdk2ax7zxtU2IbUaQbmzh5s9wUjCkKn95dnwnvJ5P_6k8q7-Ba62kQsZcgpVp2zocUrU';
 
@@ -24,7 +24,7 @@ const VAPID_PUBLIC_KEY = 'BP5a5eqrkxqo1LxtZYuIdk2ax7zxtU2IbUaQbmzh5s9wUjCkKn95dn
 // ----------------------------------------------------------
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = atob(base64);
   return new Uint8Array([...rawData].map((c) => c.charCodeAt(0)));
 }
@@ -40,7 +40,7 @@ async function registerServiceWorker() {
 
   try {
     const reg = await navigator.serviceWorker.register('/sw.js', {
-      scope: '/',
+      scope:         '/',
       updateViaCache: 'none',
     });
 
@@ -62,6 +62,7 @@ async function registerServiceWorker() {
 function handleSwMessage(event) {
   if (event.data?.type === 'notification_clicked') {
     // 通知タップでアプリがフォーカスされた → バッジと通知を消去
+    // ※ カウントリセットは SW 側の notificationclick で実施済み
     clearAppBadge();
     clearAllNotifications();
   }
@@ -78,8 +79,8 @@ async function initPushNotifications() {
 
   if (!currentUser?.handle) return;
 
-  const prefs = getPushPrefs();
-  let permission = Notification.permission;
+  const prefs      = getPushPrefs();
+  let   permission = Notification.permission;
 
   if (permission === 'denied') {
     console.log('[PWA] 通知はブロックされています');
@@ -95,13 +96,13 @@ async function initPushNotifications() {
     return;
   }
 
-  const reg = await navigator.serviceWorker.ready;
-  let subscription = await reg.pushManager.getSubscription();
+  const reg          = await navigator.serviceWorker.ready;
+  let   subscription = await reg.pushManager.getSubscription();
 
   if (!subscription) {
     try {
       subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
+        userVisibleOnly:    true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
       console.log('[PWA] Push 購読を作成しました');
@@ -120,18 +121,18 @@ async function initPushNotifications() {
 async function savePushSubscription(subscription, prefs = {}) {
   if (!currentUser?.handle || !subscription) return;
 
-  const subJson = subscription.toJSON();
-  const wantBadge = prefs.notifyBadge !== false;
-  const shouldDeliverPush = (bannerPref) => bannerPref !== false || wantBadge;
+  const subJson        = subscription.toJSON();
+  const wantBadge      = prefs.notifyBadge !== false;
+  const shouldDeliver  = (pref) => pref !== false || wantBadge;
 
   const record = {
     user_handle:    currentUser.handle,
     endpoint:       subJson.endpoint,
     p256dh:         subJson.keys.p256dh,
     auth:           subJson.keys.auth,
-    notify_tweet:   shouldDeliverPush(prefs.notifyTweet),
-    notify_dm:      shouldDeliverPush(prefs.notifyDm),
-    notify_comment: shouldDeliverPush(prefs.notifyComment),
+    notify_tweet:   shouldDeliver(prefs.notifyTweet),
+    notify_dm:      shouldDeliver(prefs.notifyDm),
+    notify_comment: shouldDeliver(prefs.notifyComment),
     notify_badge:   wantBadge,
     updated_at:     new Date().toISOString(),
   };
@@ -166,11 +167,12 @@ function savePushPrefs(prefs) {
 
 async function updatePushPref(key, value) {
   const prefs = getPushPrefs();
-  prefs[key] = value;
+  prefs[key]  = value;
   savePushPrefs(prefs);
 
-  const reg = await navigator.serviceWorker.ready;
+  const reg          = await navigator.serviceWorker.ready;
   const subscription = await reg.pushManager.getSubscription();
+
   if (subscription) {
     await savePushSubscription(subscription, prefs);
   } else if (Notification.permission === 'granted') {
@@ -179,7 +181,7 @@ async function updatePushPref(key, value) {
 }
 
 // ----------------------------------------------------------
-// ④ App Badging API & 通知クリア — アプリアイコンのバッジと通知操作
+// ④ App Badging API & 通知クリア
 // ----------------------------------------------------------
 
 // バッジを付与（数値）
@@ -193,7 +195,7 @@ async function setAppBadge(count = 1) {
   }
 }
 
-// バッジを消去
+// バッジを消去 + SW 側のカウントもリセット
 async function clearAppBadge() {
   if ('clearAppBadge' in navigator) {
     try {
@@ -203,7 +205,7 @@ async function clearAppBadge() {
     }
   }
 
-  // SW 側にも通知
+  // SW 側にも通知（カウントリセット）
   if (navigator.serviceWorker.controller) {
     navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_BADGE' });
   }
@@ -213,11 +215,9 @@ async function clearAppBadge() {
 async function clearAllNotifications() {
   if (!('serviceWorker' in navigator)) return;
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg           = await navigator.serviceWorker.ready;
     const notifications = await reg.getNotifications();
-    notifications.forEach(notification => {
-      notification.close();
-    });
+    notifications.forEach(n => n.close());
   } catch (e) {
     console.warn('[PWA] 通知のクリアに失敗:', e);
   }
@@ -225,7 +225,9 @@ async function clearAllNotifications() {
 
 // ----------------------------------------------------------
 // ⑤ アプリ起動・フォーカス時に自動でバッジと通知を消去する
-//   index.html の appStart() または DOMContentLoaded で呼ぶ
+//   ※ clearAppBadge() 内で SW へ CLEAR_BADGE を送り、
+//      カウントも同時にリセットされるため、
+//      アプリを開くと新規通知がまた届くようになる
 // ----------------------------------------------------------
 function setupAutoClearing() {
   const clearAll = () => {
@@ -233,19 +235,12 @@ function setupAutoClearing() {
     clearAllNotifications();
   };
 
-  // ページ表示時（通常起動 or タブ切り替えで戻ってきた時）
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      clearAll();
-    }
+    if (document.visibilityState === 'visible') clearAll();
   });
 
-  // ページ読み込み完了時（初回起動）
-  if (document.visibilityState === 'visible') {
-    clearAll();
-  }
+  if (document.visibilityState === 'visible') clearAll();
 
-  // ウィンドウがフォーカスを得た時（PC ブラウザ対応）
   window.addEventListener('focus', () => {
     clearAll();
   });
@@ -255,7 +250,7 @@ function setupAutoClearing() {
 // ⑥ Push 購読を解除する（通知設定OFFにした時）
 // ----------------------------------------------------------
 async function unsubscribePush() {
-  const reg = await navigator.serviceWorker.ready;
+  const reg          = await navigator.serviceWorker.ready;
   const subscription = await reg.pushManager.getSubscription();
 
   if (!subscription) return;
@@ -278,8 +273,8 @@ function renderPushSettingsUI(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  const prefs = getPushPrefs();
-  const supported = ('serviceWorker' in navigator) && ('PushManager' in window);
+  const prefs      = getPushPrefs();
+  const supported  = ('serviceWorker' in navigator) && ('PushManager' in window);
   const permission = supported ? Notification.permission : 'unsupported';
 
   container.innerHTML = `
@@ -302,9 +297,7 @@ function renderPushSettingsUI(containerId) {
         <div style="display:flex;flex-direction:column;gap:12px;">
 
           <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
-            <span style="font-size:14px;color:var(--text);">
-              新規ポスト通知
-            </span>
+            <span style="font-size:14px;color:var(--text);">新規ポスト通知</span>
             <input type="checkbox" id="pref-notify-tweet"
               ${prefs.notifyTweet !== false ? 'checked' : ''}
               onchange="onPushPrefChange('notifyTweet', this.checked)"
@@ -325,9 +318,7 @@ function renderPushSettingsUI(containerId) {
           </label>
 
           <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
-            <span style="font-size:14px;color:var(--text);">
-              DM通知
-            </span>
+            <span style="font-size:14px;color:var(--text);">DM通知</span>
             <input type="checkbox" id="pref-notify-dm"
               ${prefs.notifyDm !== false ? 'checked' : ''}
               onchange="onPushPrefChange('notifyDm', this.checked)"
@@ -372,8 +363,6 @@ async function onPushPrefChange(key, value) {
 // 初期化 — DOM 読み込み完了後に SW を登録 & バッジ・通知消去設定
 // ----------------------------------------------------------
 (async function pwaPushInit() {
-  // バッジと通知の消去ハンドラを最優先で登録
   setupAutoClearing();
-
   await registerServiceWorker();
 })();

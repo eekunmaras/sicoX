@@ -28,6 +28,40 @@ function urlBase64ToUint8Array(base64String) {
 
 
 // ----------------------------------------------------------
+// ユーザー設定を Service Worker の CacheStorage に同期する
+//
+// 【なぜ必要か】
+//   SW は localStorage にアクセスできないため、設定変更を知る手段がない。
+//   postMessage で CacheStorage に書き込んでもらうことで、
+//   SW がプッシュ受信時に「通知表示」と「バッジ付与」を
+//   独立して判断できるようになる。
+// ----------------------------------------------------------
+function syncPrefsToSW(prefs) {
+  if (!('serviceWorker' in navigator)) return;
+
+  // pwa-push.js のキー名 → sw.js のキー名に変換して送信
+  const swPrefs = {
+    newPost: prefs.notifyTweet !== false,
+    dm:      prefs.notifyDm    !== false,
+    badge:   prefs.notifyBadge !== false,
+  };
+
+  const send = (controller) => {
+    controller.postMessage({ type: 'SAVE_PREFS', prefs: swPrefs });
+  };
+
+  if (navigator.serviceWorker.controller) {
+    send(navigator.serviceWorker.controller);
+  } else {
+    // SW がまだアクティブでない場合は ready 後に送信
+    navigator.serviceWorker.ready.then(reg => {
+      if (reg.active) send(reg.active);
+    }).catch(() => {});
+  }
+}
+
+
+// ----------------------------------------------------------
 // ② Service Worker の登録
 //    - appStart() より前に呼んでおくと良い（ページロード直後）
 // ----------------------------------------------------------
@@ -126,6 +160,10 @@ async function initPushNotifications() {
 
   // Supabase に購読情報を保存（UPSERT: endpoint が同じなら更新）
   await savePushSubscription(subscription, prefs);
+
+  // ★ SW の CacheStorage に現在の設定を同期する
+  //   initPushNotifications() は SW 登録後に呼ばれるため、ここで一度同期しておく
+  syncPrefsToSW(prefs);
 }
 
 
@@ -137,14 +175,31 @@ async function savePushSubscription(subscription, prefs = {}) {
 
   const subJson = subscription.toJSON();
 
+  // ★ 修正ポイント ★
+  //
+  // 「通知オフ・バッジオン」の場合の問題:
+  //   notify_tweet: false をDBに保存すると Edge Function がツイートのpushを
+  //   送らなくなり、SW側でバッジを付ける機会すらなくなる。
+  //
+  // 解決策:
+  //   バッジが必要（notifyBadge: true）ならば、通知タイプも true として保存し
+  //   Edge Function に push を届けさせる。
+  //   SW 側は CacheStorage にキャッシュした設定を参照して
+  //   「通知表示」と「バッジ付与」を独立して制御する（sw.js 参照）。
+  //
+  //   つまり DB の notify_tweet/dm は「push を受け取るか」を示し、
+  //   実際の「通知を表示するか」は SW の CacheStorage が決定する。
+  const wantBadge = prefs.notifyBadge !== false;
+
   const record = {
     user_handle:  currentUser.handle,
     endpoint:     subJson.endpoint,
     p256dh:       subJson.keys.p256dh,
     auth:         subJson.keys.auth,
-    notify_tweet: prefs.notifyTweet !== false,
-    notify_dm:    prefs.notifyDm    !== false,
-    notify_badge: prefs.notifyBadge !== false,
+    // バッジが必要なら通知タイプをオンにして push を届けさせる
+    notify_tweet: prefs.notifyTweet !== false || wantBadge,
+    notify_dm:    prefs.notifyDm    !== false || wantBadge,
+    notify_badge: wantBadge,
     updated_at:   new Date().toISOString(),
   };
 
@@ -183,6 +238,10 @@ async function updatePushPref(key, value) {
   const prefs = getPushPrefs();
   prefs[key] = value;
   savePushPrefs(prefs);
+
+  // ★ SW の CacheStorage にも設定を同期する
+  //   これにより SW は次回 push 受信時に最新の設定を参照できる
+  syncPrefsToSW(prefs);
 
   // DB の設定も更新する
   const reg = await navigator.serviceWorker.ready;
@@ -284,6 +343,10 @@ function renderPushSettingsUI(containerId) {
   const supported = ('serviceWorker' in navigator) && ('PushManager' in window);
   const permission = supported ? Notification.permission : 'unsupported';
 
+  // ★ 画面を開くたびに SW へ現在の設定を同期する
+  //   （ページリロードや別端末からの変更に備える）
+  if (supported) syncPrefsToSW(prefs);
+
   container.innerHTML = `
     <div style="padding:16px 0;border-top:1px solid var(--border);margin-top:12px;">
       <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">
@@ -368,4 +431,10 @@ async function onPushPrefChange(key, value) {
 
   // バッジ自動消去の設定
   setupBadgeAutoClearing();
+
+  // ★ SW 登録直後に現在の設定を同期する
+  //   ページリロード時など initPushNotifications() が呼ばれる前でも
+  //   SW が正しい設定で動くようにする
+  const prefs = getPushPrefs();
+  syncPrefsToSW(prefs);
 })();

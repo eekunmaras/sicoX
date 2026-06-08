@@ -12,7 +12,7 @@
 // ① VAPID 公開鍵（.env や Supabase secrets から取得した値）
 //    ※ 後述の「VAPIDキー発行方法」で生成した PUBLIC KEY を貼り付ける
 // ----------------------------------------------------------
-const VAPID_PUBLIC_KEY = 'YOUR_VAPID_PUBLIC_KEY_HERE';
+const VAPID_PUBLIC_KEY = 'BP5a5eqrkxqo1LxtZYuIdk2ax7zxtU2IbUaQbmzh5s9wUjCkKn95dnwnvJ5P_6k8q7-Ba62kQsZcgpVp2zocUrU';
 // 例: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U'
 
 

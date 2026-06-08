@@ -224,13 +224,16 @@ self.addEventListener('message', (event) => {
     }
   }
 
-  // ★ 新規追加: ユーザー通知設定の同期 ★
+  // ★ ユーザー通知設定の同期 ★
   // pwa-push.js または HTML 側から設定変更のたびに送信する
   // 例: navigator.serviceWorker.controller.postMessage({
   //       type: 'SAVE_PREFS',
   //       prefs: { newPost: false, dm: true, badge: true }
   //     });
   if (event.data?.type === 'SAVE_PREFS' && event.data?.prefs) {
-    saveNotifPrefs(event.data.prefs).catch(() => {});
+    // ★ 修正: event.waitUntil() で非同期書き込みが完了するまで SW を生かす ★
+    // waitUntil なしだと CacheStorage への書き込み完了前に SW が終了し、
+    // 設定が保存されず次回 push 時にデフォルト（全オン）で動作してしまう。
+    event.waitUntil(saveNotifPrefs(event.data.prefs));
   }
 });

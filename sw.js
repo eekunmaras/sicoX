@@ -3,7 +3,49 @@
 // /sw.js として配置（index.html と同じディレクトリ）
 // ==========================================================
 
-const SW_VERSION = 'v1.0.0';
+const SW_VERSION = 'v1.1.0';
+
+// ----------------------------------------------------------
+// ユーザー通知設定の保存・読み込み（CacheStorage 経由）
+// SW は localStorage にアクセスできないため CacheStorage を使用する
+// ----------------------------------------------------------
+const PREFS_CACHE_NAME = 'sicox-notif-prefs-v1';
+const PREFS_REQUEST_KEY = 'sicox://notif-prefs';
+
+/**
+ * 通知設定を CacheStorage に保存する
+ * @param {Object} prefs - { newPost: bool, dm: bool, badge: bool }
+ */
+async function saveNotifPrefs(prefs) {
+  try {
+    const cache = await caches.open(PREFS_CACHE_NAME);
+    const body = JSON.stringify(prefs);
+    await cache.put(
+      new Request(PREFS_REQUEST_KEY),
+      new Response(body, { headers: { 'Content-Type': 'application/json' } })
+    );
+    console.log('[SW] notif prefs saved:', prefs);
+  } catch (err) {
+    console.warn('[SW] failed to save notif prefs:', err);
+  }
+}
+
+/**
+ * CacheStorage から通知設定を読み込む
+ * @returns {{ newPost: bool, dm: bool, badge: bool } | null}
+ */
+async function loadNotifPrefs() {
+  try {
+    const cache = await caches.open(PREFS_CACHE_NAME);
+    const res = await cache.match(new Request(PREFS_REQUEST_KEY));
+    if (!res) return null;
+    return await res.json();
+  } catch (err) {
+    console.warn('[SW] failed to load notif prefs:', err);
+    return null;
+  }
+}
+
 
 // ----------------------------------------------------------
 // インストール & アクティベート（キャッシュ不使用、通知のみ）
@@ -16,12 +58,29 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   console.log(`[SW ${SW_VERSION}] activated`);
-  event.waitUntil(self.clients.claim());
+  // 古いバージョンの設定キャッシュを削除
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys
+          .filter(k => k.startsWith('sicox-notif-prefs-') && k !== PREFS_CACHE_NAME)
+          .map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
+  );
 });
 
 
 // ----------------------------------------------------------
 // push イベント — バックグラウンドでプッシュ通知を受信する
+//
+// ★ 修正のポイント ★
+//   通知の「表示」とアイコン「バッジ付与」を独立して制御する。
+//   ユーザー設定は CacheStorage に保存された prefs を参照する。
+//
+//   prefs.newPost === false → ロック画面通知は出さない
+//   prefs.dm      === false → DM通知は出さない
+//   prefs.badge   === true  → どちらの場合もバッジは付ける
 // ----------------------------------------------------------
 self.addEventListener('push', (event) => {
   // データが来ない場合のフォールバック
@@ -66,14 +125,40 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(
     (async () => {
-      // 1. 通知を表示
-      await self.registration.showNotification(data.title, options);
+      // ── ユーザー設定を読み込む ──────────────────────────────────
+      // 設定が未保存の場合はすべてオン（デフォルト）とみなす
+      const prefs = await loadNotifPrefs() ?? {
+        newPost: true,
+        dm:      true,
+        badge:   true,
+      };
+
+      const notifType = data.type || 'tweet'; // 'tweet' | 'dm'
+
+      // 通知タイプ別に「ロック画面通知を出すか」を判定
+      const shouldShowNotification = (() => {
+        if (notifType === 'tweet') return prefs.newPost !== false;
+        if (notifType === 'dm')    return prefs.dm      !== false;
+        return true; // 未知のタイプはデフォルト表示
+      })();
+
+      // バッジを付けるか（ユーザー設定 AND ペイロードの showBadge の両方を確認）
+      const shouldSetBadge =
+        prefs.badge !== false &&
+        data.showBadge !== false;
+
+      // 1. ロック画面通知（設定がオンの場合のみ表示）
+      if (shouldShowNotification) {
+        await self.registration.showNotification(data.title, options);
+      } else {
+        console.log(`[SW] notification suppressed by user pref (type: ${notifType})`);
+      }
 
       // 2. アプリアイコンにバッジを付与（App Badging API）
-      //    showBadge フラグが true の場合のみ付与
-      if (data.showBadge !== false && 'setAppBadge' in self.navigator) {
+      //    ★ 通知表示とは独立して設定に従って動作する ★
+      if (shouldSetBadge && 'setAppBadge' in self.navigator) {
         try {
-          // バッジの数は Edge Function から count が来れば使う、なければ 1
+          // バッジの数は Edge Function から badgeCount が来れば使う、なければ 1
           await self.navigator.setAppBadge(data.badgeCount || 1);
         } catch (err) {
           // setAppBadge は iOS 16.4+ Safari、Android Chrome で対応
@@ -132,10 +217,20 @@ self.addEventListener('notificationclose', (event) => {
 // message イベント — フロントエンドからの指示受け取り
 // ----------------------------------------------------------
 self.addEventListener('message', (event) => {
+  // バッジ消去
   if (event.data?.type === 'CLEAR_BADGE') {
-    // フロントエンドからバッジ消去を指示された場合
     if ('clearAppBadge' in self.navigator) {
       self.navigator.clearAppBadge().catch(() => {});
     }
+  }
+
+  // ★ 新規追加: ユーザー通知設定の同期 ★
+  // pwa-push.js または HTML 側から設定変更のたびに送信する
+  // 例: navigator.serviceWorker.controller.postMessage({
+  //       type: 'SAVE_PREFS',
+  //       prefs: { newPost: false, dm: true, badge: true }
+  //     });
+  if (event.data?.type === 'SAVE_PREFS' && event.data?.prefs) {
+    saveNotifPrefs(event.data.prefs).catch(() => {});
   }
 });

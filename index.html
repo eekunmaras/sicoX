@@ -6037,7 +6037,13 @@ function addNotification(notif){
 
   if(!notif.read) {
     // アプリ内トースト（常に表示）
-    showToast('💬 ' + notif.fromName + 'があなたの投稿にコメントしました');
+    const notifTargetTweet = tweets.find(t => t.id === notif.tweetId);
+    const isOwnPostComment = !!(currentUser?.handle && notifTargetTweet?.user?.handle === currentUser.handle);
+    const commentNoticeText = isOwnPostComment
+      ? 'あなたの投稿へのコメントがありました'
+      : 'コメントがありました';
+
+    showToast('💬 ' + commentNoticeText);
 
     // ★ フォアグラウンド時の OS バナー通知 & バッジ付与 ★
     // PWA Push は基本バックグラウンド専用だが、フォアグラウンドでも
@@ -6055,7 +6061,7 @@ function addNotification(notif){
             // SW に直接通知表示を依頼
             const reg = await navigator.serviceWorker.ready;
             await reg.showNotification('SicoX', {
-              body: notif.fromName + 'があなたの投稿にコメントしました',
+              body: commentNoticeText,
               icon: '/icons/icon-192.png',
               badge: '/icons/badge-72.png',
               tag: 'sicox-comment-' + notif.tweetId,
@@ -11650,6 +11656,4 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </body>
 
 </html>
-
-
 

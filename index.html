@@ -6004,6 +6004,9 @@ async function loadPastNotifications(){
 
   updateNotifBadge();
 
+  // アプリを直接開いた場合も通知バッジをクリアする（既読化）
+  markAllNotifsRead();
+
 }
 
 
@@ -10609,6 +10612,13 @@ if(localStorage.getItem(GATE_KEY)==='1'){
   document.getElementById('gate').style.display='flex';
 
 }
+
+// バックグラウンドから復帰（タブ切り替え・PWAフォアグラウンド復帰）した際も通知をクリア
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && currentUser) {
+    markAllNotifsRead();
+  }
+});
 
 
 

@@ -6345,25 +6345,17 @@ async function renderDmMessages(handle){
 
   scrollDmToBottom();
 
-  // 既読処理：dm-chat が実際に表示されているときのみ行う
-  // （プッシュ通知からアプリを開いた際など、dm-chat が active でない状態で
-  //   renderDmMessages が呼ばれた場合は既読化しない）
+  // 既読処理：相手からの未読メッセージをすべて既読に
 
-  const chatActive=document.getElementById('view-dm-chat').classList.contains('active');
+  const hasUnread=dmStore[key].some(m=>m.to===currentUser.handle&&!m.read);
 
-  if(chatActive){
+  if(hasUnread){
 
-    const hasUnread=dmStore[key].some(m=>m.to===currentUser.handle&&!m.read);
+    dmStore[key].forEach(m=>{if(m.to===currentUser.handle)m.read=true;});
 
-    if(hasUnread){
+    updateDmBadge();
 
-      dmStore[key].forEach(m=>{if(m.to===currentUser.handle)m.read=true;});
-
-      updateDmBadge();
-
-      dbMarkMessagesRead(currentUser.handle,handle); // DB更新（非同期・バックグラウンド）
-
-    }
+    dbMarkMessagesRead(currentUser.handle,handle); // DB更新（非同期・バックグラウンド）
 
   }
 
@@ -10744,19 +10736,13 @@ if(localStorage.getItem(GATE_KEY)==='1'){
 }
 
 // バックグラウンドから復帰（タブ切り替え・PWAフォアグラウンド復帰）
-// ※ OS アイコンバッジ消去は pwa-push.js の setupAutoClearing() に一本化。
-//   ここではアプリ内 UI の処理のみ行う。
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
-
-  // ② バックグラウンド中に届いた新着ツイートがあればバナーを表示する。
-  //    フィードが現在 active なら即バナー表示、それ以外は goFeed() 時に表示される。
-  if (pendingNewTweets.length > 0) {
-    const feedActive = document.getElementById('view-feed').classList.contains('active');
-    if (feedActive) setTimeout(_showNewBar, 50);
-    // フィード以外が開いている場合は pendingNewTweets をクリアせず維持。
-    // goFeed() 内で if(pendingNewTweets.length>0) setTimeout(_showNewBar,50) が実行される。
-  }
+  // ※ アプリ内通知の自動既読化を廃止：ユーザーが明示的に操作するまで通知を残す
+  // if (currentUser) markAllNotifsRead(); // 削除
+  // ★ OSアイコンバッジのみ消去（pwa-push.js の setupBadgeAutoClearing と二重対策）★
+  // clearAppBadge は pwa-push.js で定義。typeof チェックで未ロード時も安全に動作する。
+  if (typeof clearAppBadge === 'function') clearAppBadge();
 });
 
 

@@ -95,6 +95,8 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/';
 
+  const notifType = event.notification.data?.type || 'unknown';
+
   event.waitUntil(
     (async () => {
       const clients = await self.clients.matchAll({
@@ -105,7 +107,8 @@ self.addEventListener('notificationclick', (event) => {
       for (const client of clients) {
         if (new URL(client.url).origin === self.location.origin) {
           await client.focus();
-          client.postMessage({ type: 'notification_clicked', url: targetUrl });
+          // notifType を追加して渡す（アプリ側でビュー遷移・バナー表示に使用）
+          client.postMessage({ type: 'notification_clicked', url: targetUrl, notifType });
           return;
         }
       }

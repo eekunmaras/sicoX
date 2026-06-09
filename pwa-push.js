@@ -61,9 +61,18 @@ async function registerServiceWorker() {
 // ----------------------------------------------------------
 function handleSwMessage(event) {
   if (event.data?.type === 'notification_clicked') {
-    // 通知タップでアプリがフォーカスされた → バッジと通知を消去
+    const notifType = event.data?.notifType || 'unknown';
+
+    // OSアイコンバッジは常に消去
     clearAppBadge();
+
+    // OS通知バナーも消去
     clearAllNotifications();
+
+    // アプリ側のビュー遷移はアプリ本体(sicox.html)の
+    // navigator.serviceWorker message ハンドラに委ねる。
+    // DM の場合はアプリ内未読バッジをここでは触らない。
+    // （DM一覧 or チャット画面を開いた時に初めて既読化される）
   }
 }
 

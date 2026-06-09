@@ -6,7 +6,7 @@
 
 <meta charset="UTF-8">
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" id="vp-meta">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" id="vp-meta">
 
 <title>SicoX</title>
 
@@ -10476,6 +10476,10 @@ function openLightbox(urls,idx){
 
   document.body.classList.add('modal-open');
 
+  // ライトボックス中だけピンチズームを許可
+  const vp=document.getElementById('vp-meta');
+  if(vp)vp.content='width=device-width, initial-scale=1.0, maximum-scale=5.0';
+
 }
 
 function _lbRender(){
@@ -10509,6 +10513,10 @@ function closeLightbox(){
   document.getElementById('lightbox').classList.remove('open');
 
   document.body.classList.remove('modal-open');
+
+  // ライトボックスを閉じたらピンチズームを禁止に戻す
+  const vp=document.getElementById('vp-meta');
+  if(vp)vp.content='width=device-width, initial-scale=1.0, maximum-scale=1.0';
 
 }
 

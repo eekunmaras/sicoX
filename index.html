@@ -10745,6 +10745,33 @@ document.addEventListener('visibilitychange', () => {
   if (typeof clearAppBadge === 'function') clearAppBadge();
 });
 
+// ----------------------------------------------------------
+// プッシュ通知タップ時のアプリ内ルーティング
+//
+// SW → pwa-push.js の handleSwMessage → ここでビュー遷移・バナー表示を行う。
+// DM通知タップ:   DM一覧に遷移（チャットを開いて初めて既読化）
+// ツイート通知タップ: フィード画面でなければ pendingNewTweets に積んでバーを表示
+// ----------------------------------------------------------
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type !== 'notification_clicked') return;
+    const notifType = event.data?.notifType || 'unknown';
+
+    if (notifType === 'dm') {
+      // DM一覧へ遷移（バッジはそのまま残す。画面を開いた時に初めて既読化）
+      if (currentUser) {
+        goView('dm-list');
+      }
+
+    } else if (notifType === 'tweet' || notifType === 'comment') {
+      // フィード画面にいる場合は新着バーを表示、
+      // 別ビューにいる場合は pendingNewTweets に積んで goFeed 時に再表示
+      pendingNewTweets.push(1);
+      _showNewBar(); // feedActive でない場合は内部で何もしない
+    }
+  });
+}
+
 
 
 // Close modals on overlay click

@@ -6,7 +6,7 @@
 
 <meta charset="UTF-8">
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" id="vp-meta">
 
 <title>SicoX</title>
 
@@ -1948,7 +1948,7 @@ body.modal-open{overflow:hidden;}
 
   <button class="lightbox-prev" id="lb-prev" onclick="event.stopPropagation();lbMove(-1)">&#8249;</button>
 
-  <img id="lb-img" src="" alt="" onclick="event.stopPropagation()">
+  <img id="lb-img" src="" alt="" onclick="event.stopPropagation()" style="touch-action:none;user-select:none;">
 
   <button class="lightbox-next" id="lb-next" onclick="event.stopPropagation();lbMove(1)">&#8250;</button>
 
@@ -10396,6 +10396,74 @@ function showToast(msg){
 
 let lbUrls=[],lbIdx=0;
 
+/* ── ライトボックス ピンチズーム ── */
+(function(){
+  let scale=1, lastScale=1;
+  let translateX=0, translateY=0;
+  let lastTranslateX=0, lastTranslateY=0;
+  let startDist=0, startMidX=0, startMidY=0;
+  let isPinching=false;
+  // 2点タッチ間の距離
+  function dist(t){return Math.hypot(t[1].clientX-t[0].clientX,t[1].clientY-t[0].clientY);}
+  // 2点タッチの中点（要素座標）
+  function mid(t,el){
+    const r=el.getBoundingClientRect();
+    return{x:(t[0].clientX+t[1].clientX)/2-r.left,y:(t[0].clientY+t[1].clientY)/2-r.top};
+  }
+  function applyTransform(img){
+    img.style.transform=`translate(${translateX}px,${translateY}px) scale(${scale})`;
+    img.style.transformOrigin='0 0';
+  }
+  function resetTransform(img){
+    scale=1;lastScale=1;translateX=0;translateY=0;lastTranslateX=0;lastTranslateY=0;
+    img.style.transform='';
+    img.style.transformOrigin='';
+    img.style.maxWidth='92vw';
+    img.style.maxHeight='90vh';
+  }
+  // ライトボックスのimgにタッチイベントを登録（一度だけ）
+  document.addEventListener('DOMContentLoaded',function(){
+    const img=document.getElementById('lb-img');
+    if(!img)return;
+    img.addEventListener('touchstart',function(e){
+      if(e.touches.length===2){
+        isPinching=true;
+        startDist=dist(e.touches);
+        const m=mid(e.touches,img);
+        startMidX=m.x; startMidY=m.y;
+        lastTranslateX=translateX; lastTranslateY=translateY;
+        lastScale=scale;
+        e.preventDefault();
+      }
+    },{passive:false});
+    img.addEventListener('touchmove',function(e){
+      if(e.touches.length===2&&isPinching){
+        const newDist=dist(e.touches);
+        const newScale=Math.min(Math.max(lastScale*(newDist/startDist),1),5);
+        // 拡大中心を基準に移動量を補正
+        translateX=startMidX-(startMidX-lastTranslateX)*(newScale/lastScale);
+        translateY=startMidY-(startMidY-lastTranslateY)*(newScale/lastScale);
+        scale=newScale;
+        applyTransform(img);
+        e.preventDefault();
+      }
+    },{passive:false});
+    img.addEventListener('touchend',function(e){
+      if(e.touches.length<2){
+        isPinching=false;
+        // 等倍に戻ったら位置もリセット
+        if(scale<=1.02){resetTransform(img);}
+        else{lastScale=scale;lastTranslateX=translateX;lastTranslateY=translateY;}
+      }
+    },{passive:true});
+  });
+  // 画像切替時にズームをリセット
+  window._lbResetZoom=function(){
+    const img=document.getElementById('lb-img');
+    if(img)resetTransform(img);
+  };
+})();
+
 function openLightbox(urls,idx){
 
   lbUrls=Array.isArray(urls)?urls:[urls];
@@ -10411,6 +10479,8 @@ function openLightbox(urls,idx){
 }
 
 function _lbRender(){
+
+  if(window._lbResetZoom)window._lbResetZoom();
 
   document.getElementById('lb-img').src=lbUrls[lbIdx];
 
@@ -10433,6 +10503,8 @@ function lbMove(dir){
 }
 
 function closeLightbox(){
+
+  if(window._lbResetZoom)window._lbResetZoom();
 
   document.getElementById('lightbox').classList.remove('open');
 

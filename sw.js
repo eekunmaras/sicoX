@@ -8,9 +8,15 @@
 //   userVisibleOnly: true の契約を確実に果たせる。
 //
 //   バッジ・カウント管理はフロントエンド側 (pwa-push.js) に委譲する。
+//
+// 【v3.1.0 変更点】
+//   notificationclick ハンドラで postMessage() を focus() より先に呼ぶよう変更。
+//   これにより、フロントエンドが isHandlingNotificationClick フラグを
+//   セットしてから visibilitychange が発火するようになり、
+//   二重発火によるクリア処理・画面復帰処理の重複実行を防ぐ。
 // ==========================================================
 
-const SW_VERSION = 'v3.0.0';
+const SW_VERSION = 'v3.1.0';
 
 // ----------------------------------------------------------
 // インストール & アクティベート
@@ -90,11 +96,27 @@ self.addEventListener('push', (event) => {
 
 // ----------------------------------------------------------
 // notificationclick イベント — 通知タップ時
+//
+// 【v3.1.0 変更点：postMessage を focus() より先に呼ぶ】
+//
+//   変更前:  await client.focus() → client.postMessage(...)
+//   変更後:  client.postMessage(...) → await client.focus()
+//
+//   理由:
+//     focus() を先に呼ぶと、focus() の完了（= ウィンドウ前面化）に
+//     伴って visibilitychange がフロントで発火する。その時点では
+//     まだ notification_clicked メッセージが届いておらず、
+//     isHandlingNotificationClick フラグが false のままなので
+//     clearAll() と画面復帰処理が走ってしまう。
+//
+//     postMessage を先に送ることで、フロントが
+//     isHandlingNotificationClick = true をセットしてから
+//     focus() による visibilitychange が発火するようになる。
+//     pwa-push.js 側の 150ms 遅延と組み合わせると二重発火を確実に防げる。
 // ----------------------------------------------------------
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || '/';
-
   const notifType = event.notification.data?.type || 'unknown';
 
   event.waitUntil(
@@ -106,12 +128,16 @@ self.addEventListener('notificationclick', (event) => {
 
       for (const client of clients) {
         if (new URL(client.url).origin === self.location.origin) {
-          await client.focus();
-          // notifType を追加して渡す（アプリ側でビュー遷移・バナー表示に使用）
+          // ★ postMessage を先に送る（フラグセット → focus → visibilitychange の順にする）
+          //    focus() の完了を待つ前にメッセージを届けることで、
+          //    フロント側が isHandlingNotificationClick = true をセットする猶予を得る。
           client.postMessage({ type: 'notification_clicked', url: targetUrl, notifType });
+          await client.focus();
           return;
         }
       }
+      // アプリが見つからない場合は新しいウィンドウで開く
+      // （この場合 postMessage は不要。新規ウィンドウはフレッシュスタート）
       await self.clients.openWindow(targetUrl);
     })()
   );

@@ -12,12 +12,43 @@
 //   バッジはアプリが前面に来たタイミングでのみリセットする。
 //   SW 側は push → showNotification() に専念させ、
 //   フロントが生きている時だけバッジ操作を行う。
+//
+// 【v3.1.0 変更点：二重発火防止】
+//   通知タップ時、SW の client.focus() が visibilitychange を発火させ、
+//   直後の client.postMessage() による notification_clicked 処理と
+//   ほぼ同時に走って二重実行が起きる問題を修正した。
+//
+//   対策:
+//     ① sw.js 側で postMessage() を focus() より先に送るよう変更
+//        → メッセージが先に届き、フラグをセットしてから
+//          visibilitychange が発火するようになる。
+//     ② window.isHandlingNotificationClick フラグを導入
+//        → notification_clicked 受信時に true にセット。
+//     ③ visibilitychange に 150ms の猶予を設け、
+//        フラグが true なら処理をスキップ（重複防止）。
+//     ④ clearAppBadge / clearAllNotifications の呼び出し箇所を
+//        handleSwMessage に一本化（setupAutoClearing 側では呼ばない）。
+//
+//   ★ sicox.html 側の対応も必要（下記「sicox.html への追加事項」参照）
 // ==========================================================
 
 // ----------------------------------------------------------
 // ① VAPID 公開鍵
 // ----------------------------------------------------------
 const VAPID_PUBLIC_KEY = 'BP5a5eqrkxqo1LxtZYuIdk2ax7zxtU2IbUaQbmzh5s9wUjCkKn95dnwnvJ5P_6k8q7-Ba62kQsZcgpVp2zocUrU';
+
+// ----------------------------------------------------------
+// 二重発火防止フラグ
+//
+// 通知クリック時に SW から notification_clicked メッセージを受信した際、
+// handleSwMessage 内で true にセットし、1 秒後に false に戻す。
+//
+// このフラグが true の間は:
+//   - setupAutoClearing の visibilitychange ハンドラがスキップされる
+//   - sicox.html 側の visibilitychange / focus ハンドラもスキップすること
+//     （sicox.html への追加事項を参照）
+// ----------------------------------------------------------
+window.isHandlingNotificationClick = false;
 
 // ----------------------------------------------------------
 // ユーティリティ: VAPID公開鍵 (Base64URL) → Uint8Array 変換
@@ -58,21 +89,30 @@ async function registerServiceWorker() {
 
 // ----------------------------------------------------------
 // SW からのメッセージ処理
+//
+// 【役割と責務】
+//   - isHandlingNotificationClick フラグを true にセットして
+//     visibilitychange 側の重複処理を先制的に抑止する。
+//   - clearAppBadge / clearAllNotifications をここで一度だけ呼ぶ。
+//     setupAutoClearing 側では呼ばない（二重呼び出しを排除）。
+//   - DM 遷移・バナー表示は同じ message イベントを受け取る
+//     sicox.html 側の addEventListener('message', ...) ハンドラが担当。
+//     このファイルはナビゲーションロジックに一切関与しない。
 // ----------------------------------------------------------
 function handleSwMessage(event) {
   if (event.data?.type === 'notification_clicked') {
-    const notifType = event.data?.notifType || 'unknown';
+    // ① visibilitychange 側の重複処理を抑止するフラグをセット
+    window.isHandlingNotificationClick = true;
 
-    // OSアイコンバッジは常に消去
+    // ② バッジ・通知バナーのクリアをここで一度だけ実行
     clearAppBadge();
-
-    // OS通知バナーも消去
     clearAllNotifications();
 
-    // アプリ側のビュー遷移はアプリ本体(sicox.html)の
-    // navigator.serviceWorker message ハンドラに委ねる。
-    // DM の場合はアプリ内未読バッジをここでは触らない。
-    // （DM一覧 or チャット画面を開いた時に初めて既読化される）
+    // ③ visibilitychange の setTimeout（150ms）が完全に終わってから
+    //    フラグをリセットする。150ms より十分長い 1000ms を設定。
+    setTimeout(() => {
+      window.isHandlingNotificationClick = false;
+    }, 1000);
   }
 }
 
@@ -238,23 +278,46 @@ async function clearAllNotifications() {
 //   - 起動直後の即時消去は行わない。
 //     タスクキル後のコールドスタートでは visibilitychange が
 //     発火しないケースがあるため、代わりに pageshow を使う。
-//   - clearAllNotifications() はアプリが確実に前面に来てから呼ぶ。
+//
+// 【v3.1.0 変更点：二重発火防止】
+//   clearAppBadge / clearAllNotifications の呼び出しを
+//   handleSwMessage に一本化した。
+//   visibilitychange と pageshow では isHandlingNotificationClick
+//   フラグを確認し、true の場合（= 通知クリックによる復帰）は
+//   処理をスキップして重複実行を防ぐ。
+//
+//   visibilitychange には 150ms の遅延を設ける。
+//   理由: sw.js 側で postMessage() を focus() より先に送るよう変更したが、
+//   メッセージ到着とフラグセット（handleSwMessage 実行）が
+//   visibilitychange より確実に先になるとは限らないため、
+//   バッファとして猶予を持たせる。
 // ----------------------------------------------------------
 function setupAutoClearing() {
-  const clearAll = () => {
+  // フラグ確認なしのクリア実行ヘルパー（呼び出し元がフラグを確認済みの場合に使う）
+  const _doClear = () => {
     clearAppBadge();
     clearAllNotifications();
   };
 
   // タブ切り替え・アプリの前面復帰
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') clearAll();
+    if (document.visibilityState === 'visible') {
+      // 150ms 待ってから isHandlingNotificationClick を確認する。
+      // これにより、sw.js から先に届いた postMessage が
+      // handleSwMessage でフラグを true にセットする猶予を確保できる。
+      // フラグが true = 通知クリックによる復帰 → handleSwMessage 側で
+      // クリア済みのためここではスキップ。
+      setTimeout(() => {
+        if (!window.isHandlingNotificationClick) _doClear();
+      }, 150);
+    }
   });
 
-  // タスクキル後の再起動（BFCache 復帰・コールドスタート）にも対応
-  window.addEventListener('pageshow', (e) => {
-    // e.persisted = true は BFCache から復元された場合
-    clearAll();
+  // タスクキル後の再起動（BFCache 復帰・コールドスタート）にも対応。
+  // コールドスタート時は notification_clicked メッセージは来ないため
+  // フラグは false のはず。念のため確認してから実行する。
+  window.addEventListener('pageshow', () => {
+    if (!window.isHandlingNotificationClick) _doClear();
   });
 }
 
@@ -378,3 +441,25 @@ async function onPushPrefChange(key, value) {
   setupAutoClearing();
   await registerServiceWorker();
 })();
+
+// ==========================================================
+// ★ sicox.html 側に追加が必要なコード
+//
+// sicox.html の visibilitychange / focus ハンドラ（画面復帰時の
+// 汎用処理）の先頭に以下のガードを追加してください。
+// これにより、通知クリックによる復帰時の二重処理を防げます。
+//
+//   document.addEventListener('visibilitychange', () => {
+//     if (document.visibilityState === 'visible') {
+//       // ▼ 追加: 通知クリックによる復帰なら汎用処理をスキップ
+//       if (window.isHandlingNotificationClick) return;
+//       // ↑ 追加ここまで
+//
+//       // ... 既存の画面復帰処理（pendingNewTweets のポーリング等）...
+//     }
+//   });
+//
+// ※ focus イベントで同様の処理をしている場合も同じガードを追加。
+// ※ notification_clicked の message ハンドラ（DM 遷移・バナー表示）は
+//    このフラグに関係なくそのまま実行されます。変更不要です。
+// ==========================================================

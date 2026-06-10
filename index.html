@@ -10636,6 +10636,12 @@ async function appStart(){
     // SW通知タップ→コールドスタート時: appStart完了後に pending があれば正しい位置でバーを表示
     if(pendingNewTweets.length>0) setTimeout(_showNewBar,100);
 
+    // DM通知タップ→コールドスタート時: ホーム画面でもバッジを表示するため、
+    // appStart完了後にDMスレッドをバックグラウンド取得してバッジを更新する
+    if(currentUser?.handle){
+      dbFetchAllThreads(currentUser.handle).then(()=>updateDmBadge()).catch(()=>{});
+    }
+
 
 
   } catch(e) {
@@ -10660,6 +10666,9 @@ async function appStart(){
 
     // SW通知タップ→コールドスタート時（オフライン）: appStart完了後に pending があれば正しい位置でバーを表示
     if(pendingNewTweets.length>0) setTimeout(_showNewBar,100);
+
+    // オフライン時もローカルのdmStoreからバッジを更新
+    updateDmBadge();
 
     renderMembers();
 

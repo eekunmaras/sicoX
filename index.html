@@ -2310,7 +2310,7 @@ function _activate(id){
 
     if(currentUser){
 
-      dbFetchAllThreads(currentUser.handle).then(()=>renderDmList()).catch(()=>{});
+      dbFetchAllThreads(currentUser.handle).then(()=>{renderDmList();updateDmBadge();}).catch(()=>{});
 
     }
 
@@ -10633,6 +10633,9 @@ async function appStart(){
 
     document.getElementById('demo-bar-msg').textContent='— 投稿はリアルタイムで全員に反映されます';
 
+    // SW通知タップ→コールドスタート時: appStart完了後に pending があれば正しい位置でバーを表示
+    if(pendingNewTweets.length>0) setTimeout(_showNewBar,100);
+
 
 
   } catch(e) {
@@ -10654,6 +10657,9 @@ async function appStart(){
     seed_local();
 
     renderFeed();
+
+    // SW通知タップ→コールドスタート時（オフライン）: appStart完了後に pending があれば正しい位置でバーを表示
+    if(pendingNewTweets.length>0) setTimeout(_showNewBar,100);
 
     renderMembers();
 

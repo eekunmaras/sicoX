@@ -2280,6 +2280,12 @@ function goBack(){
 
 function _activate(id){
 
+  // threadビューが既にアクティブかどうかをclassListを変更する前にチェック
+
+  const targetEl=document.getElementById('view-'+id);
+
+  const threadAlreadyActive=(id==='thread')&&targetEl&&targetEl.classList.contains('active');
+
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
 
   const el=document.getElementById('view-'+id);
@@ -2320,11 +2326,37 @@ function _activate(id){
 
   if(id!=='dm-chat'){
 
-    const main=document.getElementById('main-col');
+    // threadビューはDOMが確定してからスクロールリセット（コメント見切れ防止）
 
-    if(main) main.scrollTop=0;
+    // ただし既にthreadが表示中の場合はスクロール位置を保持する
 
-    window.scrollTo(0,0);
+    if(id==='thread'){
+
+      const alreadyActive=threadAlreadyActive;
+
+      if(!alreadyActive){
+
+        requestAnimationFrame(()=>{
+
+          const main=document.getElementById('main-col');
+
+          if(main) main.scrollTop=0;
+
+          window.scrollTo(0,0);
+
+        });
+
+      }
+
+    } else {
+
+      const main=document.getElementById('main-col');
+
+      if(main) main.scrollTop=0;
+
+      window.scrollTo(0,0);
+
+    }
 
   }
 

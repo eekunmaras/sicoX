@@ -179,7 +179,6 @@
   </div>
 </div>
 
-<!-- ★ キャラクター詳細モーダル -->
 <div id="char-modal">
   <div id="char-modal-inner">
     <canvas id="char-preview-canvas" width="220" height="220"></canvas>
@@ -221,90 +220,79 @@ function updatePointsDisplay() {
   document.getElementById('user-points').innerText = user.points.toLocaleString();
 }
 
-// ─── 図鑑データ永続化（IndexedDB → localStorage フォールバック）────────────
-// IndexedDB はクロスオリジンiframe内でも動作する（iframe自身のオリジンに保存）
-const IDB_NAME = 'craneGameDB';
-const IDB_STORE = 'dex';
-
-function idbOpen() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = () => reject(req.error);
-  });
+// ─── 図鑑データ永続化（軽量な localStorage に変更）────────────
+function loadDexFromCache(key) {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : [];
+  } catch(e) {
+    console.warn("図鑑の読み込みに失敗しました", e);
+    return [];
+  }
 }
 
-async function loadDexFromCache(key) {
+function saveDexToCache(key, data) {
   try {
-    const db = await idbOpen();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, 'readonly');
-      const req = tx.objectStore(IDB_STORE).get(key);
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror   = () => reject(req.error);
-    });
-  } catch(e) {}
-  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
-  return [];
-}
-
-async function saveDexToCache(key, data) {
-  try {
-    const db = await idbOpen();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE, 'readwrite');
-      const req = tx.objectStore(IDB_STORE).put(data, key);
-      req.onsuccess = () => resolve();
-      req.onerror   = () => reject(req.error);
-    });
-    return;
-  } catch(e) {}
-  try { localStorage.setItem(key, JSON.stringify(data)); } catch(e) {}
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch(e) {
+    console.warn("図鑑の保存に失敗しました", e);
+  }
 }
 
 async function loadParentBalance() {
+  // ① ショップ（親フレーム/別ファイル）のプルアップハンドルから名前を取得
+  let shopHandle = null;
+  try {
+    // 親ウィンドウの要素、または現在のドキュメントの要素を探す
+    const ph = (window.parent && window.parent.document.getElementById('pullup-handle')) || document.getElementById('pullup-handle');
+    if (ph) {
+      shopHandle = (ph.value || ph.innerText || ph.textContent || '').trim();
+      if (!shopHandle) shopHandle = null;
+    }
+  } catch(e) {
+    // クロスオリジン等で取得できない場合は無視
+  }
+
   if (!CRANE_EMBEDDED) {
-    user.handle = 'player_01';
+    user.handle = shopHandle || 'player_01';
     user.points = 5000000;
     document.getElementById('user-handle').innerText = user.handle;
     updatePointsDisplay();
     dexStorageKey = 'crane_dex_' + user.handle;
-    collectedMonsters = await loadDexFromCache(dexStorageKey);
+    collectedMonsters = loadDexFromCache(dexStorageKey);
     return;
   }
 
-  // レスポンスから handle を取り出す（sicoX の構造に合わせて複数パスを探索）
+  // レスポンスから handle を取り出す
   function extractHandle(r) {
     if (!r || !r.ok) return null;
     return (r.user && (r.user.handle || r.user.name || r.user.id))
         || r.handle || r.userHandle || r.userName || r.userId || null;
   }
 
-  // ① crane:user:info を試みる（タイムアウトは短め）
+  // ② crane:user:info を試みる
   let infoRes = await craneReq('crane:user:info', {}, 4000).catch(() => ({ ok: false }));
   const h1 = extractHandle(infoRes);
-  if (h1) {
-    user.handle = h1;
-    document.getElementById('user-handle').innerText = user.handle;
-  }
 
-  // ② 残高照会（delta=0）
+  // ③ 残高照会（delta=0）
   const res = await craneReq('crane:points:update', { delta: 0, reason: '残高確認', refId: 'init-' + Date.now() }, 9000);
+  const h2 = res.ok ? extractHandle(res) : null;
+
+  // 優先度：ショップの要素 > info情報 > update情報 > デフォルト
+  user.handle = shopHandle || h1 || h2 || 'player_01';
+  document.getElementById('user-handle').innerText = user.handle;
+
   if (res.ok) {
-    const h2 = extractHandle(res);
-    if (h2) {
-      user.handle = h2;
-      document.getElementById('user-handle').innerText = user.handle;
-    }
     user.points = Math.max(0, Math.round(Number(res.balance) || 0));
-    dexStorageKey = 'crane_dex_' + user.handle;
-    collectedMonsters = await loadDexFromCache(dexStorageKey);
   } else {
     user.points = 0;
   }
+  
   updatePointsDisplay();
+  dexStorageKey = 'crane_dex_' + user.handle;
+  collectedMonsters = loadDexFromCache(dexStorageKey);
 }
+
 async function recordPointTransaction(delta, reason, refId) {
   const cleanDelta = Math.round(Number(delta) || 0);
   if (cleanDelta === 0) return { ok: true, balance: user.points };

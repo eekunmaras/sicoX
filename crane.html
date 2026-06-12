@@ -229,32 +229,17 @@ async function loadParentBalance() {
     return;
   }
 
-  // レスポンスから handle を取り出す（sicoX の構造に合わせて複数パスを探索）
-  function extractHandle(r) {
-    if (!r || !r.ok) return null;
-    return (r.user && (r.user.handle || r.user.name || r.user.id))
-        || r.handle || r.userHandle || r.userName || r.userId || null;
-  }
-
-  // ① crane:user:info を試みる（タイムアウトは短め）
-  const infoRes = await craneReq('crane:user:info', {}, 4000).catch(() => ({ ok: false }));
-  const h1 = extractHandle(infoRes);
-  if (h1) {
-    user.handle = h1;
-    document.getElementById('user-handle').innerText = user.handle;
-  }
-
-  // ② 残高照会（delta=0）
-  const res = await craneReq('crane:points:update', { delta: 0, reason: '残高確認', refId: 'init-' + Date.now() }, 9000);
+  // sicoX は crane:points:init:request に {ok, balance, user:{handle,name}} を返す
+  const res = await craneReq('crane:points:init:request', {}, 9000);
   if (res.ok) {
-    const h2 = extractHandle(res);
-    if (h2) {
-      user.handle = h2;
-      document.getElementById('user-handle').innerText = user.handle;
-    }
     user.points = Math.max(0, Math.round(Number(res.balance) || 0));
+    if (res.user && res.user.handle) {
+      user.handle = res.user.handle;
+    }
+    document.getElementById('user-handle').innerText = user.handle;
   } else {
     user.points = 0;
+    document.getElementById('user-handle').innerText = user.handle; // 'guest' のまま
   }
   updatePointsDisplay();
 }
@@ -307,9 +292,26 @@ let gameState = "idle";
 let currentPrizeData = null;
 let collectedMonsters = [];
 
+// ─── 図鑑の保存・読み込み（sicoX の localStorage 経由）────────────────────
+// sandbox="allow-scripts" 環境では iframe 自身のストレージは使えないため
+// sicoX 親ウィンドウ側の localStorage に保存してもらう
+async function saveDex() {
+  if (!CRANE_EMBEDDED) return; // スタンドアロン時は不要
+  await craneReq('crane:dex:save', { dex: collectedMonsters }, 5000).catch(() => {});
+}
+
+async function loadDex() {
+  if (!CRANE_EMBEDDED) return;
+  const res = await craneReq('crane:dex:load', {}, 5000).catch(() => ({ ok: false }));
+  if (res.ok && Array.isArray(res.dex)) {
+    collectedMonsters = res.dex;
+  }
+}
+
 function saveToDex(id) {
   if (!collectedMonsters.includes(id)) {
     collectedMonsters.push(id);
+    saveDex(); // 非同期で保存（待たない）
   }
 }
 
@@ -1132,6 +1134,7 @@ function animate() {
 window.addEventListener('resize', resizeRenderer);
 
 loadParentBalance()
+  .then(() => loadDex())
   .then(() => { spawnPrize(true); animate(); })
   .catch(() => { spawnPrize(true); animate(); });
 

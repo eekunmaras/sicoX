@@ -215,20 +215,20 @@ window.addEventListener('message', e => {
 });
 
 const user = { points: 0 };
-// 過去の破損データを回避するため、保存キーを新しく設定
-const DEX_STORAGE_KEY = 'crane_dex_savedata_v2'; 
 
 function updatePointsDisplay() {
   document.getElementById('user-points').innerText = user.points.toLocaleString();
 }
 
-// ─── 図鑑データ永続化（より強固なローカルストレージ管理） ────────────
+// ─── 図鑑データ永続化（より強固なローカルストレージ管理: PWA揮発対策） ────────────
+const DEX_STORAGE_KEY = 'crane_dex_savedata_v2'; 
+
+// ① 従来の localStorage (フォールバック・移行用)
 function getSavedDex() {
   try {
     const stored = localStorage.getItem(DEX_STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // 必ず配列として返すようチェックを厳格化
       return Array.isArray(parsed) ? parsed : [];
     }
   } catch(e) {
@@ -245,20 +245,69 @@ function saveDex(data) {
   }
 }
 
-let collectedMonsters = getSavedDex();
+// ② PWA等の揮発対策用 IndexedDB
+function getDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('SicoCraneDB', 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('storage')) {
+        db.createObjectStore('storage');
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
 
-function saveToDex(id) {
-  // 保存時は最新のローカルデータを取得しつつ、メモリ上のデータもマージして消失を防ぐ
-  let currentDex = getSavedDex();
-  let mergedDex = Array.from(new Set([...currentDex, ...collectedMonsters]));
+async function loadDexIDB() {
+  try {
+    const db = await getDB();
+    return new Promise(resolve => {
+      const tx = db.transaction('storage', 'readonly');
+      const store = tx.objectStore('storage');
+      const req = store.get(DEX_STORAGE_KEY);
+      req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+      req.onerror = () => resolve([]);
+    });
+  } catch(e) {
+    return [];
+  }
+}
+
+async function saveDexIDB(data) {
+  try {
+    const db = await getDB();
+    const tx = db.transaction('storage', 'readwrite');
+    tx.objectStore('storage').put(data, DEX_STORAGE_KEY);
+  } catch(e) {}
+}
+
+let collectedMonsters = [];
+
+// 起動時にデータを統合・初期化
+async function initDexData() {
+  const local = getSavedDex();
+  const idb = await loadDexIDB();
+  collectedMonsters = Array.from(new Set([...local, ...idb]));
+  saveDex(collectedMonsters);
+  saveDexIDB(collectedMonsters);
+}
+
+// 獲得時の保存処理（両方に保存）
+async function saveToDex(id) {
+  let currentIDB = await loadDexIDB();
+  let currentLocal = getSavedDex();
+  let mergedDex = Array.from(new Set([...currentIDB, ...currentLocal, ...collectedMonsters]));
   
   if (!mergedDex.includes(id)) {
     mergedDex.push(id);
-    saveDex(mergedDex);
+    saveDex(mergedDex); // Fallback
+    await saveDexIDB(mergedDex);
   }
-  // メモリ上のデータも更新
   collectedMonsters = mergedDex; 
 }
+// ─────────────────────────────────────────────────────────
 
 async function loadParentBalance() {
   if (!CRANE_EMBEDDED) {
@@ -405,12 +454,14 @@ function renderMonsterToDataURL(monData, size) {
   return url;
 }
 
-window.openDex = () => {
+window.openDex = async () => {
   const grid = document.getElementById('dex-grid');
   grid.innerHTML = '';
-  // 開く時点でも最新を反映させる（ストレージデータとメモリデータを統合）
+  
+  // 開く時点でも最新を反映させる（IndexedDBとストレージデータとメモリデータを統合）
   let storedDex = getSavedDex();
-  collectedMonsters = Array.from(new Set([...collectedMonsters, ...storedDex]));
+  let idbDex = await loadDexIDB();
+  collectedMonsters = Array.from(new Set([...collectedMonsters, ...storedDex, ...idbDex]));
   
   monsterDB.forEach(m => {
     const div = document.createElement('div');
@@ -957,13 +1008,13 @@ function finishTurn() {
 }
 
 // ==========================================
-// ★ 修正箇所：景品獲得時の処理フロー
+// ★ 景品獲得時の処理フロー
 // ==========================================
 async function showWinEffect() {
   const reward = machines[currentMachineId].reward;
 
   // ① 通信や処理で待たされる【前】に、最優先でブラウザの図鑑に保存する
-  saveToDex(currentPrizeData.id);
+  await saveToDex(currentPrizeData.id);
 
   // ② 画面への表示を即座に行う
   document.getElementById('win-amount').innerText = reward.toLocaleString();
@@ -1068,9 +1119,13 @@ function animate() {
 
 window.addEventListener('resize', resizeRenderer);
 
+// 起動時にデータを初期化してからゲームループを開始
 loadParentBalance()
+  .then(() => initDexData())
   .then(() => { spawnPrize(true); animate(); })
-  .catch(() => { spawnPrize(true); animate(); });
+  .catch(() => { 
+    initDexData().then(() => { spawnPrize(true); animate(); }); 
+  });
 
 window.addEventListener('load', resizeRenderer);
 </script>

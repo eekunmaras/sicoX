@@ -7098,6 +7098,919 @@ function closeGameSelect(){
 // Game launcher
 
 // ══════════════════════════════════════
+// Crane Game HTML (embedded)
+// ══════════════════════════════════════
+const CRANE_GAME_HTML = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>アーケード風 3Dクレーンゲーム</title>
+  <style>
+    :root { --primary: #ff0055; --secondary: #00e5ff; --yellow: #ffdd00; --panel-bg: #fffbe6; }
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: repeating-linear-gradient(45deg, #ff4081, #ff4081 20px, #ff79b0 20px, #ff79b0 40px);
+      overflow: hidden; font-family: 'Helvetica Neue', Arial, sans-serif;
+      user-select: none; -webkit-user-select: none; touch-action: none;
+    }
+    #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+    .ui-layer {
+      position: absolute; z-index: 10; background: var(--panel-bg);
+      border: 4px solid #333; border-radius: 12px; padding: 10px;
+      box-shadow: 4px 4px 0px #000; color: #333; font-weight: bold;
+    }
+    #header { top: 15px; left: 15px; display: flex; flex-direction: column; gap: 5px; }
+    .point-display { font-size: 1.2rem; color: var(--primary); text-shadow: 1px 1px 0px #000; }
+    .btn-dex {
+      background: var(--secondary); border: 2px solid #000; padding: 5px 10px;
+      border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 2px 2px 0px #000;
+      width: fit-content; margin-top: 5px;
+    }
+    .btn-dex:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #000; }
+    #btn-machine-toggle {
+      position: absolute; top: 15px; right: 15px; z-index: 20;
+      background: var(--yellow); border: 3px solid #333; padding: 10px 15px;
+      border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 3px 3px 0px #000;
+    }
+    #btn-machine-toggle:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #000; }
+    #btn-camera-toggle {
+      position: absolute; top: 65px; right: 15px; z-index: 20;
+      background: #88ccff; border: 3px solid #333; padding: 8px 12px;
+      border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 3px 3px 0px #000;
+      font-size: 0.85rem; display: flex; align-items: center; gap: 5px;
+    }
+    #btn-camera-toggle:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #000; }
+    #btn-camera-toggle.side-view { background: #ffcc66; }
+    #machine-menu {
+      display: none; position: absolute; top: 115px; right: 15px; z-index: 20;
+      background: var(--panel-bg); border: 4px solid #333; border-radius: 12px;
+      padding: 10px; flex-direction: column; gap: 10px; box-shadow: 4px 4px 0px #000;
+    }
+    #machine-menu.show { display: flex; }
+    .machine-btn {
+      padding: 10px; border: 2px solid #000; border-radius: 8px;
+      background: #ccc; color: #333; font-weight: bold; font-size: 0.85rem;
+      cursor: pointer; transition: 0.1s;
+    }
+    .machine-btn.active { background: var(--yellow); color: #000; }
+    #prize-info {
+      top: 15px; left: 50%; transform: translateX(-50%); text-align: center;
+      background: rgba(0,0,0,0.7); color: white; border: 2px solid var(--secondary);
+      width: fit-content; min-width: 200px; padding: 8px 20px;
+    }
+    .guide-text { color: var(--yellow); font-size: 0.9rem; margin-top: 5px; animation: blink 1.2s infinite; }
+    @keyframes blink { 50% { opacity: 0.4; } }
+    #controls {
+      position: absolute; bottom: max(2vh, env(safe-area-inset-bottom, 10px)); left: 50%; transform: translateX(-50%);
+      width: 95%; max-width: 500px; display: flex; gap: 2%; justify-content: space-evenly; align-items: center;
+      background: #e0e0e0; border: 4px solid #555; border-top: 8px solid #cc0000;
+      border-radius: 16px; padding: 15px 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+      box-sizing: border-box; z-index: 10;
+    }
+    .control-btn {
+      flex: 1; aspect-ratio: 1; max-width: 75px; max-height: 75px;
+      border-radius: 50%; border: 4px solid #222;
+      font-size: max(1.2rem, 3.5vmin); font-weight: bold; cursor: pointer;
+      box-shadow: 0 6px 0 #222, inset 0 5px 10px rgba(255,255,255,0.5);
+      transition: transform 0.1s, box-shadow 0.1s; outline: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;
+    }
+    .control-btn span { font-size: 0.5em; margin-top: 2px; }
+    .control-btn:active { transform: translateY(6px); box-shadow: 0 0 0 #222, inset 0 5px 10px rgba(255,255,255,0.5); }
+    .control-btn:disabled { opacity: 0.4; pointer-events: none; filter: grayscale(50%); }
+    #btn-coin  { background: linear-gradient(#ffdd00, #ffaa00); color: #333; }
+    #btn-right { background: linear-gradient(#ff5555, #cc0000); color: white; }
+    #btn-up    { background: linear-gradient(#55ff55, #00cc00); color: white; }
+    #btn-drop  { background: linear-gradient(#5555ff, #0000cc); color: white; }
+    .modal-overlay {
+      display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); z-index: 100; flex-direction: column; align-items: center;
+      justify-content: center; padding-top: 20px; overflow-y: auto;
+    }
+    .modal-overlay.show { display: flex; }
+    .dex-container {
+      background: #fff; width: 90%; max-width: 600px; border-radius: 12px;
+      padding: 20px; border: 4px solid var(--secondary); text-align: center;
+      max-height: 85vh; overflow-y: auto;
+    }
+    .dex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); gap: 10px; margin-top: 20px; }
+    .dex-item {
+      background: #eee; border: 2px solid #ccc; border-radius: 8px; padding: 5px;
+      font-size: 0.65rem; font-weight: bold;
+      display: flex; flex-direction: column; align-items: center;
+      aspect-ratio: 1; justify-content: center; color: #aaa; cursor: default; overflow: hidden;
+    }
+    .dex-item.acquired {
+      background: var(--yellow); color: #000; border-color: #ff9900;
+      cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .dex-item.acquired:hover { transform: scale(1.07); box-shadow: 0 3px 10px rgba(0,0,0,0.35); }
+    .dex-item img { width: 54px; height: 54px; border-radius: 5px; display: block; margin: 0 auto 3px; }
+    #char-modal {
+      display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.88); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    #char-modal.show { display: flex; }
+    #char-modal-inner {
+      background: var(--panel-bg); border: 4px solid var(--secondary); border-radius: 18px;
+      padding: 22px 24px; text-align: center; width: 80%; max-width: 340px;
+      box-shadow: 6px 6px 0 #000;
+    }
+    #char-preview-canvas { width: 220px; height: 220px; border-radius: 14px; border: 3px solid #aaa; display: block; margin: 0 auto; }
+    #char-modal-name { font-size: 1.5rem; font-weight: bold; margin: 14px 0 4px; color: var(--primary); text-shadow: 1px 1px 0 #000; }
+    #char-modal-num { font-size: 0.9rem; color: #666; margin-bottom: 4px; }
+    .close-btn { margin-top: 18px; padding: 10px 30px; background: #333; color: white; border-radius: 8px; border: none; font-size: 1rem; cursor: pointer; }
+    .win-text { font-size: 4rem; font-weight: 900; color: #ffeb3b; text-shadow: 0 0 20px #ff0000, 3px 3px 0 #000; animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    .win-reward { font-size: 1.5rem; color: #fff; margin-top: 20px; text-shadow: 2px 2px 0 #000; }
+    @keyframes pop { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    #sync-note { position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); z-index: 15; font-size: 11px; color: rgba(255,255,255,0.7); text-shadow: 1px 1px 2px #000; white-space: nowrap; }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\\/script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"><\\/script>
+</head>
+<body>
+
+<div id="header" class="ui-layer">
+  <div style="font-size: 0.9rem;">ID: <span id="user-handle" style="color:var(--primary)">player_01</span></div>
+  <div class="point-display"><span id="user-points">---</span> Pts</div>
+  <button class="btn-dex" onclick="openDex()">図鑑</button>
+</div>
+
+<button id="btn-machine-toggle" onclick="toggleMachineMenu()">⚙️ 台選択</button>
+<button id="btn-camera-toggle" onclick="toggleCamera()">📷 横視点</button>
+<div id="machine-menu">
+  <button class="machine-btn active" onclick="selectMachine(1)">【ノーマル】<br>100 Pts</button>
+  <button class="machine-btn" onclick="selectMachine(2)">【VIP】<br>100万 Pts</button>
+</div>
+
+<div id="prize-info" class="ui-layer">
+  <div id="prize-name" style="font-size: 1.1rem; font-weight: bold; color: var(--secondary);">Loading...</div>
+  <div id="guide" class="guide-text">①「投入」ボタンでプレイ開始！</div>
+</div>
+
+<div id="sync-note">sicoXポイントと同期中...</div>
+
+<div id="controls">
+  <button id="btn-coin"  class="control-btn">🪙<span>①投入</span></button>
+  <button id="btn-right" class="control-btn" disabled>➡<span>②右へ</span></button>
+  <button id="btn-up"   class="control-btn" disabled>⬆<span>③奥へ</span></button>
+  <button id="btn-drop" class="control-btn" disabled>◎<span>④降下</span></button>
+</div>
+
+<div id="win-overlay" class="modal-overlay">
+  <div class="win-text">GET!</div>
+  <div id="win-prize-name" style="font-size:1.5rem;color:#fff;margin-top:10px;"></div>
+  <div class="win-reward">獲得: <span id="win-amount">0</span> Pts</div>
+  <button class="close-btn" style="margin-top:30px;font-size:1.2rem;background:var(--secondary);color:#000;" onclick="closeWin()">NEXT GAME</button>
+</div>
+
+<div id="dex-modal" class="modal-overlay">
+  <div class="dex-container">
+    <h2>シコシコモンスター図鑑</h2>
+    <p>集めたモンスター：<span id="dex-count">0</span> / 30</p>
+    <div class="dex-grid" id="dex-grid"></div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap;">
+      <button class="close-btn" style="margin-top:0;" onclick="tweetDexProgress()">🐦 ポストする</button>
+      <button class="close-btn" style="margin-top:0;" onclick="closeDex()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<div id="char-modal">
+  <div id="char-modal-inner">
+    <canvas id="char-preview-canvas" width="220" height="220"></canvas>
+    <div id="char-modal-name"></div>
+    <div id="char-modal-num"></div>
+    <button class="close-btn" onclick="closeCharModal()">閉じる</button>
+  </div>
+</div>
+
+<canvas id="game-canvas"></canvas>
+
+<script>
+// ==========================================
+// sicoX ポイント連携
+// ==========================================
+const CRANE_EMBEDDED = window.parent && window.parent !== window;
+const CRANE_REQS = new Map();
+
+function craneReq(type, payload = {}, timeout = 5000) {
+  if (!CRANE_EMBEDDED) return Promise.resolve({ ok: false, error: 'sicoX内から起動してください' });
+  const reqId = 'crane' + Date.now() + Math.random().toString(36).slice(2, 8);
+  return new Promise(resolve => {
+    const timer = setTimeout(() => { CRANE_REQS.delete(reqId); resolve({ ok: false, error: 'タイムアウト' }); }, timeout);
+    CRANE_REQS.set(reqId, { resolve, timer });
+    parent.postMessage(Object.assign({ type, reqId }, payload), '*');
+  });
+}
+
+window.addEventListener('message', e => {
+  const msg = e.data || {};
+  if (msg.type === 'crane:response' && CRANE_REQS.has(msg.reqId)) {
+    const req = CRANE_REQS.get(msg.reqId);
+    clearTimeout(req.timer);
+    CRANE_REQS.delete(msg.reqId);
+    req.resolve(msg);
+  }
+});
+
+function setSyncNote(text) {
+  const el = document.getElementById('sync-note');
+  if (el) el.textContent = text;
+}
+
+// ==========================================
+// 1. システム
+// ==========================================
+const user = { handle: 'player_01', points: 0 };
+const machines = {
+  1: { cost: 100,     reward: 10000,      difficultyMul: 1.0,
+       theme: {
+         bg1: '#ff4081', bg2: '#ff79b0',
+         floor: 0xe0f7fa, hole: 0xff3366,
+         rodColor: 0x888888, bodyColor: 0xffea00,
+         armColor: 0xdddddd, jointColor: 0x333333,
+         uiBorder: '#00e5ff', label: '【ノーマル】'
+       }
+  },
+  2: { cost: 1000000, reward: 100000000,  difficultyMul: 1.5,
+       theme: {
+         bg1: '#1a0533', bg2: '#2d0b5e',
+         floor: 0x1a1a2e, hole: 0xaa00ff,
+         rodColor: 0xc0a000, bodyColor: 0xffd700,
+         armColor: 0xffd700, jointColor: 0x886600,
+         uiBorder: '#ffd700', label: '【VIP】'
+       }
+  }
+};
+let currentMachineId = 1;
+let gameState = 'idle';
+let currentPrizeData = null;
+
+// 図鑑はブラウザキャッシュ(localStorage)保存
+let collectedMonsters = [];
+try { collectedMonsters = JSON.parse(localStorage.getItem('crane_dex') || '[]'); } catch(e) { collectedMonsters = []; }
+
+async function recordPointTransaction(delta) {
+  const before = user.points;
+  const expectedAfter = Math.max(0, before + delta);
+  if (CRANE_EMBEDDED) {
+    const res = await craneReq('crane:points:update', { delta, reason: 'クレーンゲーム' + (delta > 0 ? ' 獲得 ' : ' コイン投入 ') + Math.abs(delta) + 'pt' }, 9000);
+    if (res.ok) {
+      user.points = Math.max(0, Math.round(Number(res.balance) || expectedAfter));
+    } else {
+      user.points = expectedAfter;
+    }
+  } else {
+    user.points = expectedAfter;
+  }
+  document.getElementById('user-points').innerText = user.points.toLocaleString();
+}
+
+function saveToDex(id) {
+  if (!collectedMonsters.includes(id)) {
+    collectedMonsters.push(id);
+    try { localStorage.setItem('crane_dex', JSON.stringify(collectedMonsters)); } catch(e) {}
+  }
+}
+
+async function loadParentBalance() {
+  if (!CRANE_EMBEDDED) {
+    user.points = 5000000;
+    document.getElementById('user-points').innerText = user.points.toLocaleString();
+    setSyncNote('スタンドアロンモード');
+    return;
+  }
+  setSyncNote('sicoXポイントと同期中...');
+  const res = await craneReq('crane:points:init:request', {}, 7000);
+  if (res.ok) {
+    user.points = Math.max(0, Math.round(Number(res.balance) || 0));
+    setSyncNote('sicoX所持ポイントを使用中');
+  } else {
+    user.points = 0;
+    setSyncNote(res.error || 'ポイント取得失敗');
+  }
+  document.getElementById('user-points').innerText = user.points.toLocaleString();
+  if (res.handle) {
+    document.getElementById('user-handle').innerText = res.handle;
+    user.handle = res.handle;
+  }
+}
+
+// ==========================================
+// 2. モンスター生成関数群 (30体)
+// ==========================================
+function _createPart(group, geometry, color, position=[0,0,0], rotation=[0,0,0], scale=[1,1,1], materialProps={}) {
+  const mat = new THREE.MeshLambertMaterial({ color, ...materialProps });
+  const mesh = new THREE.Mesh(geometry, mat);
+  mesh.position.set(...position); mesh.rotation.set(...rotation); mesh.scale.set(...scale);
+  mesh.castShadow = true; group.add(mesh); return mesh;
+}
+const genFns = [
+  function Koiqueen(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(1,16,16),0x3399ff,[0,0,0],[0,0,0],[1.5,0.6,1.0]);_createPart(g,new THREE.ConeGeometry(0.3,0.8,4),0x3399ff,[0,0,1.1],[Math.PI/2,0,0]);_createPart(g,new THREE.ConeGeometry(0.3,0.8,4),0x3399ff,[0,0,-1.1],[-Math.PI/2,0,0]);_createPart(g,new THREE.CylinderGeometry(0.2,0.2,0.3,8),0xff9999,[1.3,0.2,0],[0,0,Math.PI/2.5]);return g;},
+  function Ikachu(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.9,16,16),0xffe600,[0,0,0]);_createPart(g,new THREE.ConeGeometry(0.18,0.8,4),0xffe600,[0.3,0.8,0.3],[-0.2,0,-0.2]);_createPart(g,new THREE.ConeGeometry(0.18,0.8,4),0xffe600,[-0.3,0.8,0.3],[-0.2,0,0.2]);_createPart(g,new THREE.SphereGeometry(0.15,8,8),0xff0000,[0.7,-0.1,0.5]);_createPart(g,new THREE.SphereGeometry(0.15,8,8),0xff0000,[0.7,-0.1,-0.5]);return g;},
+  function Gousu(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.9,16,16),0x660099,[0,0,0],[0,0,0],[1,1,1],{transparent:true,opacity:0.75});_createPart(g,new THREE.SphereGeometry(0.15,8,8),0xffffff,[0.7,0.2,0.25],[0,0,0],[1,1,0.2]);_createPart(g,new THREE.SphereGeometry(0.15,8,8),0xffffff,[0.7,0.2,-0.25],[0,0,0],[1,1,0.2]);_createPart(g,new THREE.ConeGeometry(0.3,0.6,4),0x440066,[0,-0.8,0],[Math.PI,0,0]);return g;},
+  function Sunatsubute(){const g=new THREE.Group();_createPart(g,new THREE.CylinderGeometry(0.8,0.8,1.2,6),0x888888,[0,0,0],[Math.PI/2,0,0]);_createPart(g,new THREE.BoxGeometry(0.2,0.2,0.1),0xffffff,[0.8,0.1,0.3]);_createPart(g,new THREE.BoxGeometry(0.2,0.2,0.1),0xffffff,[0.8,0.1,-0.3]);return g;},
+  function Hirukage(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.8,16,16),0xff6600,[0,0.3,0]);_createPart(g,new THREE.CylinderGeometry(0.15,0.15,0.6,8),0xff6600,[0.3,-0.5,0]);_createPart(g,new THREE.CylinderGeometry(0.15,0.15,0.6,8),0xff6600,[-0.3,-0.5,0]);_createPart(g,new THREE.CylinderGeometry(0.1,0.1,0.8,8),0xff6600,[-0.6,0.0,0],[0,0,Math.PI/4]);_createPart(g,new THREE.ConeGeometry(0.2,0.4,8),0xff3300,[-0.9,0.4,0],[0,0,-Math.PI/4]);return g;},
+  function Tanenoko(){const g=new THREE.Group();_createPart(g,new THREE.BoxGeometry(1.2,0.7,1.0),0x4dd0e1,[0,-0.1,0]);_createPart(g,new THREE.SphereGeometry(0.5,12,12),0x81c784,[0,0.5,0],[0,0,0],[1,1.3,1]);const legGeo=new THREE.CylinderGeometry(0.15,0.15,0.4,8);_createPart(g,legGeo,0x4dd0e1,[0.4,-0.5,0.3]);_createPart(g,legGeo,0x4dd0e1,[-0.4,-0.5,0.3]);_createPart(g,legGeo,0x4dd0e1,[0.4,-0.5,-0.3]);_createPart(g,legGeo,0x4dd0e1,[-0.4,-0.5,-0.3]);return g;},
+  function Kamewari(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.6,14,14),0x4fc3f7,[0.3,0.3,0]);_createPart(g,new THREE.SphereGeometry(0.8,14,14),0xa1887f,[-0.1,0.0,0],[0,0,0],[1.2,0.9,1.1]);_createPart(g,new THREE.ConeGeometry(0.18,0.5,8),0x4fc3f7,[-0.8,-0.2,0],[0,0,Math.PI/3]);return g;},
+  function Aomushi(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.5,12,12),0x81c784,[0.5,0.3,0]);_createPart(g,new THREE.SphereGeometry(0.4,12,12),0x81c784,[0.0,0.1,0]);_createPart(g,new THREE.SphereGeometry(0.3,12,12),0x81c784,[-0.4,-0.1,0]);_createPart(g,new THREE.ConeGeometry(0.1,0.4,4),0xff8a65,[0.7,0.7,0],[0,0,-Math.PI/6]);return g;},
+  function Toripopo(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.7,14,14),0xa1887f,[0,0.2,0]);_createPart(g,new THREE.ConeGeometry(0.15,0.4,4),0xffd54f,[0.7,0.2,0],[0,0,-Math.PI/2]);_createPart(g,new THREE.BoxGeometry(0.6,0.4,0.1),0xfff176,[0,0.2,0.6],[0.2,0,0]);_createPart(g,new THREE.BoxGeometry(0.6,0.4,0.1),0xfff176,[0,0.2,-0.6],[-0.2,0,0]);return g;},
+  function Chuzumi(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.7,14,14),0xba68c8,[0,0,0],[0,0,0],[1.3,1.0,1.0]);_createPart(g,new THREE.ConeGeometry(0.18,0.5,4),0xba68c8,[0.2,0.6,0.3],[-0.4,0,-0.4]);_createPart(g,new THREE.ConeGeometry(0.18,0.5,4),0xba68c8,[0.2,0.6,-0.3],[-0.4,0,0.4]);_createPart(g,new THREE.BoxGeometry(0.08,0.2,0.15),0xffffff,[0.9,-0.2,0]);return g;},
+  function Hebirin(){const g=new THREE.Group();_createPart(g,new THREE.CylinderGeometry(0.7,0.7,0.4,12),0xba68c8,[0,-0.5,0]);_createPart(g,new THREE.CylinderGeometry(0.5,0.5,0.4,12),0xba68c8,[0,-0.1,0]);_createPart(g,new THREE.SphereGeometry(0.4,12,12),0xba68c8,[0.2,0.3,0.2]);return g;},
+  function Sunajishi(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.8,12,12),0xedc9af,[0,0,0],[0,0,0],[1.1,1.0,1.1]);_createPart(g,new THREE.ConeGeometry(0.2,0.5,4),0xedc9af,[0.4,0.6,0]);_createPart(g,new THREE.ConeGeometry(0.1,0.3,4),0xffffff,[0.8,-0.4,0.3],[0,0,-Math.PI/2]);_createPart(g,new THREE.ConeGeometry(0.1,0.3,4),0xffffff,[0.8,-0.4,-0.3],[0,0,-Math.PI/2]);return g;},
+  function Tsunousagi(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.7,14,14),0x90caf9,[0,0,0]);_createPart(g,new THREE.ConeGeometry(0.15,0.6,4),0x90caf9,[0.1,0.6,0.3],[-0.2,0,-0.2]);_createPart(g,new THREE.ConeGeometry(0.15,0.6,4),0x90caf9,[0.1,0.6,-0.3],[-0.2,0,0.2]);_createPart(g,new THREE.ConeGeometry(0.1,0.4,4),0xffffff,[0.5,0.4,0],[0,0,-Math.PI/4]);return g;},
+  function Kitsunebon(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.6,14,14),0xff8a65,[0,0.2,0]);const tailGeo=new THREE.ConeGeometry(0.12,0.6,4);for(let i=0;i<6;i++){let angle=(i-2.5)*0.25;_createPart(g,tailGeo,0xff7043,[-0.5,0.1,angle*0.5],[0,0,Math.PI/1.8+angle]);}return g;},
+  function Batton(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.45,12,12),0x5c6bc0,[0,0.1,0]);_createPart(g,new THREE.BoxGeometry(1.6,0.4,0.05),0x3f51b5,[0,0.1,0]);_createPart(g,new THREE.ConeGeometry(0.15,0.4,4),0x5c6bc0,[0,0.5,0.25]);_createPart(g,new THREE.ConeGeometry(0.15,0.4,4),0x5c6bc0,[0,0.5,-0.25]);return g;},
+  function Moguran(){const g=new THREE.Group();_createPart(g,new THREE.CylinderGeometry(0.4,0.4,1.0,12),0x8d6e63,[0,0,0]);_createPart(g,new THREE.SphereGeometry(0.4,12,12),0x8d6e63,[0,0.5,0]);_createPart(g,new THREE.SphereGeometry(0.15,8,8),0xff8a80,[0.35,0.2,0]);_createPart(g,new THREE.CylinderGeometry(0.6,0.65,0.2,8),0x78909c,[0,-0.5,0]);return g;},
+  function Kobaneko(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.55,14,14),0xffecb3,[0,0.4,0]);_createPart(g,new THREE.CylinderGeometry(0.35,0.4,0.6,10),0xffecb3,[0,-0.2,0]);_createPart(g,new THREE.BoxGeometry(0.08,0.25,0.18),0xffd54f,[0.45,0.6,0],[0,0,-Math.PI/6]);_createPart(g,new THREE.ConeGeometry(0.15,0.35,4),0xffecb3,[0.2,0.8,0.25]);_createPart(g,new THREE.ConeGeometry(0.15,0.35,4),0xffecb3,[0.2,0.8,-0.25]);return g;},
+  function Ahirun(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.6,14,14),0xfff176,[0,0.4,0]);_createPart(g,new THREE.SphereGeometry(0.75,14,14),0xfff176,[0,-0.2,0]);_createPart(g,new THREE.BoxGeometry(0.4,0.1,0.5),0xffb74d,[0.5,0.3,0]);const armGeo=new THREE.CylinderGeometry(0.08,0.08,0.5,8);_createPart(g,armGeo,0xfff176,[0.3,0.5,0.45],[Math.PI/3,0,0]);_createPart(g,armGeo,0xfff176,[0.3,0.5,-0.45],[-Math.PI/3,0,0]);return g;},
+  function Kinnikun(){const g=new THREE.Group();_createPart(g,new THREE.CylinderGeometry(0.35,0.45,1.0,10),0x90a4ae,[0,-0.1,0]);_createPart(g,new THREE.SphereGeometry(0.4,12,12),0x90a4ae,[0,0.6,0]);_createPart(g,new THREE.BoxGeometry(0.1,0.25,0.35),0x78909c,[0,0.9,0]);const muscleArm=new THREE.CylinderGeometry(0.14,0.14,0.7,8);_createPart(g,muscleArm,0x90a4ae,[0.5,0.1,0],[0,0,-Math.PI/4]);_createPart(g,muscleArm,0x90a4ae,[-0.5,0.1,0],[0,0,Math.PI/4]);return g;},
+  function Tsubomian(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.38,12,12),0xfff176,[0,0.7,0],[0,0,0],[1.2,1.0,1.0]);_createPart(g,new THREE.CylinderGeometry(0.04,0.04,1.1,8),0x81c784,[0,-0.1,0]);const leafGeo=new THREE.BoxGeometry(0.35,0.08,0.5);_createPart(g,leafGeo,0x4caf50,[0.3,0.1,0],[0,0,-Math.PI/6]);_createPart(g,leafGeo,0x4caf50,[-0.3,0.1,0],[0,0,Math.PI/6]);return g;},
+  function Kuragege(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.65,14,14),0x4fc3f7,[0,0.4,0],[0,0,0],[1,0.7,1]);_createPart(g,new THREE.SphereGeometry(0.18,8,8),0xe57373,[0.35,0.5,0.25]);_createPart(g,new THREE.SphereGeometry(0.18,8,8),0xe57373,[0.35,0.5,-0.25]);const tentacleGeo=new THREE.CylinderGeometry(0.04,0.04,0.9,6);_createPart(g,tentacleGeo,0xffffff,[0.15,-0.3,0.15],[0.1,0,0.1]);_createPart(g,tentacleGeo,0xffffff,[-0.15,-0.3,-0.15],[-0.1,0,-0.1]);return g;},
+  function Oshia(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.65,14,14),0xe0e0e0,[0,0.1,0],[0,0,0],[1.3,1.0,1.0]);_createPart(g,new THREE.ConeGeometry(0.12,0.4,4),0xffffff,[0.4,0.6,0],[0,0,-Math.PI/4]);_createPart(g,new THREE.BoxGeometry(0.45,0.08,0.35),0xe0e0e0,[-0.7,-0.2,0],[0,0,Math.PI/6]);return g;},
+  function Dorodoron(){const g=new THREE.Group();_createPart(g,new THREE.ConeGeometry(0.8,1.2,12),0xba68c8,[0,-0.1,0]);_createPart(g,new THREE.SphereGeometry(0.45,12,12),0xba68c8,[0,0.3,0]);_createPart(g,new THREE.SphereGeometry(0.14,8,8),0xffffff,[0.25,0.4,0.15]);_createPart(g,new THREE.SphereGeometry(0.14,8,8),0xffffff,[0.25,0.4,-0.15]);return g;},
+  function Shellun(){const g=new THREE.Group();const shellGeo=new THREE.SphereGeometry(0.65,12,12);_createPart(g,shellGeo,0x7e57c2,[0,0.25,0],[0,0,0],[1.0,0.5,1.2]);_createPart(g,shellGeo,0x7e57c2,[0,-0.15,0],[0,0,0],[1.0,0.5,1.2]);_createPart(g,new THREE.BoxGeometry(0.4,0.08,0.35),0xff8a80,[0.35,0.05,0]);return g;},
+  function Tapiru(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.75,14,14),0xffb74d,[0,0.2,0]);_createPart(g,new THREE.CylinderGeometry(0.75,0.85,0.7,12),0x8d6e63,[0,-0.5,0]);_createPart(g,new THREE.CylinderGeometry(0.14,0.1,0.5,8),0xffb74d,[0.55,0.3,0],[0,0,-Math.PI/3]);return g;},
+  function Kanipon(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.75,14,14),0xff5722,[0,0,0],[0,0,0],[1.3,0.7,1.0]);const clawGeo=new THREE.SphereGeometry(0.28,8,8);_createPart(g,clawGeo,0xff5722,[0.5,0.3,0.5],[0,0,0],[1.3,1,1]);_createPart(g,clawGeo,0xff5722,[0.5,0.3,-0.5],[0,0,0],[1.3,1,1]);const stalkEye=new THREE.CylinderGeometry(0.04,0.04,0.35,6);_createPart(g,stalkEye,0xffffff,[0.15,0.6,0.18]);_createPart(g,stalkEye,0xffffff,[0.15,0.6,-0.18]);return g;},
+  function Eggun(){const g=new THREE.Group();const eggGeo=new THREE.SphereGeometry(0.32,10,10);_createPart(g,eggGeo,0xff8a80,[0.25,0.2,0.25],[0,0,0],[1,1.2,1]);_createPart(g,eggGeo,0xff8a80,[-0.25,0.1,0.3],[0,0,0],[1,1.2,1]);_createPart(g,eggGeo,0xff8a80,[0.0,-0.3,0.0],[0,0,0],[1.2,1.0,1]);_createPart(g,eggGeo,0xff8a80,[0.35,-0.1,-0.3],[0,0,0],[1,1.2,1]);_createPart(g,eggGeo,0xff8a80,[-0.35,0.3,-0.1],[0,0,0],[1,1.2,1]);return g;},
+  function Boneko(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.55,14,14),0xffb74d,[0,-0.1,0]);_createPart(g,new THREE.BoxGeometry(0.65,0.65,0.65),0xeeeeee,[0.15,0.4,0]);_createPart(g,new THREE.CylinderGeometry(0.04,0.04,0.5,6),0xffffff,[0.5,-0.1,0.35],[Math.PI/4,0,0]);return g;},
+  function Gasuwan(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.75,14,14),0x7e57c2);const bumpGeo=new THREE.SphereGeometry(0.14,8,8);_createPart(g,bumpGeo,0x7e57c2,[0.65,0.3,0.25]);_createPart(g,bumpGeo,0x7e57c2,[-0.65,0.3,-0.25]);_createPart(g,bumpGeo,0x7e57c2,[0.0,0.75,0.4]);_createPart(g,bumpGeo,0x7e57c2,[0.35,-0.55,-0.4]);_createPart(g,bumpGeo,0x7e57c2,[-0.45,-0.45,0.4]);return g;},
+  function Rhinon(){const g=new THREE.Group();_createPart(g,new THREE.BoxGeometry(1.3,0.8,1.0),0x90a4ae,[0,0,0]);_createPart(g,new THREE.ConeGeometry(0.18,0.5,4),0xb0bec5,[0.7,0.4,0],[0,0,-Math.PI/3]);_createPart(g,new THREE.BoxGeometry(0.18,0.5,1.1),0x78909c,[-0.3,0.4,0]);return g;}
+];
+const names = ["コイクイーン","イカチュウ","ゴウス","スナツブテ","ヒルカゲ","タネノコ","カメワリ","アオムシ","トリポポ","チュズミ","ヘビリン","スナジシ","ツノウサギ","キツネボン","バットン","モグラン","コバネコ","アヒルン","キンニクン","ツボミアン","クラゲゲ","オシア","ドロドロン","シェルン","タピル","カニポン","エッグン","ボネコ","ガスワン","ライノン"];
+const monsterDB = names.map((name, i) => ({ id: 'mon_' + (i+1), index: i, name, gen: genFns[i] }));
+
+// ==========================================
+// 3. 図鑑 & キャラプレビュー
+// ==========================================
+function renderMonsterToDataURL(monData, size) {
+  const offCanvas = document.createElement('canvas');
+  offCanvas.width = size; offCanvas.height = size;
+  const r = new THREE.WebGLRenderer({ canvas: offCanvas, antialias: true, alpha: false });
+  r.setSize(size, size); r.setClearColor(0x1a1a2e, 1);
+  const s = new THREE.Scene();
+  s.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const dl = new THREE.DirectionalLight(0xffffff, 1.0);
+  dl.position.set(3, 5, 3); s.add(dl);
+  const mesh = monData.gen();
+  const box = new THREE.Box3().setFromObject(mesh);
+  const center = new THREE.Vector3(); box.getCenter(center);
+  mesh.position.sub(center); s.add(mesh);
+  const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  const bsize = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(bsize.x, bsize.y, bsize.z);
+  cam.position.set(maxDim * 1.2, maxDim * 0.8, maxDim * 1.5);
+  cam.lookAt(0, 0, 0); r.render(s, cam);
+  const url = offCanvas.toDataURL('image/png'); r.dispose(); return url;
+}
+
+window.openDex = () => {
+  const grid = document.getElementById('dex-grid');
+  grid.innerHTML = '';
+  monsterDB.forEach(m => {
+    const div = document.createElement('div');
+    const acquired = collectedMonsters.includes(m.id);
+    div.className = 'dex-item ' + (acquired ? 'acquired' : '');
+    if (acquired) {
+      const img = document.createElement('img');
+      img.src = renderMonsterToDataURL(m, 60); img.alt = m.name;
+      div.appendChild(img);
+      const lbl = document.createElement('div'); lbl.innerText = m.name;
+      div.appendChild(lbl);
+      div.addEventListener('click', () => openCharModal(m));
+    } else { div.innerText = '？？？'; }
+    grid.appendChild(div);
+  });
+  document.getElementById('dex-count').innerText = collectedMonsters.length;
+  document.getElementById('dex-modal').classList.add('show');
+};
+window.closeDex = () => document.getElementById('dex-modal').classList.remove('show');
+
+// ── 図鑑のツイート機能 ──────────────────────────────────────────────────
+window.tweetDexProgress = function() {
+  const count = collectedMonsters.length;
+  const total = monsterDB.length;
+  const percent = Math.round((count / total) * 100);
+
+  // 最近獲得したモンスター名（最大3体）
+  const recentNames = collectedMonsters
+    .slice(-3)
+    .map(id => { const m = monsterDB.find(x => x.id === id); return m ? m.name : ''; })
+    .filter(Boolean)
+    .join('・');
+
+  let text = '🎮 シコシコモンスター図鑑 進捗報告！\n';
+  text += '✅ ' + count + ' / ' + total + ' 体収集 (' + percent + '%)\n';
+  if (recentNames) text += '最近GETしたモンスター: ' + recentNames + '\n';
+  if (count === total) {
+    text += '🏆 全モンスター制覇おめでとう！ #SicoX_完全制覇';
+  } else if (count >= total * 0.8) {
+    text += 'もう少しでコンプリート！ #SicoX_クレーン';
+  } else {
+    text += 'まだまだ集めるぞ！ #SicoX_クレーン';
+  }
+
+  const encoded = encodeURIComponent(text);
+  window.open('https://twitter.com/intent/tweet?text=' + encoded, '_blank', 'width=600,height=450');
+};
+
+// ── localStorage 負荷ベンチマーク ────────────────────────────────────────
+// SicoXの起動時に1回だけ実行し、コンソールに結果を出力する
+(function benchmarkLocalStorage() {
+  try {
+    const KEY = '_bench_crane_dex';
+    const ITERATIONS = 1000;
+
+    // 現在の crane_dex データサイズ計測
+    const raw = localStorage.getItem('crane_dex') || '[]';
+    const sizeBytes = new Blob([raw]).size;
+
+    // 書き込み速度テスト (100回)
+    const WRITE_ITER = 100;
+    const sampleData = JSON.stringify(Array.from({length: 30}, (_, i) => 'mon_' + (i+1)));
+    const t0w = performance.now();
+    for (let i = 0; i < WRITE_ITER; i++) {
+      localStorage.setItem(KEY, sampleData);
+    }
+    const writeMs = performance.now() - t0w;
+
+    // 読み込み速度テスト (1000回)
+    const t0r = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      localStorage.getItem(KEY);
+    }
+    const readMs = performance.now() - t0r;
+
+    // JSON.parse 速度テスト (1000回)
+    const t0p = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      JSON.parse(localStorage.getItem(KEY) || '[]');
+    }
+    const parseMs = performance.now() - t0p;
+
+    localStorage.removeItem(KEY);
+
+    console.group('[SicoX] crane_dex localStorage ベンチマーク結果');
+    console.log('現在のデータサイズ: ' + sizeBytes + ' bytes (' + JSON.parse(raw).length + ' 件収集済み)');
+    console.log('書き込み ' + WRITE_ITER + '回: ' + writeMs.toFixed(2) + ' ms (avg ' + (writeMs/WRITE_ITER).toFixed(3) + ' ms/回)');
+    console.log('読み込み ' + ITERATIONS + '回: ' + readMs.toFixed(2) + ' ms (avg ' + (readMs/ITERATIONS).toFixed(3) + ' ms/回)');
+    console.log('読み込み+parse ' + ITERATIONS + '回: ' + parseMs.toFixed(2) + ' ms (avg ' + (parseMs/ITERATIONS).toFixed(3) + ' ms/回)');
+    console.log('--- 評価 ---');
+    const avgWrite = writeMs / WRITE_ITER;
+    const avgParse = parseMs / ITERATIONS;
+    if (avgWrite < 0.5 && avgParse < 1.0) {
+      console.log('✅ 負荷: 非常に低い (問題なし)');
+    } else if (avgWrite < 2.0 && avgParse < 5.0) {
+      console.log('⚠️ 負荷: 中程度 (通常使用では問題なし)');
+    } else {
+      console.log('❌ 負荷: 高い (最適化を検討してください)');
+    }
+    console.log('備考: crane_dex は最大30件 (IDのみ) のシンプルな配列のため、実運用での負荷はごく小さい');
+    console.groupEnd();
+  } catch(e) {
+    console.warn('[SicoX] localStorage ベンチマーク失敗:', e);
+  }
+})();
+
+let charRAF = null, charPreviewR = null;
+window.openCharModal = function(monData) {
+  if (charRAF) { cancelAnimationFrame(charRAF); charRAF = null; }
+  if (charPreviewR) { charPreviewR.dispose(); charPreviewR = null; }
+  document.getElementById('char-modal-name').innerText = monData.name;
+  document.getElementById('char-modal-num').innerText = 'No.' + (monData.index + 1) + ' / 30';
+  document.getElementById('char-modal').classList.add('show');
+  const canvas = document.getElementById('char-preview-canvas');
+  charPreviewR = new THREE.WebGLRenderer({ canvas, antialias: true });
+  charPreviewR.setSize(220, 220); charPreviewR.setClearColor(0x1a1a2e, 1);
+  const s = new THREE.Scene();
+  s.add(new THREE.AmbientLight(0xffffff, 0.65));
+  const dl1 = new THREE.DirectionalLight(0xffffff, 0.9); dl1.position.set(4, 6, 4); s.add(dl1);
+  const dl2 = new THREE.DirectionalLight(0x88aaff, 0.4); dl2.position.set(-3, 2, -2); s.add(dl2);
+  const mesh = monData.gen(); mesh.scale.set(1.1, 1.1, 1.1);
+  const box = new THREE.Box3().setFromObject(mesh);
+  const center = new THREE.Vector3(); box.getCenter(center);
+  mesh.position.sub(center); s.add(mesh);
+  const bsize = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(bsize.x, bsize.y, bsize.z);
+  const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+  cam.position.set(maxDim * 1.4, maxDim * 0.9, maxDim * 1.8); cam.lookAt(0, 0, 0);
+  (function loop() { charRAF = requestAnimationFrame(loop); mesh.rotation.y += 0.018; charPreviewR.render(s, cam); })();
+};
+window.closeCharModal = function() {
+  if (charRAF) { cancelAnimationFrame(charRAF); charRAF = null; }
+  if (charPreviewR) { charPreviewR.dispose(); charPreviewR = null; }
+  document.getElementById('char-modal').classList.remove('show');
+};
+
+window.toggleMachineMenu = () => document.getElementById('machine-menu').classList.toggle('show');
+
+// ==========================================
+// 4. Three.js セットアップ
+// ==========================================
+const canvas = document.getElementById('game-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 8, 11); camera.lookAt(0, 0, 0);
+
+const CAMERA_FRONT = { pos: new THREE.Vector3(0, 8, 11), look: new THREE.Vector3(0, 0, 0) };
+const CAMERA_SIDE  = { pos: new THREE.Vector3(13, 6, 0), look: new THREE.Vector3(-1, 1, 0) };
+let isSideView = false;
+window.toggleCamera = function() {
+  isSideView = !isSideView;
+  const btn = document.getElementById('btn-camera-toggle');
+  const target = isSideView ? CAMERA_SIDE : CAMERA_FRONT;
+  btn.textContent = isSideView ? '📷 正面視点' : '📷 横視点';
+  btn.classList.toggle('side-view', isSideView);
+  gsap.to(camera.position, { x: target.pos.x, y: target.pos.y, z: target.pos.z, duration: 0.8, ease: 'power2.inOut', onUpdate: () => camera.lookAt(target.look) });
+};
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(5, 15, 5); dirLight.castShadow = true; scene.add(dirLight);
+const floorMat = new THREE.MeshLambertMaterial({ color: 0xe0f7fa });
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMat);
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+const hole = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 3.5), new THREE.MeshBasicMaterial({ color: 0x111 }));
+hole.rotation.x = -Math.PI / 2; hole.position.set(-4.5, 0.01, 4.5); scene.add(hole);
+const edgeMat = new THREE.MeshLambertMaterial({ color: 0xff3366 });
+const edgeGeo = new THREE.BoxGeometry(0.15, 0.3, 4.3);
+[-2.075, 2.075].forEach(ox => { const e = new THREE.Mesh(edgeGeo, edgeMat); e.position.set(-4.5 + ox, 0.15, 4.5); scene.add(e); });
+const edgeGeo2 = new THREE.BoxGeometry(4.3, 0.3, 0.15);
+[-2.075, 2.075].forEach(oz => { const e = new THREE.Mesh(edgeGeo2, edgeMat); e.position.set(-4.5, 0.15, 4.5 + oz); scene.add(e); });
+const shadowGeo = new THREE.PlaneGeometry(2.5, 2.5);
+const shadowMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false });
+const craneShadow = new THREE.Mesh(shadowGeo, shadowMat);
+craneShadow.rotation.x = -Math.PI / 2; craneShadow.position.y = 0.02; scene.add(craneShadow);
+const craneGroup = new THREE.Group();
+const rodMat  = new THREE.MeshStandardMaterial({ color: 0x888888 });
+const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 8), rodMat);
+rod.position.y = 4; craneGroup.add(rod);
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffea00 });
+const cBody = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 1.2), bodyMat);
+craneGroup.add(cBody);
+const armMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.5, roughness: 0.3 });
+const jointMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+const armL = new THREE.Group();
+const upperL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 0.25), armMat);
+upperL.position.set(-0.25, -0.5, 0); upperL.rotation.z = -0.3; armL.add(upperL);
+const lowerL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 0.2), armMat);
+lowerL.position.set(-0.05, -1.4, 0); lowerL.rotation.z = 0.4; armL.add(lowerL);
+const jointL = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.26), jointMat);
+jointL.rotation.x = Math.PI / 2; jointL.position.set(-0.4, -1.0, 0); armL.add(jointL);
+armL.position.set(-0.4, -0.2, 0); craneGroup.add(armL);
+const armR = new THREE.Group();
+const upperR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 0.25), armMat);
+upperR.position.set(0.25, -0.5, 0); upperR.rotation.z = 0.3; armR.add(upperR);
+const lowerR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.0, 0.2), armMat);
+lowerR.position.set(0.05, -1.4, 0); lowerR.rotation.z = -0.4; armR.add(lowerR);
+const jointR = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.26), jointMat);
+jointR.rotation.x = Math.PI / 2; jointR.position.set(0.4, -1.0, 0); armR.add(jointR);
+armR.position.set(0.4, -0.2, 0); craneGroup.add(armR);
+craneGroup.position.set(-4.5, 5, 4.5); scene.add(craneGroup);
+
+// ==========================================
+// 5. 景品管理 & 物理パラメータ
+// ==========================================
+let prizeMesh = null, targetY = 0, prizeRadius = 1.0;
+let prizeVelX = 0, prizeVelZ = 0, prizeAngVelX = 0, prizeAngVelZ = 0;
+const PRIZE_MASS = 10.0, FRICTION = 0.88, FIELD_HALF = 7.0;
+
+function spawnPrize(forceSpawn = false) {
+  if (!forceSpawn && prizeMesh) return;
+  if (prizeMesh) scene.remove(prizeMesh);
+  prizeVelX = 0; prizeVelZ = 0; prizeAngVelX = 0; prizeAngVelZ = 0;
+  gummyDeformT = 0; isArmTouching = false;
+  const randData = monsterDB[Math.floor(Math.random() * monsterDB.length)];
+  currentPrizeData = randData;
+  prizeMesh = randData.gen();
+  prizeMesh.scale.set(1.2, 1.2, 1.2);
+  const px = Math.random() * 5 - 1, pz = Math.random() * -5 - 1;
+  const box = new THREE.Box3().setFromObject(prizeMesh);
+  const bsize = box.getSize(new THREE.Vector3());
+  prizeRadius = Math.max(bsize.x, bsize.y, bsize.z) * 0.70 / 2;
+  targetY = (box.max.y - box.min.y) / 2 + 0.1;
+  prizeMesh.position.set(px, targetY, pz);
+  scene.add(prizeMesh);
+  document.getElementById('prize-name').innerText = randData.name;
+}
+
+window.selectMachine = function(id) {
+  if (gameState !== 'idle' && gameState !== 'ready') return;
+  currentMachineId = id;
+  document.querySelectorAll('.machine-btn').forEach((b, i) => b.classList.toggle('active', i + 1 === id));
+  const t = machines[id].theme;
+  document.body.style.background = 'repeating-linear-gradient(45deg, ' + t.bg1 + ', ' + t.bg1 + ' 20px, ' + t.bg2 + ' 20px, ' + t.bg2 + ' 40px)';
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,0.55);z-index:999;pointer-events:none;transition:opacity 0.4s';
+  document.body.appendChild(flash);
+  requestAnimationFrame(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 450); });
+  floorMat.color.setHex(t.floor); edgeMat.color.setHex(t.hole);
+  rodMat.color.setHex(t.rodColor); bodyMat.color.setHex(t.bodyColor);
+  armMat.color.setHex(t.armColor); armMat.needsUpdate = true; jointMat.color.setHex(t.jointColor);
+  document.getElementById('prize-info').style.borderColor = t.uiBorder;
+  spawnPrize(true);
+  document.getElementById('machine-menu').classList.remove('show');
+};
+
+// ==========================================
+// 6. アーム先端ワールド座標取得
+// ==========================================
+function getArmTipWorld(armGroup, baseLocalX, baseLocalY) {
+  armGroup.updateMatrixWorld(true);
+  const v = new THREE.Vector3(baseLocalX, baseLocalY, 0);
+  return v.applyMatrix4(armGroup.matrixWorld);
+}
+function getArmTips() {
+  craneGroup.updateMatrixWorld(true);
+  const tipL = getArmTipWorld(armL, -0.30, -2.05);
+  const tipR = getArmTipWorld(armR,  0.30, -2.05);
+  return { tipL, tipR };
+}
+
+// ==========================================
+// 7. ゲームフロー
+// ==========================================
+const guide = document.getElementById('guide');
+function updateGuide(text) { guide.innerText = text; }
+let isMovingRight = false, isMovingUp = false, dropTween = null, isCatched = false;
+let gummyDeformT = 0, isArmTouching = false;
+let storedGripScore = 0, storedHoldQuality = 0, liftTweenRef = null, hasSlipped = false;
+
+function updateGummyDeform() {
+  if (!prizeMesh || prizeMesh.parent !== scene) return;
+  if (isArmTouching) { gummyDeformT = Math.min(1, gummyDeformT + 0.10); }
+  else { gummyDeformT = Math.max(0, gummyDeformT - 0.18); }
+  if (gummyDeformT > 0) {
+    const squish = 1 - gummyDeformT * 0.10, stretch = 1 + gummyDeformT * 0.08;
+    prizeMesh.scale.set(1.2 * squish, 1.2 * stretch, 1.2 * squish);
+  } else { prizeMesh.scale.set(1.2, 1.2, 1.2); }
+  isArmTouching = false;
+}
+
+function checkArmPrizeCollision() {
+  if (!prizeMesh || gameState !== 'dropping') return;
+  const { tipL, tipR } = getArmTips();
+  const prizePos = prizeMesh.position;
+  const clawCenterX = (tipL.x + tipR.x) * 0.5, clawCenterZ = (tipL.z + tipR.z) * 0.5;
+  const clawSpanX = Math.abs(tipR.x - tipL.x);
+  const insideClawX = Math.abs(prizePos.x - clawCenterX) < clawSpanX * 0.5;
+  const armTipRadius = 0.07, hitThreshold = prizeRadius + armTipRadius;
+  let touched = false;
+  for (const tip of [tipL, tipR]) {
+    const dx = prizePos.x - tip.x, dy = prizePos.y - tip.y, dz = prizePos.z - tip.z;
+    const dist3D = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    if (dist3D < hitThreshold) {
+      if (insideClawX) continue;
+      const distXZ = Math.sqrt(dx*dx + dz*dz);
+      if (distXZ > 0.03) {
+        touched = true;
+        const impactForce = 0.018 / PRIZE_MASS;
+        prizeVelX += (dx / distXZ) * impactForce; prizeVelZ += (dz / distXZ) * impactForce;
+        prizeAngVelX += (dz / distXZ) * impactForce * 0.12; prizeAngVelZ -= (dx / distXZ) * impactForce * 0.12;
+      }
+    }
+  }
+  if (touched) isArmTouching = true;
+}
+
+document.getElementById('btn-coin').addEventListener('pointerdown', async function() {
+  if (gameState !== 'idle') return;
+  if (user.points < machines[currentMachineId].cost) { alert('ポイントが足りません！'); return; }
+  await recordPointTransaction(-machines[currentMachineId].cost);
+  gameState = 'ready';
+  this.disabled = true; document.getElementById('btn-right').disabled = false;
+  updateGuide('②「➡」ボタンを押して右へ！');
+  gsap.to(this, { scale: 0.9, yoyo: true, repeat: 1, duration: 0.1 });
+});
+
+const btnR = document.getElementById('btn-right');
+btnR.addEventListener('pointerdown', () => {
+  if (gameState === 'ready') { gameState = 'movingRight'; isMovingRight = true; updateGuide('離してストップ！'); }
+});
+const stopRight = () => {
+  if (gameState === 'movingRight' && isMovingRight) {
+    isMovingRight = false; gameState = 'waitUp'; btnR.disabled = true;
+    document.getElementById('btn-up').disabled = false;
+    updateGuide('③「⬆」ボタンを押して奥へ！');
+  }
+};
+btnR.addEventListener('pointerup', stopRight); btnR.addEventListener('pointerleave', stopRight);
+
+const btnU = document.getElementById('btn-up');
+btnU.addEventListener('pointerdown', () => {
+  if (gameState === 'waitUp') { gameState = 'movingUp'; isMovingUp = true; updateGuide('離してストップ！'); }
+});
+const stopUp = () => {
+  if (gameState === 'movingUp' && isMovingUp) {
+    isMovingUp = false; gameState = 'waitDrop'; btnU.disabled = true;
+    document.getElementById('btn-drop').disabled = false;
+    updateGuide('④「◎」ボタンで降下！もう一度でストップ！');
+  }
+};
+btnU.addEventListener('pointerup', stopUp); btnU.addEventListener('pointerleave', stopUp);
+
+document.getElementById('btn-drop').addEventListener('pointerdown', () => {
+  if      (gameState === 'waitDrop') startDrop();
+  else if (gameState === 'dropping') { if (dropTween) dropTween.kill(); executeCatch(); }
+});
+
+function startDrop() {
+  gameState = 'dropping';
+  updateGuide('もう一度「◎」でその高さでストップ！');
+  gsap.to(armL.rotation, { z: -0.72, duration: 0.35 });
+  gsap.to(armR.rotation, { z:  0.72, duration: 0.35 });
+  dropTween = gsap.to(craneGroup.position, { y: 1.9, duration: 3.2, ease: 'none', onComplete: () => { if (gameState === 'dropping') executeCatch(); } });
+}
+
+function executeCatch() {
+  gameState = 'catching';
+  document.getElementById('btn-drop').disabled = true;
+  updateGuide('アームが閉じる！');
+  gsap.to(armL.rotation, { z: 0, duration: 0.30, ease: 'power2.in' });
+  gsap.to(armR.rotation, { z: 0, duration: 0.30, ease: 'power2.in', onComplete: evaluateGrip });
+}
+
+function evaluateGrip() {
+  if (!prizeMesh) { isCatched = false; beginReturn(); return; }
+  craneGroup.updateMatrixWorld(true);
+  const grabL = getArmTipWorld(armL, -0.10, -1.50);
+  const grabR = getArmTipWorld(armR,  0.10, -1.50);
+  const armCenter = new THREE.Vector3().addVectors(grabL, grabR).multiplyScalar(0.5);
+  const prizePos  = prizeMesh.position;
+  const dxz = Math.sqrt((armCenter.x - prizePos.x) ** 2 + (armCenter.z - prizePos.z) ** 2);
+  const dy  = Math.abs(armCenter.y - prizePos.y);
+  const maxXZ = 1.25, maxY = 1.10;
+  if (dxz >= maxXZ || dy >= maxY) { isCatched = false; updateGuide('アームが届かなかった...'); beginReturn(); return; }
+  const xzScore = Math.max(0, 1 - dxz / maxXZ), yScore = Math.max(0, 1 - dy / maxY);
+  storedGripScore = xzScore * yScore;
+  const clawForce = 0.35 + Math.random() * 0.50;
+  storedHoldQuality = (storedGripScore * clawForce) / machines[currentMachineId].difficultyMul;
+  if (storedHoldQuality < 0.04) {
+    isCatched = false; updateGuide('掴めなかった！');
+    const dx = prizePos.x - armCenter.x, dz = prizePos.z - armCenter.z;
+    const len = Math.sqrt(dx*dx + dz*dz) + 0.001;
+    prizeVelX += (dx / len) * 0.025 / PRIZE_MASS; prizeVelZ += (dz / len) * 0.025 / PRIZE_MASS;
+    beginReturn(); return;
+  }
+  isCatched = true; attachPrizeToCrane(); beginLift();
+}
+
+function attachPrizeToCrane() {
+  const wp = new THREE.Vector3(); prizeMesh.getWorldPosition(wp);
+  const wq = new THREE.Quaternion(); prizeMesh.getWorldQuaternion(wq);
+  craneGroup.add(prizeMesh); craneGroup.updateMatrixWorld(true);
+  const invMat = new THREE.Matrix4().copy(craneGroup.matrixWorld).invert();
+  const localPos = wp.clone().applyMatrix4(invMat);
+  prizeMesh.position.copy(localPos); prizeMesh.quaternion.copy(wq);
+}
+
+function beginLift() {
+  hasSlipped = false; updateGuide('持ち上げ中...');
+  if (storedHoldQuality < 0.35) {
+    gsap.to(prizeMesh.position, { y: prizeMesh.position.y - 0.18, duration: 0.18, yoyo: true, repeat: 2, ease: 'power2.out' });
+  }
+  liftTweenRef = gsap.to(craneGroup.position, { y: 5, duration: 1.9, ease: 'power1.inOut', onComplete: () => { if (!hasSlipped && isCatched) beginCarry(); } });
+}
+
+function beginCarry() {
+  updateGuide('穴へ運ぶ！');
+  const carryTime = 2.1;
+  gsap.to(craneGroup.position, { x: -4.5, z: 4.5, duration: carryTime, ease: 'power1.inOut', onComplete: finishTurn });
+  const slipProb = Math.max(0, 0.78 - storedHoldQuality * 1.0);
+  [carryTime * 0.25, carryTime * 0.55, carryTime * 0.85].forEach(t => {
+    gsap.delayedCall(t, () => {
+      if (hasSlipped || !isCatched || gameState !== 'catching') return;
+      if (Math.random() < slipProb) { hasSlipped = true; doSlip(); }
+    });
+  });
+}
+
+function doSlip() {
+  isCatched = false;
+  if (prizeMesh && prizeMesh.parent === craneGroup) {
+    const craneWP = new THREE.Vector3(); craneGroup.getWorldPosition(craneWP);
+    scene.add(prizeMesh);
+    prizeMesh.position.set(craneWP.x, targetY, craneWP.z);
+    prizeMesh.scale.set(1.2, 1.2, 1.2);
+    const toDirX = (-4.5 - craneWP.x), toDirZ = (4.5 - craneWP.z);
+    const len = Math.sqrt(toDirX*toDirX + toDirZ*toDirZ) + 0.001;
+    prizeVelX = (toDirX / len) * 0.018 + (Math.random() - 0.5) * 0.03;
+    prizeVelZ = (toDirZ / len) * 0.018 + (Math.random() - 0.5) * 0.03;
+    prizeAngVelZ = (Math.random() - 0.5) * 0.022;
+  }
+  updateGuide('あ！すべった...');
+}
+
+function beginReturn() {
+  gsap.to(craneGroup.position, { y: 5, duration: 1.2, ease: 'power1.inOut', onComplete: finishTurn });
+}
+
+function finishTurn() {
+  gsap.to(armL.rotation, { z: -0.22, duration: 0.5 });
+  gsap.to(armR.rotation, { z:  0.22, duration: 0.5 });
+  if (isCatched && prizeMesh && prizeMesh.parent === craneGroup) {
+    const wp = new THREE.Vector3(); prizeMesh.getWorldPosition(wp);
+    const wq = new THREE.Quaternion(); prizeMesh.getWorldQuaternion(wq);
+    scene.add(prizeMesh); prizeMesh.position.copy(wp); prizeMesh.quaternion.copy(wq);
+    gsap.to(prizeMesh.position, { x: -4.5, z: 4.5, y: 1.5, duration: 0.35, ease: 'power1.inOut',
+      onComplete: () => { gsap.to(prizeMesh.position, { y: -3, duration: 0.65, ease: 'power2.in', onComplete: showWinEffect }); }
+    });
+  } else { setTimeout(() => resetGameCrane(false), 900); }
+}
+
+async function showWinEffect() {
+  const reward = machines[currentMachineId].reward;
+  await recordPointTransaction(reward);
+  saveToDex(currentPrizeData.id);
+  document.getElementById('win-amount').innerText = reward.toLocaleString();
+  document.getElementById('win-prize-name').innerText = currentPrizeData.name + ' 獲得！';
+  document.getElementById('win-overlay').classList.add('show');
+}
+
+window.closeWin = function() {
+  document.getElementById('win-overlay').classList.remove('show');
+  resetGameCrane(true);
+};
+
+function resetGameCrane(forceSpawn = false) {
+  gsap.to(armL.rotation, { z: -0.22, duration: 0.5 });
+  gsap.to(armR.rotation, { z:  0.22, duration: 0.5 });
+  craneGroup.position.set(-4.5, 5, 4.5);
+  document.getElementById('btn-coin').disabled = false;
+  gameState = 'idle';
+  updateGuide('①「投入」ボタンでプレイ開始！');
+  spawnPrize(forceSpawn);
+}
+
+// ==========================================
+// 8. アニメーションループ
+// ==========================================
+const ACTIVE_STATES = new Set(['idle','ready','movingRight','movingUp','waitDrop','dropping','catching']);
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (isMovingRight && craneGroup.position.x < 5.5) craneGroup.position.x += 0.06;
+  if (isMovingUp && craneGroup.position.z > -5.5) craneGroup.position.z -= 0.06;
+  checkArmPrizeCollision();
+  updateGummyDeform();
+  if (prizeMesh && prizeMesh.parent === scene && ACTIVE_STATES.has(gameState)) {
+    const moving = Math.abs(prizeVelX) > 0.0003 || Math.abs(prizeVelZ) > 0.0003;
+    if (moving) {
+      prizeMesh.position.x += prizeVelX; prizeMesh.position.z += prizeVelZ;
+      if (prizeMesh.position.x > FIELD_HALF)  { prizeMesh.position.x = FIELD_HALF;  prizeVelX *= -0.35; prizeVelZ *= 0.8; }
+      if (prizeMesh.position.x < -FIELD_HALF) { prizeMesh.position.x = -FIELD_HALF; prizeVelX *= -0.35; prizeVelZ *= 0.8; }
+      if (prizeMesh.position.z > FIELD_HALF)  { prizeMesh.position.z = FIELD_HALF;  prizeVelZ *= -0.35; prizeVelX *= 0.8; }
+      if (prizeMesh.position.z < -FIELD_HALF) { prizeMesh.position.z = -FIELD_HALF; prizeVelZ *= -0.35; prizeVelX *= 0.8; }
+      prizeVelX *= FRICTION; prizeVelZ *= FRICTION;
+    }
+    const rotating = Math.abs(prizeAngVelX) > 0.0003 || Math.abs(prizeAngVelZ) > 0.0003;
+    if (rotating) { prizeMesh.rotation.x += prizeAngVelX; prizeMesh.rotation.z += prizeAngVelZ; prizeAngVelX *= FRICTION; prizeAngVelZ *= FRICTION; }
+    if (gameState === 'idle' && !moving) prizeMesh.rotation.y += 0.01;
+    prizeMesh.position.y = targetY;
+    const holeActiveStates = new Set(['idle','ready','movingRight','movingUp','waitDrop','dropping']);
+    if (holeActiveStates.has(gameState)) {
+      const holeX = -4.5, holeZ = 4.5, holeHalf = 1.6;
+      const px = prizeMesh.position.x, pz = prizeMesh.position.z;
+      if (px > holeX - holeHalf && px < holeX + holeHalf && pz > holeZ - holeHalf && pz < holeZ + holeHalf) {
+        isCatched = true; gameState = 'catching';
+        prizeVelX = 0; prizeVelZ = 0; prizeAngVelX = 0; prizeAngVelZ = 0;
+        document.getElementById('btn-drop').disabled = true;
+        if (dropTween) dropTween.kill();
+        updateGuide('穴に落ちた！');
+        gsap.to(prizeMesh.position, { y: -3, duration: 0.6, ease: 'power2.in', onComplete: showWinEffect });
+      }
+    }
+  }
+  craneShadow.position.x = craneGroup.position.x;
+  craneShadow.position.z = craneGroup.position.z;
+  const heightRatio = Math.max(0, Math.min(1, (craneGroup.position.y - 2) / 5));
+  shadowMat.opacity = 0.5 - heightRatio * 0.35;
+  craneShadow.scale.setScalar(0.7 + heightRatio * 0.6);
+  const camTarget = isSideView ? CAMERA_SIDE.look : CAMERA_FRONT.look;
+  camera.lookAt(camTarget);
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+spawnPrize(true);
+animate();
+loadParentBalance();
+<\\/script>
+</body>
+</html>`;
+
+// ══════════════════════════════════════
 
 const GAMES={
 
@@ -10077,6 +10990,16 @@ setTimeout(fitWrap,120);
 
   },
 
+  crane:{
+
+    title:'クレーンゲーム',
+
+    icon:'crane.png',
+
+    html: CRANE_GAME_HTML,
+
+  },
+
   sicofx:{
 
     title:'SicoFX',
@@ -10332,6 +11255,31 @@ window.addEventListener('message',async e=>{
     const ok=postSicoFxHistoryTweet(msg.history,msg.totalProfit);
 
     sendSicoFxResponse(msg.reqId,{ok});
+
+  }
+
+  // ── Crane game ──
+  function sendCraneResponse(reqId,payload){
+    sendToGameFrame(Object.assign({type:'crane:response',reqId},payload||{}));
+  }
+
+  if(msg.type==='crane:points:init:request'){
+
+    if(!currentUser){ sendCraneResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
+
+    const balance=await dbFetchAvailablePoints(currentUser.handle);
+
+    sendCraneResponse(msg.reqId,{ok:true,balance,handle:currentUser.handle,name:currentUser.name||currentUser.handle});
+
+  }
+
+  if(msg.type==='crane:points:update'){
+
+    if(!currentUser){ sendCraneResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
+
+    const result=await dbApplyPointTransaction(currentUser.handle,msg.delta,msg.reason,msg.refId||('crane-'+Date.now()));
+
+    sendCraneResponse(msg.reqId,result);
 
   }
 
@@ -10910,6 +11858,12 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
       <div class="game-icon-btn game-icon-btn-img" onclick="openGame('puzzled')">
 
         <img src="pazdora.png" alt="パズル＆中日ドラゴンズ" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:72px;display:block;text-align:center;\\'>🐉</span>')">
+
+      </div>
+
+      <div class="game-icon-btn game-icon-btn-img" onclick="openGame('crane')">
+
+        <img src="crane.png" alt="クレーンゲーム" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\'font-size:48px;line-height:72px;display:block;text-align:center;\'>🏗️</span>')">
 
       </div>
 

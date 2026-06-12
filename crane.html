@@ -54,7 +54,7 @@
     .machine-btn.active { background: var(--yellow); color: #000; }
     #prize-info {
       top: auto;
-      bottom: calc(max(2vh, env(safe-area-inset-bottom, 10px)) + 120px);
+      bottom: calc(max(2vh, env(safe-area-inset-bottom, 10px)) + 118px);
       left: 50%; transform: translateX(-50%); text-align: center;
       background: rgba(0,0,0,0.75); color: white; border: 2px solid var(--secondary);
       width: fit-content; min-width: 110px; max-width: 88%; padding: 4px 10px;
@@ -131,51 +131,6 @@
     .win-text { font-size: 4rem; font-weight: 900; color: #ffeb3b; text-shadow: 0 0 20px #ff0000, 3px 3px 0 #000; animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     .win-reward { font-size: 1.5rem; color: #fff; margin-top: 20px; text-shadow: 2px 2px 0 #000; }
     @keyframes pop { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-
-    /* ===== スマホ対応 ===== */
-    @media (max-width: 480px) {
-      #header {
-        top: 8px; left: 8px; padding: 7px 10px; gap: 3px;
-      }
-      #header > div { font-size: 0.75rem; }
-      .point-display { font-size: 0.95rem; }
-      .btn-dex { font-size: 0.75rem; padding: 4px 8px; margin-top: 3px; }
-
-      #btn-machine-toggle {
-        top: 8px; right: 8px; padding: 7px 10px; font-size: 0.8rem;
-      }
-      #btn-camera-toggle {
-        top: 52px; right: 8px; padding: 6px 9px; font-size: 0.72rem;
-      }
-      #machine-menu {
-        top: 98px; right: 8px;
-      }
-
-      #prize-info {
-        bottom: calc(max(2vh, env(safe-area-inset-bottom, 10px)) + 108px);
-        font-size: 0.78rem; padding: 3px 8px;
-      }
-      #prize-name { font-size: 0.72rem; }
-      .guide-text { font-size: 0.58rem; }
-
-      #controls {
-        padding: 10px 8px; gap: 1.5%; border-top-width: 6px;
-      }
-      .control-btn {
-        max-width: 60px; max-height: 60px;
-        font-size: max(1rem, 3vmin);
-        border-width: 3px;
-        box-shadow: 0 4px 0 #222, inset 0 4px 8px rgba(255,255,255,0.5);
-      }
-      .control-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #222, inset 0 4px 8px rgba(255,255,255,0.5); }
-      .control-btn span { font-size: 0.45em; }
-    }
-
-    @media (max-width: 360px) {
-      .control-btn { max-width: 52px; max-height: 52px; }
-      #header { padding: 5px 8px; }
-      .point-display { font-size: 0.85rem; }
-    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
@@ -184,7 +139,7 @@
 
 <div id="header" class="ui-layer">
   <div style="font-size: 0.9rem;">ID: <span id="user-handle" style="color:var(--primary)">player_01</span></div>
-  <div class="point-display"><span id="user-points">読込中...</span> Pts</div>
+  <div class="point-display"><span id="user-points">0</span> Pts</div>
   <button class="btn-dex" onclick="openDex()">図鑑</button>
 </div>
 
@@ -266,24 +221,37 @@ function updatePointsDisplay() {
   document.getElementById('user-points').innerText = user.points.toLocaleString();
 }
 async function loadParentBalance() {
+  // URLパラメータからの初期値（SNS側が ?handle=xxx&points=yyy で渡せる）
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('handle')) {
+    user.handle = params.get('handle');
+    document.getElementById('user-handle').innerText = user.handle;
+    dexStorageKey = 'crane_dex_' + user.handle;
+    collectedMonsters = JSON.parse(localStorage.getItem(dexStorageKey) || '[]');
+  }
+  if (params.get('points')) {
+    user.points = Math.max(0, Math.round(Number(params.get('points')) || 0));
+    updatePointsDisplay();
+  }
+
   if (!CRANE_EMBEDDED) {
-    user.handle = 'player_01';
-    user.points = 5000000;
+    if (!params.get('handle')) user.handle = 'player_01';
+    if (!params.get('points')) user.points = 5000000;
     document.getElementById('user-handle').innerText = user.handle;
     updatePointsDisplay();
     return;
   }
-  const res = await craneReq('crane:points:init:request', {}, 7000);
-  if (res.ok) {
-    user.handle = (res.user && res.user.handle) || user.handle;
-    user.points = Math.max(0, Math.round(Number(res.balance) || 0));
-    document.getElementById('user-handle').innerText = user.handle;
-    dexStorageKey = 'crane_dex_' + user.handle;
-    collectedMonsters = JSON.parse(localStorage.getItem(dexStorageKey) || '[]');
-  } else {
-    user.points = 0;
-  }
-  updatePointsDisplay();
+  // 非同期でSNSからポイントを取得（ゲーム開始は待たない）
+  craneReq('crane:points:init:request', {}, 7000).then(res => {
+    if (res.ok) {
+      user.handle = (res.user && res.user.handle) || user.handle;
+      user.points = Math.max(0, Math.round(Number(res.balance) || 0));
+      document.getElementById('user-handle').innerText = user.handle;
+      dexStorageKey = 'crane_dex_' + user.handle;
+      collectedMonsters = JSON.parse(localStorage.getItem(dexStorageKey) || '[]');
+    }
+    updatePointsDisplay();
+  });
 }
 async function recordPointTransaction(delta, reason, refId) {
   const cleanDelta = Math.round(Number(delta) || 0);
@@ -1130,7 +1098,10 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-loadParentBalance().then(() => { spawnPrize(true); animate(); });
+// ゲームは即座に開始。ポイントはSNSから非同期で後から反映される
+spawnPrize(true);
+animate();
+loadParentBalance();
 </script>
 </body>
 </html>

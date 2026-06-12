@@ -10379,6 +10379,39 @@ window.addEventListener('message',async e=>{
 
   }
 
+  if(msg.type==='crane:dex:save'){
+
+    // sicoX自身のオリジンのlocalStorageに保存（sandboxを超えて永続化）
+    if(!currentUser){ sendCraneResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+
+    try{
+
+      const key='crane_dex_'+currentUser.handle;
+
+      localStorage.setItem(key, JSON.stringify(msg.dex||[]));
+
+      sendCraneResponse(msg.reqId,{ok:true});
+
+    }catch(e){ sendCraneResponse(msg.reqId,{ok:false,error:String(e)}); }
+
+  }
+
+  if(msg.type==='crane:dex:load'){
+
+    if(!currentUser){ sendCraneResponse(msg.reqId,{ok:false,dex:[],error:'プロフィールを設定してください'}); return; }
+
+    try{
+
+      const key='crane_dex_'+currentUser.handle;
+
+      const raw=localStorage.getItem(key);
+
+      sendCraneResponse(msg.reqId,{ok:true,dex:raw?JSON.parse(raw):[]});
+
+    }catch(e){ sendCraneResponse(msg.reqId,{ok:true,dex:[]}); }
+
+  }
+
   if(msg.type==='sicofx:points:init:request'){
 
     if(!currentUser){ sendSicoFxResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }

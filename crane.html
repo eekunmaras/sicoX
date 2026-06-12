@@ -220,28 +220,65 @@ let dexStorageKey = 'crane_dex';
 function updatePointsDisplay() {
   document.getElementById('user-points').innerText = user.points.toLocaleString();
 }
+
+// ─── 図鑑データ永続化（Cache API → localStorage フォールバック）────────────
+const DEX_CACHE_NAME = 'crane-dex-v1';
+
+async function loadDexFromCache(key) {
+  try {
+    if ('caches' in window) {
+      const cache = await caches.open(DEX_CACHE_NAME);
+      const resp = await cache.match('/' + key);
+      if (resp) return JSON.parse(await resp.text());
+    }
+  } catch(e) {}
+  try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+  try { return JSON.parse(sessionStorage.getItem(key) || '[]'); } catch(e) {}
+  return [];
+}
+
+async function saveDexToCache(key, data) {
+  const json = JSON.stringify(data);
+  try {
+    if ('caches' in window) {
+      const cache = await caches.open(DEX_CACHE_NAME);
+      await cache.put('/' + key, new Response(json, { headers: { 'Content-Type': 'application/json' } }));
+      return;
+    }
+  } catch(e) {}
+  try { localStorage.setItem(key, json); return; } catch(e) {}
+  try { sessionStorage.setItem(key, json); } catch(e) {}
+}
+
 async function loadParentBalance() {
   if (!CRANE_EMBEDDED) {
     user.handle = 'player_01';
     user.points = 5000000;
     document.getElementById('user-handle').innerText = user.handle;
     updatePointsDisplay();
+    dexStorageKey = 'crane_dex_' + user.handle;
+    collectedMonsters = await loadDexFromCache(dexStorageKey);
     return;
   }
-  // 投入ボタンと同じ crane:points:update を delta=0 で呼ぶことで
-  // sicoX側で確実に処理される残高照会を行う
+
+  // ① まずユーザー情報を取得（sicoX が crane:user:info に対応している場合）
+  const infoRes = await craneReq('crane:user:info', {}, 4000).catch(() => ({ ok: false }));
+  if (infoRes.ok && infoRes.user && infoRes.user.handle) {
+    user.handle = infoRes.user.handle;
+    document.getElementById('user-handle').innerText = user.handle;
+  }
+
+  // ② 残高照会（delta=0）
   const res = await craneReq('crane:points:update', { delta: 0, reason: '残高確認', refId: 'init-' + Date.now() }, 9000);
   if (res.ok) {
-    user.handle = (res.user && res.user.handle) || user.handle;
-    user.points = Math.max(0, Math.round(Number(res.balance) || 0));
-    document.getElementById('user-handle').innerText = user.handle;
-    dexStorageKey = 'crane_dex_' + user.handle;
-    try {
-      // クロスオリジンiframe環境ではlocalStorageが利用不可の場合がある
-      collectedMonsters = JSON.parse(localStorage.getItem(dexStorageKey) || '[]');
-    } catch(e) {
-      collectedMonsters = [];
+    // crane:points:update のレスポンスにも handle が含まれていれば優先する
+    if (res.user && res.user.handle) {
+      user.handle = res.user.handle;
+      document.getElementById('user-handle').innerText = user.handle;
     }
+    user.points = Math.max(0, Math.round(Number(res.balance) || 0));
+    dexStorageKey = 'crane_dex_' + user.handle;
+    collectedMonsters = await loadDexFromCache(dexStorageKey);
   } else {
     user.points = 0;
   }
@@ -299,11 +336,7 @@ let collectedMonsters = [];
 function saveToDex(id) {
   if (!collectedMonsters.includes(id)) {
     collectedMonsters.push(id);
-    try {
-      localStorage.setItem(dexStorageKey, JSON.stringify(collectedMonsters));
-    } catch(e) {
-      // クロスオリジンiframe環境ではlocalStorageが利用不可の場合がある
-    }
+    saveDexToCache(dexStorageKey, collectedMonsters);
   }
 }
 
@@ -461,12 +494,31 @@ window.toggleMachineMenu = () => document.getElementById('machine-menu').classLi
 // ==========================================
 const canvas = document.getElementById('game-canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 
+// ─── ゲームエリア高さ（コントロールパネル分を除く）──────────
+function getGameHeight() {
+  const ctrl = document.getElementById('controls');
+  const ctrlH = ctrl ? ctrl.getBoundingClientRect().height + 10 : 130;
+  return Math.max(200, window.innerHeight - ctrlH);
+}
+function resizeRenderer() {
+  const W = window.innerWidth;
+  const H = getGameHeight();
+  renderer.setSize(W, H);
+  renderer.domElement.style.width  = W + 'px';
+  renderer.domElement.style.height = H + 'px';
+  camera.aspect = W / H;
+  // 縦長スマホではFOVを広げてクレーン全体が収まるようにする
+  const isNarrow = W < 500 || W < H;
+  camera.fov = isNarrow ? 72 : 60;
+  camera.updateProjectionMatrix();
+}
+
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth / getGameHeight(), 0.1, 100);
 camera.position.set(0, 8, 11); camera.lookAt(0, 0, 0);
+resizeRenderer();
 
 // ==========================================
 // カメラ視点切替
@@ -1090,15 +1142,14 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+window.addEventListener('resize', resizeRenderer);
 
 loadParentBalance()
   .then(() => { spawnPrize(true); animate(); })
   .catch(() => { spawnPrize(true); animate(); });
+
+// DOMロード完了後に再度リサイズ（コントロール高さが確定してから）
+window.addEventListener('load', resizeRenderer);
 </script>
 </body>
 </html>

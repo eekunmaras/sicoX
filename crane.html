@@ -215,33 +215,48 @@ window.addEventListener('message', e => {
 });
 
 const user = { points: 0 };
-let dexStorageKey = 'crane_dex_data'; // 保存キーを固定
+// 過去の破損データを回避するため、保存キーを新しく設定
+const DEX_STORAGE_KEY = 'crane_dex_savedata_v2'; 
 
 function updatePointsDisplay() {
   document.getElementById('user-points').innerText = user.points.toLocaleString();
 }
 
-// ─── 図鑑データ永続化（軽量な localStorage に変更）────────────
-function loadDexFromCache(key) {
+// ─── 図鑑データ永続化（より強固なローカルストレージ管理） ────────────
+function getSavedDex() {
   try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : [];
+    const stored = localStorage.getItem(DEX_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // 必ず配列として返すようチェックを厳格化
+      return Array.isArray(parsed) ? parsed : [];
+    }
   } catch(e) {
-    console.warn("図鑑の読み込みに失敗しました", e);
-    return [];
+    console.warn("図鑑の読み込みに失敗しました:", e);
+  }
+  return [];
+}
+
+function saveDex(data) {
+  try {
+    localStorage.setItem(DEX_STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {
+    console.warn("図鑑の保存に失敗しました:", e);
   }
 }
 
-function saveDexToCache(key, data) {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch(e) {
-    console.warn("図鑑の保存に失敗しました", e);
-  }
-}
+let collectedMonsters = getSavedDex();
 
-// 初期データのロード
-let collectedMonsters = loadDexFromCache(dexStorageKey);
+function saveToDex(id) {
+  // 保存時は必ず最新のローカルデータを取得して上書き（別タブやリロード対策）
+  let currentDex = getSavedDex();
+  if (!currentDex.includes(id)) {
+    currentDex.push(id);
+    saveDex(currentDex);
+  }
+  // メモリ上のデータも更新
+  collectedMonsters = currentDex; 
+}
 
 async function loadParentBalance() {
   if (!CRANE_EMBEDDED) {
@@ -289,10 +304,10 @@ window.shareDexCount = shareDexCount;
 const machines = {
   1: { cost: 100,     reward: 10000,      difficultyMul: 1.0,
        theme: {
-         bg1: '#ff4081', bg2: '#ff79b0',        // 背景ストライプ
-         floor: 0xe0f7fa,                         // 床色
-         hole: 0xff3366,                           // 穴縁色
-         rodColor: 0x888888, bodyColor: 0xffea00, // クレーン色
+         bg1: '#ff4081', bg2: '#ff79b0',        
+         floor: 0xe0f7fa,                         
+         hole: 0xff3366,                           
+         rodColor: 0x888888, bodyColor: 0xffea00, 
          armColor: 0xdddddd, jointColor: 0x333333,
          uiBorder: '#00e5ff', label: '【ノーマル】'
        }
@@ -312,13 +327,6 @@ const machines = {
 let currentMachineId = 1;
 let gameState = "idle";
 let currentPrizeData = null;
-
-function saveToDex(id) {
-  if (!collectedMonsters.includes(id)) {
-    collectedMonsters.push(id);
-    saveDexToCache(dexStorageKey, collectedMonsters);
-  }
-}
 
 // ==========================================
 // 2. モンスター生成関数群 (30体)
@@ -398,6 +406,9 @@ function renderMonsterToDataURL(monData, size) {
 window.openDex = () => {
   const grid = document.getElementById('dex-grid');
   grid.innerHTML = '';
+  // 開く時点でも最新を反映させる
+  collectedMonsters = getSavedDex(); 
+  
   monsterDB.forEach(m => {
     const div = document.createElement('div');
     const acquired = collectedMonsters.includes(m.id);
@@ -942,13 +953,23 @@ function finishTurn() {
   }
 }
 
+// ==========================================
+// ★ 修正箇所：景品獲得時の処理フロー
+// ==========================================
 async function showWinEffect() {
   const reward = machines[currentMachineId].reward;
-  await recordPointTransaction(reward, 'クレーン GET ' + currentPrizeData.name, 'crane-win-' + Date.now());
-  saveToDex(currentPrizeData.id); // ここで保存処理が発動
+
+  // ① 通信や処理で待たされる【前】に、最優先でブラウザの図鑑に保存する
+  saveToDex(currentPrizeData.id);
+
+  // ② 画面への表示を即座に行う
   document.getElementById('win-amount').innerText = reward.toLocaleString();
   document.getElementById('win-prize-name').innerText = currentPrizeData.name + " 獲得！";
   document.getElementById('win-overlay').classList.add('show');
+
+  // ③ バックグラウンドでポイントのサーバー通信を行う
+  // （もしこの通信で数秒待たされている間にリロードされても、①のおかげで図鑑は保存済みになります）
+  await recordPointTransaction(reward, 'クレーン GET ' + currentPrizeData.name, 'crane-win-' + Date.now());
 }
 
 window.closeWin = function() {
@@ -1025,7 +1046,6 @@ function animate() {
         document.getElementById('btn-drop').disabled = true;
         if (dropTween) dropTween.kill();
         updateGuide("穴に落ちた！");
-        // 直接落ちた際もここから showWinEffect が呼ばれ保存されます
         gsap.to(prizeMesh.position, { y: -3, duration: 0.6, ease: "power2.in", onComplete: showWinEffect });
       }
     }

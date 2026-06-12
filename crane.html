@@ -12,7 +12,7 @@
       overflow: hidden; font-family: 'Helvetica Neue', Arial, sans-serif;
       user-select: none; -webkit-user-select: none; touch-action: none;
     }
-    #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+    #game-canvas { position: absolute; top: 0; left: 0; width: 100%; height: var(--game-h, 100%); z-index: 1; }
     .ui-layer {
       position: absolute; z-index: 10; background: var(--panel-bg);
       border: 4px solid #333; border-radius: 12px; padding: 10px;
@@ -221,33 +221,46 @@ function updatePointsDisplay() {
   document.getElementById('user-points').innerText = user.points.toLocaleString();
 }
 
-// ─── 図鑑データ永続化（Cache API → localStorage フォールバック）────────────
-const DEX_CACHE_NAME = 'crane-dex-v1';
+// ─── 図鑑データ永続化（IndexedDB → localStorage フォールバック）────────────
+// IndexedDB はクロスオリジンiframe内でも動作する（iframe自身のオリジンに保存）
+const IDB_NAME = 'craneGameDB';
+const IDB_STORE = 'dex';
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = () => reject(req.error);
+  });
+}
 
 async function loadDexFromCache(key) {
   try {
-    if ('caches' in window) {
-      const cache = await caches.open(DEX_CACHE_NAME);
-      const resp = await cache.match('/' + key);
-      if (resp) return JSON.parse(await resp.text());
-    }
+    const db = await idbOpen();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror   = () => reject(req.error);
+    });
   } catch(e) {}
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
-  try { return JSON.parse(sessionStorage.getItem(key) || '[]'); } catch(e) {}
   return [];
 }
 
 async function saveDexToCache(key, data) {
-  const json = JSON.stringify(data);
   try {
-    if ('caches' in window) {
-      const cache = await caches.open(DEX_CACHE_NAME);
-      await cache.put('/' + key, new Response(json, { headers: { 'Content-Type': 'application/json' } }));
-      return;
-    }
+    const db = await idbOpen();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const req = tx.objectStore(IDB_STORE).put(data, key);
+      req.onsuccess = () => resolve();
+      req.onerror   = () => reject(req.error);
+    });
+    return;
   } catch(e) {}
-  try { localStorage.setItem(key, json); return; } catch(e) {}
-  try { sessionStorage.setItem(key, json); } catch(e) {}
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch(e) {}
 }
 
 async function loadParentBalance() {
@@ -261,19 +274,27 @@ async function loadParentBalance() {
     return;
   }
 
-  // ① まずユーザー情報を取得（sicoX が crane:user:info に対応している場合）
-  const infoRes = await craneReq('crane:user:info', {}, 4000).catch(() => ({ ok: false }));
-  if (infoRes.ok && infoRes.user && infoRes.user.handle) {
-    user.handle = infoRes.user.handle;
+  // レスポンスから handle を取り出す（sicoX の構造に合わせて複数パスを探索）
+  function extractHandle(r) {
+    if (!r || !r.ok) return null;
+    return (r.user && (r.user.handle || r.user.name || r.user.id))
+        || r.handle || r.userHandle || r.userName || r.userId || null;
+  }
+
+  // ① crane:user:info を試みる（タイムアウトは短め）
+  let infoRes = await craneReq('crane:user:info', {}, 4000).catch(() => ({ ok: false }));
+  const h1 = extractHandle(infoRes);
+  if (h1) {
+    user.handle = h1;
     document.getElementById('user-handle').innerText = user.handle;
   }
 
   // ② 残高照会（delta=0）
   const res = await craneReq('crane:points:update', { delta: 0, reason: '残高確認', refId: 'init-' + Date.now() }, 9000);
   if (res.ok) {
-    // crane:points:update のレスポンスにも handle が含まれていれば優先する
-    if (res.user && res.user.handle) {
-      user.handle = res.user.handle;
+    const h2 = extractHandle(res);
+    if (h2) {
+      user.handle = h2;
       document.getElementById('user-handle').innerText = user.handle;
     }
     user.points = Math.max(0, Math.round(Number(res.balance) || 0));
@@ -499,26 +520,39 @@ renderer.shadowMap.enabled = true;
 // ─── ゲームエリア高さ（コントロールパネル分を除く）──────────
 function getGameHeight() {
   const ctrl = document.getElementById('controls');
-  const ctrlH = ctrl ? ctrl.getBoundingClientRect().height + 10 : 130;
-  return Math.max(200, window.innerHeight - ctrlH);
+  // getBoundingClientRect は初回 0 になることがある → 最低 120px を保証
+  const ctrlH = ctrl ? Math.max(ctrl.getBoundingClientRect().height, 100) : 120;
+  const safeBottom = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--sab') || '0'
+  ) || 0;
+  return Math.max(200, window.innerHeight - ctrlH - safeBottom - 10);
 }
 function resizeRenderer() {
   const W = window.innerWidth;
   const H = getGameHeight();
+  // CSS変数でcanvasの表示高さも制限（レンダラーが描画するエリアと一致させる）
+  document.documentElement.style.setProperty('--game-h', H + 'px');
   renderer.setSize(W, H);
   renderer.domElement.style.width  = W + 'px';
   renderer.domElement.style.height = H + 'px';
   camera.aspect = W / H;
-  // 縦長スマホではFOVを広げてクレーン全体が収まるようにする
-  const isNarrow = W < 500 || W < H;
-  camera.fov = isNarrow ? 72 : 60;
+  // 縦長スマホほど広角にしてシーン全体が収まるようにする
+  const isNarrow = W < 480 || W < H;
+  camera.fov = isNarrow ? 75 : 60;
+  // カメラ位置も縦長の場合は引いて上げる
+  if (!isSideView) {
+    const dist = isNarrow ? 14 : 11;
+    const yPos = isNarrow ? 9 : 8;
+    camera.position.set(0, yPos, dist);
+    camera.lookAt(0, 0, 0);
+    CAMERA_FRONT.pos.set(0, yPos, dist);
+  }
   camera.updateProjectionMatrix();
 }
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / getGameHeight(), 0.1, 100);
 camera.position.set(0, 8, 11); camera.lookAt(0, 0, 0);
-resizeRenderer();
 
 // ==========================================
 // カメラ視点切替
@@ -526,6 +560,7 @@ resizeRenderer();
 const CAMERA_FRONT = { pos: new THREE.Vector3(0, 8, 11),  look: new THREE.Vector3(0, 0, 0) };
 const CAMERA_SIDE  = { pos: new THREE.Vector3(13, 6, 0),  look: new THREE.Vector3(-1, 1, 0) };
 let isSideView = false;
+resizeRenderer(); // CAMERA_FRONT / isSideView 確定後に実行
 
 window.toggleCamera = function() {
   isSideView = !isSideView;

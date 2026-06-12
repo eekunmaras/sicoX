@@ -139,7 +139,7 @@
 
 <div id="header" class="ui-layer">
   <div style="font-size: 0.9rem;">ID: <span id="user-handle" style="color:var(--primary)">player_01</span></div>
-  <div class="point-display"><span id="user-points">0</span> Pts</div>
+  <div class="point-display"><span id="user-points">---</span> Pts</div>
   <button class="btn-dex" onclick="openDex()">図鑑</button>
 </div>
 
@@ -221,37 +221,31 @@ function updatePointsDisplay() {
   document.getElementById('user-points').innerText = user.points.toLocaleString();
 }
 async function loadParentBalance() {
-  // URLパラメータからの初期値（SNS側が ?handle=xxx&points=yyy で渡せる）
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('handle')) {
-    user.handle = params.get('handle');
-    document.getElementById('user-handle').innerText = user.handle;
-    dexStorageKey = 'crane_dex_' + user.handle;
-    collectedMonsters = JSON.parse(localStorage.getItem(dexStorageKey) || '[]');
-  }
-  if (params.get('points')) {
-    user.points = Math.max(0, Math.round(Number(params.get('points')) || 0));
-    updatePointsDisplay();
-  }
-
   if (!CRANE_EMBEDDED) {
-    if (!params.get('handle')) user.handle = 'player_01';
-    if (!params.get('points')) user.points = 5000000;
+    user.handle = 'player_01';
+    user.points = 5000000;
     document.getElementById('user-handle').innerText = user.handle;
     updatePointsDisplay();
     return;
   }
-  // 非同期でSNSからポイントを取得（ゲーム開始は待たない）
-  craneReq('crane:points:init:request', {}, 7000).then(res => {
-    if (res.ok) {
-      user.handle = (res.user && res.user.handle) || user.handle;
-      user.points = Math.max(0, Math.round(Number(res.balance) || 0));
-      document.getElementById('user-handle').innerText = user.handle;
-      dexStorageKey = 'crane_dex_' + user.handle;
+  // 投入ボタンと同じ crane:points:update を delta=0 で呼ぶことで
+  // sicoX側で確実に処理される残高照会を行う
+  const res = await craneReq('crane:points:update', { delta: 0, reason: '残高確認', refId: 'init-' + Date.now() }, 9000);
+  if (res.ok) {
+    user.handle = (res.user && res.user.handle) || user.handle;
+    user.points = Math.max(0, Math.round(Number(res.balance) || 0));
+    document.getElementById('user-handle').innerText = user.handle;
+    dexStorageKey = 'crane_dex_' + user.handle;
+    try {
+      // クロスオリジンiframe環境ではlocalStorageが利用不可の場合がある
       collectedMonsters = JSON.parse(localStorage.getItem(dexStorageKey) || '[]');
+    } catch(e) {
+      collectedMonsters = [];
     }
-    updatePointsDisplay();
-  });
+  } else {
+    user.points = 0;
+  }
+  updatePointsDisplay();
 }
 async function recordPointTransaction(delta, reason, refId) {
   const cleanDelta = Math.round(Number(delta) || 0);
@@ -305,7 +299,11 @@ let collectedMonsters = [];
 function saveToDex(id) {
   if (!collectedMonsters.includes(id)) {
     collectedMonsters.push(id);
-    localStorage.setItem(dexStorageKey, JSON.stringify(collectedMonsters));
+    try {
+      localStorage.setItem(dexStorageKey, JSON.stringify(collectedMonsters));
+    } catch(e) {
+      // クロスオリジンiframe環境ではlocalStorageが利用不可の場合がある
+    }
   }
 }
 
@@ -1098,10 +1096,9 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// ゲームは即座に開始。ポイントはSNSから非同期で後から反映される
-spawnPrize(true);
-animate();
-loadParentBalance();
+loadParentBalance()
+  .then(() => { spawnPrize(true); animate(); })
+  .catch(() => { spawnPrize(true); animate(); });
 </script>
 </body>
 </html>

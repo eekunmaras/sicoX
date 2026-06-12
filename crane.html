@@ -138,7 +138,6 @@
 <body>
 
 <div id="header" class="ui-layer">
-  <div style="font-size: 0.9rem;">ID: <span id="user-handle" style="color:var(--primary)">player_01</span></div>
   <div class="point-display"><span id="user-points">---</span> Pts</div>
   <button class="btn-dex" onclick="openDex()">図鑑</button>
 </div>
@@ -214,8 +213,10 @@ window.addEventListener('message', e => {
     req.resolve(msg);
   }
 });
-const user = { handle: 'guest', points: 0 };
-let dexStorageKey = 'crane_dex';
+
+const user = { points: 0 };
+let dexStorageKey = 'crane_dex_data'; // 保存キーを固定
+
 function updatePointsDisplay() {
   document.getElementById('user-points').innerText = user.points.toLocaleString();
 }
@@ -239,48 +240,18 @@ function saveDexToCache(key, data) {
   }
 }
 
-async function loadParentBalance() {
-  // ① ショップ（親フレーム/別ファイル）のプルアップハンドルから名前を取得
-  let shopHandle = null;
-  try {
-    // 親ウィンドウの要素、または現在のドキュメントの要素を探す
-    const ph = (window.parent && window.parent.document.getElementById('pullup-handle')) || document.getElementById('pullup-handle');
-    if (ph) {
-      shopHandle = (ph.value || ph.innerText || ph.textContent || '').trim();
-      if (!shopHandle) shopHandle = null;
-    }
-  } catch(e) {
-    // クロスオリジン等で取得できない場合は無視
-  }
+// 初期データのロード
+let collectedMonsters = loadDexFromCache(dexStorageKey);
 
+async function loadParentBalance() {
   if (!CRANE_EMBEDDED) {
-    user.handle = shopHandle || 'player_01';
     user.points = 5000000;
-    document.getElementById('user-handle').innerText = user.handle;
     updatePointsDisplay();
-    dexStorageKey = 'crane_dex_' + user.handle;
-    collectedMonsters = loadDexFromCache(dexStorageKey);
     return;
   }
 
-  // レスポンスから handle を取り出す
-  function extractHandle(r) {
-    if (!r || !r.ok) return null;
-    return (r.user && (r.user.handle || r.user.name || r.user.id))
-        || r.handle || r.userHandle || r.userName || r.userId || null;
-  }
-
-  // ② crane:user:info を試みる
-  let infoRes = await craneReq('crane:user:info', {}, 4000).catch(() => ({ ok: false }));
-  const h1 = extractHandle(infoRes);
-
-  // ③ 残高照会（delta=0）
+  // 残高照会（delta=0）
   const res = await craneReq('crane:points:update', { delta: 0, reason: '残高確認', refId: 'init-' + Date.now() }, 9000);
-  const h2 = res.ok ? extractHandle(res) : null;
-
-  // 優先度：ショップの要素 > info情報 > update情報 > デフォルト
-  user.handle = shopHandle || h1 || h2 || 'player_01';
-  document.getElementById('user-handle').innerText = user.handle;
 
   if (res.ok) {
     user.points = Math.max(0, Math.round(Number(res.balance) || 0));
@@ -289,8 +260,6 @@ async function loadParentBalance() {
   }
   
   updatePointsDisplay();
-  dexStorageKey = 'crane_dex_' + user.handle;
-  collectedMonsters = loadDexFromCache(dexStorageKey);
 }
 
 async function recordPointTransaction(delta, reason, refId) {
@@ -308,6 +277,7 @@ async function recordPointTransaction(delta, reason, refId) {
   }
   return res;
 }
+
 async function shareDexCount() {
   if (!CRANE_EMBEDDED) { alert('sicoX内から起動するとポストできます'); return; }
   const res = await craneReq('crane:tweet', { count: collectedMonsters.length, total: 30 }, 7000);
@@ -315,6 +285,7 @@ async function shareDexCount() {
   else alert(res.error || 'ポストに失敗しました');
 }
 window.shareDexCount = shareDexCount;
+
 const machines = {
   1: { cost: 100,     reward: 10000,      difficultyMul: 1.0,
        theme: {
@@ -337,10 +308,10 @@ const machines = {
        }
   }
 };
+
 let currentMachineId = 1;
 let gameState = "idle";
 let currentPrizeData = null;
-let collectedMonsters = [];
 
 function saveToDex(id) {
   if (!collectedMonsters.includes(id)) {
@@ -358,6 +329,7 @@ function _createPart(group, geometry, color, position=[0,0,0], rotation=[0,0,0],
   mesh.position.set(...position); mesh.rotation.set(...rotation); mesh.scale.set(...scale);
   mesh.castShadow = true; group.add(mesh); return mesh;
 }
+
 const genFns = [
   function Koiqueen(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(1,16,16),0x3399ff,[0,0,0],[0,0,0],[1.5,0.6,1.0]);_createPart(g,new THREE.ConeGeometry(0.3,0.8,4),0x3399ff,[0,0,1.1],[Math.PI/2,0,0]);_createPart(g,new THREE.ConeGeometry(0.3,0.8,4),0x3399ff,[0,0,-1.1],[-Math.PI/2,0,0]);_createPart(g,new THREE.CylinderGeometry(0.2,0.2,0.3,8),0xff9999,[1.3,0.2,0],[0,0,Math.PI/2.5]);return g;},
   function Ikachu(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.9,16,16),0xffe600,[0,0,0]);_createPart(g,new THREE.ConeGeometry(0.18,0.8,4),0xffe600,[0.3,0.8,0.3],[-0.2,0,-0.2]);_createPart(g,new THREE.ConeGeometry(0.18,0.8,4),0xffe600,[-0.3,0.8,0.3],[-0.2,0,0.2]);_createPart(g,new THREE.SphereGeometry(0.15,8,8),0xff0000,[0.7,-0.1,0.5]);_createPart(g,new THREE.SphereGeometry(0.15,8,8),0xff0000,[0.7,-0.1,-0.5]);return g;},
@@ -390,6 +362,7 @@ const genFns = [
   function Gasuwan(){const g=new THREE.Group();_createPart(g,new THREE.SphereGeometry(0.75,14,14),0x7e57c2);const bumpGeo=new THREE.SphereGeometry(0.14,8,8);_createPart(g,bumpGeo,0x7e57c2,[0.65,0.3,0.25]);_createPart(g,bumpGeo,0x7e57c2,[-0.65,0.3,-0.25]);_createPart(g,bumpGeo,0x7e57c2,[0.0,0.75,0.4]);_createPart(g,bumpGeo,0x7e57c2,[0.35,-0.55,-0.4]);_createPart(g,bumpGeo,0x7e57c2,[-0.45,-0.45,0.4]);return g;},
   function Rhinon(){const g=new THREE.Group();_createPart(g,new THREE.BoxGeometry(1.3,0.8,1.0),0x90a4ae,[0,0,0]);_createPart(g,new THREE.ConeGeometry(0.18,0.5,4),0xb0bec5,[0.7,0.4,0],[0,0,-Math.PI/3]);_createPart(g,new THREE.BoxGeometry(0.18,0.5,1.1),0x78909c,[-0.3,0.4,0]);return g;}
 ];
+
 const names = ["コイクイーン","イカチュウ","ゴウス","スナツブテ","ヒルカゲ","タネノコ","カメワリ","アオムシ","トリポポ","チュズミ","ヘビリン","スナジシ","ツノウサギ","キツネボン","バットン","モグラン","コバネコ","アヒルン","キンニクン","ツボミアン","クラゲゲ","オシア","ドロドロン","シェルン","タピル","カニポン","エッグン","ボネコ","ガスワン","ライノン"];
 const monsterDB = names.map((name, i) => ({ id: `mon_${i+1}`, index: i, name, gen: genFns[i] }));
 
@@ -508,7 +481,6 @@ renderer.shadowMap.enabled = true;
 // ─── ゲームエリア高さ（コントロールパネル分を除く）──────────
 function getGameHeight() {
   const ctrl = document.getElementById('controls');
-  // getBoundingClientRect は初回 0 になることがある → 最低 120px を保証
   const ctrlH = ctrl ? Math.max(ctrl.getBoundingClientRect().height, 100) : 120;
   const safeBottom = parseFloat(
     getComputedStyle(document.documentElement).getPropertyValue('--sab') || '0'
@@ -518,16 +490,14 @@ function getGameHeight() {
 function resizeRenderer() {
   const W = window.innerWidth;
   const H = getGameHeight();
-  // CSS変数でcanvasの表示高さも制限（レンダラーが描画するエリアと一致させる）
   document.documentElement.style.setProperty('--game-h', H + 'px');
   renderer.setSize(W, H);
   renderer.domElement.style.width  = W + 'px';
   renderer.domElement.style.height = H + 'px';
   camera.aspect = W / H;
-  // 縦長スマホほど広角にしてシーン全体が収まるようにする
+  
   const isNarrow = W < 480 || W < H;
   camera.fov = isNarrow ? 75 : 60;
-  // カメラ位置も縦長の場合は引いて上げる
   if (!isSideView) {
     const dist = isNarrow ? 14 : 11;
     const yPos = isNarrow ? 9 : 8;
@@ -548,7 +518,7 @@ camera.position.set(0, 8, 11); camera.lookAt(0, 0, 0);
 const CAMERA_FRONT = { pos: new THREE.Vector3(0, 8, 11),  look: new THREE.Vector3(0, 0, 0) };
 const CAMERA_SIDE  = { pos: new THREE.Vector3(13, 6, 0),  look: new THREE.Vector3(-1, 1, 0) };
 let isSideView = false;
-resizeRenderer(); // CAMERA_FRONT / isSideView 確定後に実行
+resizeRenderer();
 
 window.toggleCamera = function() {
   isSideView = !isSideView;
@@ -572,6 +542,7 @@ const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), floorMat);
 floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 const hole = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 3.5), new THREE.MeshBasicMaterial({ color: 0x111 }));
 hole.rotation.x = -Math.PI / 2; hole.position.set(-4.5, 0.01, 4.5); scene.add(hole);
+
 // 穴の縁（4本の棒）
 const edgeMat = new THREE.MeshLambertMaterial({ color: 0xff3366 });
 const edgeGeo = new THREE.BoxGeometry(0.15, 0.3, 4.3);
@@ -626,15 +597,13 @@ craneGroup.position.set(-4.5, 5, 4.5); scene.add(craneGroup);
 // ==========================================
 let prizeMesh = null;
 let targetY = 0;
-let prizeRadius = 1.0; // 景品の概算半径（スケール後）
+let prizeRadius = 1.0;
 
-// 景品の物理状態
 let prizeVelX = 0, prizeVelZ = 0;
 let prizeAngVelX = 0, prizeAngVelZ = 0;
 
-// ぬいぐるみ用パラメータ（大型＝重い）
-const PRIZE_MASS   = 10.0;  // 重さ（大きいほど動きにくい）
-const FRICTION     = 0.88;  // 地面摩擦
+const PRIZE_MASS   = 10.0;
+const FRICTION     = 0.88;
 const FIELD_HALF   = 7.0;
 
 function spawnPrize(forceSpawn = false) {
@@ -651,7 +620,6 @@ function spawnPrize(forceSpawn = false) {
   const pz = Math.random() * -5 - 1;
   const box = new THREE.Box3().setFromObject(prizeMesh);
   const bsize = box.getSize(new THREE.Vector3());
-  // ①視覚サイズに合った当たり判定（BoundingBoxの70%）
   prizeRadius = Math.max(bsize.x, bsize.y, bsize.z) * 0.70 / 2;
   targetY = (box.max.y - box.min.y) / 2 + 0.1;
   prizeMesh.position.set(px, targetY, pz);
@@ -664,26 +632,21 @@ window.selectMachine = function(id) {
   currentMachineId = id;
   document.querySelectorAll('.machine-btn').forEach((b, i) => b.classList.toggle('active', i + 1 === id));
 
-  // ④ テーマ切替
   const t = machines[id].theme;
-  // 背景ストライプ
-  document.body.style.background =
-    `repeating-linear-gradient(45deg, ${t.bg1}, ${t.bg1} 20px, ${t.bg2} 20px, ${t.bg2} 40px)`;
-  // フラッシュ演出
+  document.body.style.background = `repeating-linear-gradient(45deg, ${t.bg1}, ${t.bg1} 20px, ${t.bg2} 20px, ${t.bg2} 40px)`;
+  
   const flash = document.createElement('div');
   flash.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,0.55);z-index:999;pointer-events:none;transition:opacity 0.4s';
   document.body.appendChild(flash);
   requestAnimationFrame(() => { flash.style.opacity = '0'; setTimeout(() => flash.remove(), 450); });
-  // 床・穴縁色
+  
   floorMat.color.setHex(t.floor);
   edgeMat.color.setHex(t.hole);
-  // クレーン本体色
   rodMat.color.setHex(t.rodColor);
   bodyMat.color.setHex(t.bodyColor);
   armMat.color.setHex(t.armColor);
   armMat.needsUpdate = true;
   jointMat.color.setHex(t.jointColor);
-  // UI ボーダー
   document.getElementById('prize-info').style.borderColor = t.uiBorder;
 
   spawnPrize(true);
@@ -691,43 +654,23 @@ window.selectMachine = function(id) {
 };
 
 // ==========================================
-// 6. アーム先端ワールド座標取得（動的・回転反映版）
+// 6. アーム先端ワールド座標取得
 // ==========================================
-
-// armL/R の現在の rotation.z から実際の爪先ローカル座標を算出する
-// アーム構造:
-//   armL.position = (-0.4, -0.2, 0) in craneGroup
-//   upperL: pos(-0.25,-0.5,0) rot.z=-0.3,  lowerL: pos(-0.05,-1.4,0) rot.z=+0.4
-//   armLのrotation.z が追加でかかる（開閉アニメ）
-//
-// 簡易計算: lowerLの先端はarmLローカルで約(-0.3, -2.0, 0)付近
-// armL.rotation.z の分だけ回転させてcraneGroupローカルへ変換する
 function getArmTipWorld(armGroup, baseLocalX, baseLocalY) {
-  // armGroupのmatrixWorldを使って、ローカル座標をワールドに変換
   armGroup.updateMatrixWorld(true);
   const v = new THREE.Vector3(baseLocalX, baseLocalY, 0);
   return v.applyMatrix4(armGroup.matrixWorld);
 }
 
-// 開いた状態の爪先（lowerL/R の先端 = armGroup内で約(±-0.30, -2.05, 0)）
 function getArmTips() {
   craneGroup.updateMatrixWorld(true);
-  // 爪先はarmL/Rのローカル座標。開いた角度も含めてmatrixWorldが持っている
   const tipL = getArmTipWorld(armL, -0.30, -2.05);
   const tipR = getArmTipWorld(armR,  0.30, -2.05);
   return { tipL, tipR };
 }
 
-// 閉じた状態の爪先（rotation.z=0 のときの位置）
-function getArmTipsClosed() {
-  craneGroup.updateMatrixWorld(true);
-  const tipL = getArmTipWorld(armL, -0.12, -2.05);
-  const tipR = getArmTipWorld(armR,  0.12, -2.05);
-  return { tipL, tipR };
-}
-
 // ==========================================
-// 7. ゲームフロー（物理ゼロから再構築）
+// 7. ゲームフロー
 // ==========================================
 const guide = document.getElementById('guide');
 function updateGuide(text) { guide.innerText = text; }
@@ -735,17 +678,14 @@ function updateGuide(text) { guide.innerText = text; }
 let isMovingRight = false, isMovingUp = false, dropTween = null;
 let isCatched = false;
 
-// グミ変形の状態管理
 let gummyDeformT = 0;
 let isArmTouching = false;
 
-// 掴み判定用
 let storedGripScore = 0;
 let storedHoldQuality = 0;
 let liftTweenRef = null;
 let hasSlipped = false;
 
-// ③ グミ変形を毎フレーム適用
 function updateGummyDeform() {
   if (!prizeMesh || prizeMesh.parent !== scene) return;
   if (isArmTouching) {
@@ -763,7 +703,6 @@ function updateGummyDeform() {
   isArmTouching = false;
 }
 
-// ★ 降下中の毎フレーム接触判定（アームが景品をかするときのリアルな押し）
 function checkArmPrizeCollision() {
   if (!prizeMesh || gameState !== "dropping") return;
 
@@ -798,7 +737,6 @@ function checkArmPrizeCollision() {
   if (touched) isArmTouching = true;
 }
 
-// ボタンイベント
 document.getElementById('btn-coin').addEventListener('pointerdown', async function() {
   if (gameState !== "idle") return;
   if (user.points < machines[currentMachineId].cost) return alert("ポイントが足りません！");
@@ -842,12 +780,9 @@ document.getElementById('btn-drop').addEventListener('pointerdown', () => {
   else if (gameState === "dropping") { if (dropTween) dropTween.kill(); executeCatch(); }
 });
 
-// ─── 降下開始 ────────────────────────────────────────────
-// アームを大きく開いてゆっくり降下。リアルなクレーンゲームの動き。
 function startDrop() {
   gameState = "dropping";
   updateGuide("もう一度「◎」でその高さでストップ！");
-  // アームを大きく開いて降下
   gsap.to(armL.rotation, { z: -0.72, duration: 0.35 });
   gsap.to(armR.rotation, { z:  0.72, duration: 0.35 });
   dropTween = gsap.to(craneGroup.position, {
@@ -856,41 +791,29 @@ function startDrop() {
   });
 }
 
-// ─── アームを閉じて掴み判定 ──────────────────────────────
 function executeCatch() {
   gameState = "catching";
   document.getElementById('btn-drop').disabled = true;
   updateGuide("アームが閉じる！");
-  // アームが力強くパタン！と閉じる
   gsap.to(armL.rotation, { z: 0, duration: 0.30, ease: "power2.in" });
   gsap.to(armR.rotation, { z: 0, duration: 0.30, ease: "power2.in", onComplete: evaluateGrip });
 }
 
-// ─── 掴み判定（位置ベースの物理計算）─────────────────────
-// アームの「把持ゾーン中心」 = クローの胴体中央あたり（先端ではなく）
-// アーム構造: armL.position=(-0.4,-0.2,0) in craneGroup
-//             把持ゾーン = armL local (-0.10, -1.50, 0)付近
-//             craneGroup.y=2.0時のworld y ≈ 2.0-0.2-1.5 = 0.3
-// 景品中心 targetY ≈ 0.6〜1.0 → dy ≈ 0.3〜0.7 で良好な掴み
 function evaluateGrip() {
   if (!prizeMesh) { isCatched = false; beginReturn(); return; }
 
   craneGroup.updateMatrixWorld(true);
-  // 把持ゾーン中心（クローの中間部）
   const grabL = getArmTipWorld(armL, -0.10, -1.50);
   const grabR = getArmTipWorld(armR,  0.10, -1.50);
   const armCenter = new THREE.Vector3().addVectors(grabL, grabR).multiplyScalar(0.5);
   const prizePos  = prizeMesh.position;
 
-  // XZ距離・Y距離
   const dxz = Math.sqrt((armCenter.x - prizePos.x) ** 2 + (armCenter.z - prizePos.z) ** 2);
   const dy  = Math.abs(armCenter.y - prizePos.y);
 
-  // 掴み有効範囲（大型ぬいぐるみ向けに広め）
   const maxXZ = 1.25;
   const maxY  = 1.10;
 
-  // 完全ミス
   if (dxz >= maxXZ || dy >= maxY) {
     isCatched = false;
     updateGuide("アームが届かなかった...");
@@ -898,24 +821,16 @@ function evaluateGrip() {
     return;
   }
 
-  // 把持スコア（位置ベース、0=外れ 1=完璧）
-  const xzScore = Math.max(0, 1 - dxz / maxXZ);  // XZ精度
-  const yScore  = Math.max(0, 1 - dy  / maxY);   // 高さ精度
+  const xzScore = Math.max(0, 1 - dxz / maxXZ);
+  const yScore  = Math.max(0, 1 - dy  / maxY);
   storedGripScore = xzScore * yScore;
 
-  // クロー強度（毎回ランダム、実際のクレーンゲームの爪設定のバラつき）
-  // 0.35〜0.85 の範囲。掴み自体は成功しやすいが、holdQualityが
-  // 運搬スリップ確率に直結するため、低いと穴に届く前に落ちやすい。
   const clawForce = 0.35 + Math.random() * 0.50;
-
-  // 実効保持力 = (把持スコア × クロー強度) ÷ 難易度
   storedHoldQuality = (storedGripScore * clawForce) / machines[currentMachineId].difficultyMul;
 
-  // 保持力が最低閾値以下 → 掴んだが即スリップ（アームが景品の上をすべった）
   if (storedHoldQuality < 0.04) {
     isCatched = false;
     updateGuide("掴めなかった！");
-    // 景品を少し押す
     const dx = prizePos.x - armCenter.x, dz = prizePos.z - armCenter.z;
     const len = Math.sqrt(dx*dx + dz*dz) + 0.001;
     prizeVelX += (dx / len) * 0.025 / PRIZE_MASS;
@@ -924,34 +839,26 @@ function evaluateGrip() {
     return;
   }
 
-  // 掴み成功 → 景品をクレーンに付ける
   isCatched = true;
   attachPrizeToCrane();
   beginLift();
 }
 
-// ─── 景品をクレーンに親子付け ────────────────────────────
 function attachPrizeToCrane() {
   const wp = new THREE.Vector3(); prizeMesh.getWorldPosition(wp);
   const wq = new THREE.Quaternion(); prizeMesh.getWorldQuaternion(wq);
   craneGroup.add(prizeMesh);
   craneGroup.updateMatrixWorld(true);
-  // ワールド座標 → クレーンローカル座標
   const invMat = new THREE.Matrix4().copy(craneGroup.matrixWorld).invert();
   const localPos = wp.clone().applyMatrix4(invMat);
   prizeMesh.position.copy(localPos);
   prizeMesh.quaternion.copy(wq);
 }
 
-// ─── 持ち上げ → 穴への運搬＋スリップチェック ──────────────
-// 上昇中はスリップしない。完全に持ち上がってから穴へ移動中に
-// ランダムでスリップし、その時点のXZ真下に景品を落とす。
-// → 少しずつ穴に近づく「惜しい！」体験が生まれる。
 function beginLift() {
   hasSlipped = false;
   updateGuide("持ち上げ中...");
 
-  // 保持力が低いとき持ち上げ時に揺れる演出
   if (storedHoldQuality < 0.35) {
     gsap.to(prizeMesh.position, {
       y: prizeMesh.position.y - 0.18,
@@ -970,10 +877,6 @@ function beginLift() {
   });
 }
 
-// ─── 穴への運搬＋スリップチェック ────────────────────────
-// 移動中の3チェックポイントでスリップ判定。
-// スリップ確率はholdQualityに反比例（難しめ設定）。
-// スリップ時は現在クレーンXZの真下に景品を落とす。
 function beginCarry() {
   updateGuide("穴へ運ぶ！");
 
@@ -983,13 +886,8 @@ function beginCarry() {
     onComplete: finishTurn
   });
 
-  // スリップ確率：holdQuality が高いほど低い
-  // holdQuality は概ね 0.04〜0.81 程度の範囲
-  // slipProb: 0〜約0.70 ← 難しめ設定（一発取りも可能だが頻繁にスリップ）
   const slipProb = Math.max(0, 0.78 - storedHoldQuality * 1.0);
 
-  // 3チェックポイント：移動25%・55%・85%地点
-  // スリップ時はcarryTweenを止めない → クレーンはそのまま穴まで移動し続ける
   [carryTime * 0.25, carryTime * 0.55, carryTime * 0.85].forEach(t => {
     gsap.delayedCall(t, () => {
       if (hasSlipped || !isCatched || gameState !== "catching") return;
@@ -1001,8 +899,6 @@ function beginCarry() {
   });
 }
 
-// ─── スリップ演出 ────────────────────────────────────────
-// 景品だけ切り離して床に落とす。クレーンはそのまま移動し続ける。
 function doSlip() {
   isCatched = false;
   if (prizeMesh && prizeMesh.parent === craneGroup) {
@@ -1019,24 +915,17 @@ function doSlip() {
     prizeAngVelZ = (Math.random() - 0.5) * 0.022;
   }
   updateGuide("あ！すべった...");
-  // beginReturn() は呼ばない → carryTweenがそのまま走りfinishTurnへ
 }
 
-// ─── クレーン帰還（景品なし）────────────────────────────
-// スリップ後はその場で上昇するだけ。水平移動はしない。
-// クレーン位置のリセットは resetGame() で瞬時に行う。
 function beginReturn() {
   gsap.to(craneGroup.position, { y: 5, duration: 1.2, ease: "power1.inOut", onComplete: finishTurn });
 }
 
-// ─── ターン終了処理 ──────────────────────────────────────
 function finishTurn() {
-  // アームを少し開いて待機姿勢
   gsap.to(armL.rotation, { z: -0.22, duration: 0.5 });
   gsap.to(armR.rotation, { z:  0.22, duration: 0.5 });
 
   if (isCatched && prizeMesh && prizeMesh.parent === craneGroup) {
-    // 景品を持ったまま穴の真上→落下
     const wp = new THREE.Vector3(); prizeMesh.getWorldPosition(wp);
     const wq = new THREE.Quaternion(); prizeMesh.getWorldQuaternion(wq);
     scene.add(prizeMesh);
@@ -1056,7 +945,7 @@ function finishTurn() {
 async function showWinEffect() {
   const reward = machines[currentMachineId].reward;
   await recordPointTransaction(reward, 'クレーン GET ' + currentPrizeData.name, 'crane-win-' + Date.now());
-  saveToDex(currentPrizeData.id);
+  saveToDex(currentPrizeData.id); // ここで保存処理が発動
   document.getElementById('win-amount').innerText = reward.toLocaleString();
   document.getElementById('win-prize-name').innerText = currentPrizeData.name + " 獲得！";
   document.getElementById('win-overlay').classList.add('show');
@@ -1070,7 +959,6 @@ window.closeWin = function() {
 function resetGame(forceSpawn = false) {
   gsap.to(armL.rotation, { z: -0.22, duration: 0.5 });
   gsap.to(armR.rotation, { z:  0.22, duration: 0.5 });
-  // クレーンをスタート位置に瞬時リセット
   craneGroup.position.set(-4.5, 5, 4.5);
   document.getElementById('btn-coin').disabled = false;
   gameState = "idle";
@@ -1079,24 +967,19 @@ function resetGame(forceSpawn = false) {
 }
 
 // ==========================================
-// 8. アニメーションループ（物理演算込み）
+// 8. アニメーションループ
 // ==========================================
 const ACTIVE_STATES = new Set(["idle","ready","movingRight","movingUp","waitDrop","dropping","catching"]);
 
 function animate() {
   requestAnimationFrame(animate);
 
-  // クレーン移動
   if (isMovingRight && craneGroup.position.x < 5.5) craneGroup.position.x += 0.06;
   if (isMovingUp && craneGroup.position.z > -5.5) craneGroup.position.z -= 0.06;
 
-  // ★ 降下中アーム接触判定（毎フレーム）
   checkArmPrizeCollision();
-
-  // ③ グミ変形の更新
   updateGummyDeform();
 
-  // ★ 景品の物理演算（景品がシーン直下のときのみ）
   if (prizeMesh && prizeMesh.parent === scene && ACTIVE_STATES.has(gameState)) {
     const moving = Math.abs(prizeVelX) > 0.0003 || Math.abs(prizeVelZ) > 0.0003;
 
@@ -1104,7 +987,6 @@ function animate() {
       prizeMesh.position.x += prizeVelX;
       prizeMesh.position.z += prizeVelZ;
 
-      // フィールド端のバウンス
       if (prizeMesh.position.x > FIELD_HALF)  { prizeMesh.position.x = FIELD_HALF; prizeVelX *= -0.35; prizeVelZ *= 0.8; }
       if (prizeMesh.position.x < -FIELD_HALF) { prizeMesh.position.x = -FIELD_HALF; prizeVelX *= -0.35; prizeVelZ *= 0.8; }
       if (prizeMesh.position.z > FIELD_HALF)  { prizeMesh.position.z = FIELD_HALF; prizeVelZ *= -0.35; prizeVelX *= 0.8; }
@@ -1122,19 +1004,16 @@ function animate() {
       prizeAngVelZ *= FRICTION;
     }
 
-    // idle時のゆっくり自転
     if (gameState === "idle" && !moving) {
       prizeMesh.rotation.y += 0.01;
     }
 
-    // Y位置を床に固定
     prizeMesh.position.y = targetY;
 
-    // ★ 穴への落下判定: 穴の中心(-4.5, 0, 4.5)、サイズ3.5×3.5
-    // アームが景品を持ち運んでいる最中(catching)は除外
+    // 直接落下した際の判定
     const holeActiveStates = new Set(["idle","ready","movingRight","movingUp","waitDrop","dropping"]);
     if (holeActiveStates.has(gameState)) {
-      const holeX = -4.5, holeZ = 4.5, holeHalf = 1.6; // 少し内側を判定域に
+      const holeX = -4.5, holeZ = 4.5, holeHalf = 1.6;
       const px = prizeMesh.position.x, pz = prizeMesh.position.z;
       if (
         px > holeX - holeHalf && px < holeX + holeHalf &&
@@ -1146,19 +1025,18 @@ function animate() {
         document.getElementById('btn-drop').disabled = true;
         if (dropTween) dropTween.kill();
         updateGuide("穴に落ちた！");
+        // 直接落ちた際もここから showWinEffect が呼ばれ保存されます
         gsap.to(prizeMesh.position, { y: -3, duration: 0.6, ease: "power2.in", onComplete: showWinEffect });
       }
     }
   }
 
-  // クレーン影更新
   craneShadow.position.x = craneGroup.position.x;
   craneShadow.position.z = craneGroup.position.z;
   const heightRatio = Math.max(0, Math.min(1, (craneGroup.position.y - 2) / 5));
   shadowMat.opacity = 0.5 - heightRatio * 0.35;
   craneShadow.scale.setScalar(0.7 + heightRatio * 0.6);
 
-  // カメラの向きを維持
   const camTarget = isSideView ? CAMERA_SIDE.look : CAMERA_FRONT.look;
   camera.lookAt(camTarget);
 
@@ -1171,7 +1049,6 @@ loadParentBalance()
   .then(() => { spawnPrize(true); animate(); })
   .catch(() => { spawnPrize(true); animate(); });
 
-// DOMロード完了後に再度リサイズ（コントロール高さが確定してから）
 window.addEventListener('load', resizeRenderer);
 </script>
 </body>

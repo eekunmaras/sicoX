@@ -10077,6 +10077,16 @@ setTimeout(fitWrap,120);
 
   },
 
+  crane:{
+
+    title:'クレーンゲーム',
+
+    icon:'crane.png',
+
+    src:'crane.html'
+
+  },
+
   sicofx:{
 
     title:'SicoFX',
@@ -10128,6 +10138,40 @@ function sendSicoFxResponse(reqId,payload){
   sendToGameFrame(Object.assign({type:'sicofx:response',reqId},payload||{}));
 
 }
+
+function postCraneDexTweet(count,total){
+
+  if(!currentUser){ openProfileModal(); return false; }
+
+  const c=Math.max(0, parseInt(count,10)||0);
+
+  const t=Math.max(1, parseInt(total,10)||30);
+
+  const text=`【クレーンゲーム】\n${currentUser.name}さんのシコシコモンスター図鑑\n所持: ${c} / ${t}体`;
+
+  const tw={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:null,quoteOf:null,isRepost:false,repostBy:null,poll:null,badgeUrl:activeBadgeUrl||null};
+
+  tweets.unshift(tw);
+
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+
+  showToast('図鑑の所持数をポストしました！');
+
+  dbPostTweet(tw);
+
+  return true;
+
+}
+
+
+
+function sendCraneResponse(reqId,payload){
+
+  sendToGameFrame(Object.assign({type:'crane:response',reqId},payload||{}));
+
+}
+
+
 
 function postSicoFxHistoryTweet(history,totalProfit){
 
@@ -10307,6 +10351,34 @@ window.addEventListener('message',async e=>{
 
   }
 
+  if(msg.type==='crane:points:init:request'){
+
+    if(!currentUser){ sendCraneResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
+
+    const balance=await dbFetchAvailablePoints(currentUser.handle);
+
+    sendCraneResponse(msg.reqId,{ok:true,balance,user:{handle:currentUser.handle,name:currentUser.name}});
+
+  }
+
+  if(msg.type==='crane:points:update'){
+
+    if(!currentUser){ sendCraneResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
+
+    const result=await dbApplyPointTransaction(currentUser.handle,msg.delta,msg.reason||'CraneGame',msg.refId);
+
+    sendCraneResponse(msg.reqId,result);
+
+  }
+
+  if(msg.type==='crane:tweet'){
+
+    const ok=postCraneDexTweet(msg.count,msg.total);
+
+    sendCraneResponse(msg.reqId,{ok});
+
+  }
+
   if(msg.type==='sicofx:points:init:request'){
 
     if(!currentUser){ sendSicoFxResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
@@ -10341,7 +10413,7 @@ window.addEventListener('message',async e=>{
 
 function openGame(gameId){
 
-  if(gameId==='sicofx'&&!currentUser){showToast('SicoFXはプロフィール設定後に遊べます');openProfileModal();return;}
+  if((gameId==='sicofx'||gameId==='crane')&&!currentUser){showToast((gameId==='crane'?'クレーンゲーム':'SicoFX')+'はプロフィール設定後に遊べます');openProfileModal();return;}
 
   closeGameSelect();
 
@@ -10363,7 +10435,19 @@ function openGame(gameId){
 
   const frame=document.getElementById('game-frame');
 
-  frame.srcdoc=typeof g.html==='function'?g.html(window.location.href.replace(/[^/]*$/,'')):g.html;
+  if(g.src){
+
+    frame.removeAttribute('srcdoc');
+
+    frame.src=g.src;
+
+  }else{
+
+    frame.removeAttribute('src');
+
+    frame.srcdoc=typeof g.html==='function'?g.html(window.location.href.replace(/[^/]*$/,'')):g.html;
+
+  }
 
   document.getElementById('game-frame-overlay').classList.add('open');
 
@@ -10378,7 +10462,7 @@ function closeGame(){
   const doClose=()=>{
     document.getElementById('game-frame-overlay').classList.remove('open');
     document.body.classList.remove('modal-open');
-    if(frame) frame.srcdoc='';
+    if(frame){ frame.srcdoc=''; frame.removeAttribute('src'); }
     const iconEl=document.getElementById('game-frame-icon');
     if(iconEl){ iconEl.style.display='none'; }
   };
@@ -10910,6 +10994,12 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
       <div class="game-icon-btn game-icon-btn-img" onclick="openGame('puzzled')">
 
         <img src="pazdora.png" alt="パズル＆中日ドラゴンズ" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:72px;display:block;text-align:center;\\'>🐉</span>')">
+
+      </div>
+
+      <div class="game-icon-btn game-icon-btn-img" onclick="openGame('crane')">
+
+        <img src="crane.png" alt="クレーンゲーム" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:72px;display:block;text-align:center;\\'>🎰</span>')">
 
       </div>
 

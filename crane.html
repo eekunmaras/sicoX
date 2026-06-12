@@ -248,14 +248,16 @@ function saveDex(data) {
 let collectedMonsters = getSavedDex();
 
 function saveToDex(id) {
-  // 保存時は必ず最新のローカルデータを取得して上書き（別タブやリロード対策）
+  // 保存時は最新のローカルデータを取得しつつ、メモリ上のデータもマージして消失を防ぐ
   let currentDex = getSavedDex();
-  if (!currentDex.includes(id)) {
-    currentDex.push(id);
-    saveDex(currentDex);
+  let mergedDex = Array.from(new Set([...currentDex, ...collectedMonsters]));
+  
+  if (!mergedDex.includes(id)) {
+    mergedDex.push(id);
+    saveDex(mergedDex);
   }
   // メモリ上のデータも更新
-  collectedMonsters = currentDex; 
+  collectedMonsters = mergedDex; 
 }
 
 async function loadParentBalance() {
@@ -406,8 +408,9 @@ function renderMonsterToDataURL(monData, size) {
 window.openDex = () => {
   const grid = document.getElementById('dex-grid');
   grid.innerHTML = '';
-  // 開く時点でも最新を反映させる
-  collectedMonsters = getSavedDex(); 
+  // 開く時点でも最新を反映させる（ストレージデータとメモリデータを統合）
+  let storedDex = getSavedDex();
+  collectedMonsters = Array.from(new Set([...collectedMonsters, ...storedDex]));
   
   monsterDB.forEach(m => {
     const div = document.createElement('div');

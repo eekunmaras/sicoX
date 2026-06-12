@@ -11291,6 +11291,8 @@ function openGame(gameId){
 
   if(gameId==='sicofx'&&!currentUser){showToast('SicoFXはプロフィール設定後に遊べます');openProfileModal();return;}
 
+  if(gameId==='crane'&&!currentUser){showToast('クレーンゲームはプロフィール設定後に遊べます');openProfileModal();return;}
+
   closeGameSelect();
 
   const g=GAMES[gameId]; if(!g)return;

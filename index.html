@@ -574,19 +574,19 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 
 .game-select-overlay.open{display:flex;}
 
-.game-select-box{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:20px;width:280px;max-width:90vw;}
+.game-select-box{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:20px;width:320px;max-width:92vw;}
 
 .game-select-title{font-size:16px;font-weight:700;text-align:center;margin-bottom:16px;color:var(--text);}
 
-.game-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+.game-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
 
 .game-icon-btn{display:flex;align-items:center;gap:14px;background:var(--bg4,#181818);border:1px solid var(--border);border-radius:14px;padding:14px 16px;cursor:pointer;transition:background .15s;text-align:left;}
 
 .game-icon-btn:hover{background:rgba(29,155,240,.1);border-color:var(--accent);}
 
-.game-icon-btn-img{justify-content:center;padding:16px;border-radius:20px;}
+.game-icon-btn-img{flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px 8px;border-radius:16px;}
 
-.game-app-icon{width:72px;height:72px;border-radius:16px;object-fit:cover;display:block;box-shadow:0 2px 8px rgba(0,0,0,.5);}
+.game-app-icon{width:60px;height:60px;border-radius:14px;object-fit:cover;display:block;box-shadow:0 2px 8px rgba(0,0,0,.5);}
 
 .game-icon-emoji{font-size:36px;line-height:1;flex-shrink:0;}
 
@@ -595,6 +595,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .game-icon-name{font-size:14px;font-weight:700;color:var(--text);}
 
 .game-icon-desc{font-size:11px;color:var(--text2);margin-top:2px;}
+
+.game-tile-label{font-size:10px;font-weight:600;color:var(--text2);text-align:center;line-height:1.3;word-break:break-word;}
 
 .game-select-close{width:100%;margin-top:12px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:9999px;padding:9px;font-size:14px;cursor:pointer;font-family:var(--font);transition:background .15s;}
 
@@ -924,7 +926,7 @@ body.modal-open{overflow:hidden;}
 
   .compose-box{padding:10px 12px;}
 
-  .game-select-box{width:calc(100vw - 32px);max-width:320px;}
+  .game-select-box{width:calc(100vw - 32px);max-width:340px;}
 
   .game-frame-overlay{padding-bottom:env(safe-area-inset-bottom,0px);}
 
@@ -11015,30 +11017,35 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
       <div class="game-icon-btn game-icon-btn-img" onclick="openGame('taika')">
 
         <img src="https://raw.githubusercontent.com/eekunmaras/sicoX/d075e0c02488b15219397982963f0bfb9ba47c50/taika.png" alt="タイカゲーム" class="game-app-icon">
+        <span class="game-tile-label">タイカゲーム</span>
 
       </div>
 
       <div class="game-icon-btn game-icon-btn-img" onclick="openGame('puyo')">
 
-        <img src="/PUYO.png" alt="PUYO!" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:72px;display:block;text-align:center;\\'>🎮</span>')">
+        <img src="/PUYO.png" alt="PUYO!" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>🎮</span>')">
+        <span class="game-tile-label">PUYO!</span>
 
       </div>
 
       <div class="game-icon-btn game-icon-btn-img" onclick="openGame('puzzled')">
 
-        <img src="pazdora.png" alt="パズル＆中日ドラゴンズ" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:72px;display:block;text-align:center;\\'>🐉</span>')">
+        <img src="pazdora.png" alt="パズル＆中日ドラゴンズ" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>🐉</span>')">
+        <span class="game-tile-label">パズル&amp;ドラゴンズ</span>
 
       </div>
 
       <div class="game-icon-btn game-icon-btn-img" onclick="openGame('crane')">
 
-        <img src="crane.png" alt="クレーンゲーム" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:72px;display:block;text-align:center;\\'>🎰</span>')">
+        <img src="crane.png" alt="クレーンゲーム" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>🎰</span>')">
+        <span class="game-tile-label">クレーンゲーム</span>
 
       </div>
 
       <div class="game-icon-btn game-icon-btn-img" onclick="openGame('sicofx')">
 
-        <img src="sicofx.png" alt="SicoFX" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\'font-size:48px;line-height:72px;display:block;text-align:center;\'>FX</span>')">
+        <img src="sicofx.png" alt="SicoFX" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\'font-size:48px;line-height:60px;display:block;text-align:center;\'>FX</span>')">
+        <span class="game-tile-label">SicoFX</span>
 
       </div>
 

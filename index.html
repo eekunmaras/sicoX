@@ -1110,6 +1110,14 @@ body.modal-open{overflow:hidden;}
 
 .wc-error-box{text-align:center;padding:30px 12px;color:var(--text2);font-size:13px;line-height:1.7;}
 
+.wc-match-filter-row{display:flex;gap:6px;margin-bottom:12px;}
+
+.wc-match-filter-btn{flex:1;padding:8px 4px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);}
+
+.wc-match-filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+#wc-content-area{padding-bottom:90px;}
+
 
 .shop-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:14px;}
 
@@ -11126,6 +11134,12 @@ function showWcSubtab(tab){
 }
 
 let wcGroupsData=null, wcMatchesData=null, wcScorersData=null;
+let wcMatchFilter='FINISHED'; // 'FINISHED' | 'SCHEDULED' | 'ALL'
+
+function setWcMatchFilter(f){
+  wcMatchFilter=f;
+  renderWcMatches(wcMatchesData);
+}
 
 // Cloudflare Workerプロキシ経由でfootball-data.orgのデータを取得
 async function wcApiFetch(path){
@@ -11147,10 +11161,10 @@ async function loadWcData(){
   loadingEl.textContent='読み込み中…';
   [groupsPanel,matchesPanel,scorersPanel].forEach(p=>p.innerHTML='');
   try{
-    const standings=await wcApiFetch('/competitions/'+WC_COMPETITION+'/standings');
-    const matches=await wcApiFetch('/competitions/'+WC_COMPETITION+'/matches');
+    const standings=await wcApiFetch('/competitions/'+WC_COMPETITION+'/standings?season=2026');
+    const matches=await wcApiFetch('/competitions/'+WC_COMPETITION+'/matches?season=2026');
     let scorers=null;
-    try{ scorers=await wcApiFetch('/competitions/'+WC_COMPETITION+'/scorers?limit=20'); }catch(e){ scorers=null; }
+    try{ scorers=await wcApiFetch('/competitions/'+WC_COMPETITION+'/scorers?season=2026&limit=20'); }catch(e){ scorers=null; }
     wcGroupsData=standings; wcMatchesData=matches; wcScorersData=scorers;
     renderWcGroups(standings);
     renderWcMatches(matches);
@@ -11217,10 +11231,35 @@ function wcMatchStatusJa(status){
 
 function renderWcMatches(data){
   const panel=document.getElementById('wc-matches-panel');
-  const matches=(data&&data.matches)?data.matches.slice().sort((a,b)=>new Date(b.utcDate)-new Date(a.utcDate)):[];
-  if(!matches.length){ panel.innerHTML='<div class="wc-error-box">試合データがまだありません。</div>'; return; }
-  let html='';
-  matches.slice(0,60).forEach(m=>{
+  const allMatches=(data&&data.matches)?data.matches.slice():[];
+  if(!allMatches.length){ panel.innerHTML='<div class="wc-error-box">試合データがまだありません。<br>大会開幕前は表示できる試合がない場合があります。</div>'; return; }
+
+  const finishedCount=allMatches.filter(m=>m.status==='FINISHED').length;
+  const scheduledCount=allMatches.filter(m=>m.status==='SCHEDULED'||m.status==='TIMED'||m.status==='IN_PLAY'||m.status==='PAUSED').length;
+
+  let filtered;
+  if(wcMatchFilter==='FINISHED') filtered=allMatches.filter(m=>m.status==='FINISHED');
+  else if(wcMatchFilter==='SCHEDULED') filtered=allMatches.filter(m=>m.status==='SCHEDULED'||m.status==='TIMED'||m.status==='IN_PLAY'||m.status==='PAUSED');
+  else filtered=allMatches.slice();
+
+  filtered.sort((a,b)=>{
+    const da=new Date(a.utcDate), db=new Date(b.utcDate);
+    return wcMatchFilter==='SCHEDULED' ? (da-db) : (db-da);
+  });
+
+  let html='<div class="wc-match-filter-row">'+
+    '<button class="wc-match-filter-btn'+(wcMatchFilter==='FINISHED'?' active':'')+'" onclick="setWcMatchFilter(\'FINISHED\')">終了済み（'+finishedCount+'）</button>'+
+    '<button class="wc-match-filter-btn'+(wcMatchFilter==='SCHEDULED'?' active':'')+'" onclick="setWcMatchFilter(\'SCHEDULED\')">予定（'+scheduledCount+'）</button>'+
+    '<button class="wc-match-filter-btn'+(wcMatchFilter==='ALL'?' active':'')+'" onclick="setWcMatchFilter(\'ALL\')">すべて（'+allMatches.length+'）</button>'+
+  '</div>';
+
+  if(!filtered.length){
+    html+='<div class="wc-error-box">該当する試合がありません。</div>';
+    panel.innerHTML=html;
+    return;
+  }
+
+  filtered.slice(0,80).forEach(m=>{
     const home=wcTeamNameJa(m.homeTeam?m.homeTeam.name:'未定');
     const away=wcTeamNameJa(m.awayTeam?m.awayTeam.name:'未定');
     const hs=(m.score&&m.score.fullTime&&m.score.fullTime.home!=null)?m.score.fullTime.home:null;
@@ -11235,7 +11274,7 @@ function renderWcMatches(data){
         '<div class="wc-match-score">'+esc(scoreText)+'</div>'+
         '<div class="wc-match-side right">'+esc(away)+(m.awayTeam&&m.awayTeam.crest?'<img class="wc-team-flag" src="'+esc(m.awayTeam.crest)+'" alt="">':'')+'</div>'+
       '</div>'+
-      (m.status==='FINISHED'?'<button class="wc-match-tweet-btn" onclick="tweetWcMatch(\''+esc(home).replace(/'/g,"\\'")+'\',\''+esc(away).replace(/'/g,"\\'")+'\','+(hs!=null?hs:0)+','+(as!=null?as:0)+',\''+esc(stageLabel).replace(/'/g,"\\'")+'\')">📢 この結果をツイートする</button>':'')+
+      (m.status==='FINISHED'?('<button class="wc-match-tweet-btn" data-home="'+esc(home)+'" data-away="'+esc(away)+'" data-hs="'+(hs!=null?hs:0)+'" data-as="'+(as!=null?as:0)+'" data-stage="'+esc(stageLabel)+'" onclick="tweetWcMatchFromBtn(this)">📢 この結果をツイートする</button>'):'')+
     '</div>';
   });
   panel.innerHTML=html;
@@ -11270,6 +11309,16 @@ function tweetWcMatch(home,away,hs,as,stage){
   if(pb) pb.disabled=false;
   postTweet();
   goFeed();
+}
+
+// data属性からツイート内容を読み取って投稿するラッパー（HTML属性エスケープ問題を回避するため）
+function tweetWcMatchFromBtn(btn){
+  const home=btn.getAttribute('data-home');
+  const away=btn.getAttribute('data-away');
+  const hs=parseInt(btn.getAttribute('data-hs'),10)||0;
+  const as=parseInt(btn.getAttribute('data-as'),10)||0;
+  const stage=btn.getAttribute('data-stage');
+  tweetWcMatch(home,away,hs,as,stage);
 }
 
 </script>

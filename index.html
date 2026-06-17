@@ -1564,8 +1564,6 @@ body.modal-open{overflow:hidden;}
 
         <button class="wc-subtab" id="wc-subtab-scorers" onclick="showWcSubtab('scorers')">得点王</button>
 
-        <button class="wc-subtab" id="wc-subtab-admin" onclick="showWcSubtab('admin')" id="wc-subtab-admin-btn" style="display:none;">⚙️ API設定</button>
-
       </div>
 
       <div id="wc-content-area" style="padding:12px 16px;">
@@ -1577,26 +1575,6 @@ body.modal-open{overflow:hidden;}
         <div id="wc-matches-panel" class="wc-panel" style="display:none;"></div>
 
         <div id="wc-scorers-panel" class="wc-panel" style="display:none;"></div>
-
-        <div id="wc-admin-panel" class="wc-panel" style="display:none;">
-
-          <div style="font-size:13px;color:var(--text2);margin-bottom:10px;line-height:1.6;">
-
-            football-data.org の無料APIキーを登録すると、全ユーザーがワールドカップの結果を見られるようになります。
-
-            <a href="https://www.football-data.org/client/register" target="_blank" rel="noopener" style="color:var(--accent);">こちらから無料登録</a>してAPIキーを取得してください。
-
-          </div>
-
-          <div class="field-label">football-data.org APIキー</div>
-
-          <input class="txt-field" id="wc-api-key-input" placeholder="APIキーを入力">
-
-          <button class="post-btn" style="width:100%;padding:11px;font-size:14px;" onclick="saveWcApiKey()">保存する</button>
-
-          <div id="wc-admin-status" style="font-size:12px;color:var(--text2);margin-top:8px;"></div>
-
-        </div>
 
       </div>
 
@@ -2169,7 +2147,7 @@ const GROK_USER = {
 
 // ⚠️ 管理者にしたいユーザーの @ハンドル をここに追加してください
 
-const ADMIN_HANDLES = ['sicolia','d'];
+const ADMIN_HANDLES = ['admin'];
 
 function isAdminUser(){
 
@@ -11110,451 +11088,188 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 });
 
 
-
 // ══════════════════════════════════════
-
 // ニュース / ワールドカップ機能
-
 // ══════════════════════════════════════
+// football-data.org はブラウザからの直接アクセス（CORS）を許可していないため、
+// 自前のCloudflare Workerプロキシ（/wc-proxy）を経由して取得します。
+// APIキー自体はWorker側のSecret（FOOTBALL_DATA_API_KEY）として管理されており、
+// クライアント側やSupabaseには一切渡りません。
 
 const WC_COMPETITION = 'WC'; // football-data.org のワールドカップ競技コード
-
-let wcApiKeyCache = null;     // Supabaseから取得したAPIキーのキャッシュ
-
+const WC_PROXY_BASE = 'https://sicox.eekunmaras.workers.dev/wc-proxy';
 let wcDataLoaded   = false;
-
 let wcCurrentSubtab = 'groups';
 
-
-
-// 管理者が登録したAPIキーをSupabaseから取得
-
-async function fetchWcApiKey(){
-
-  if(wcApiKeyCache!==null) return wcApiKeyCache;
-
-  try{
-
-    const {data,error}=await sb.from('app_settings').select('value').eq('key','wc_api_key').single();
-
-    if(error || !data){ wcApiKeyCache=''; return ''; }
-
-    wcApiKeyCache=data.value||'';
-
-    return wcApiKeyCache;
-
-  }catch(e){ wcApiKeyCache=''; return ''; }
-
-}
-
-
-
-// 管理者によるAPIキー保存
-
-async function saveWcApiKey(){
-
-  if(!isAdminUser()){ showToast('管理者のみ設定できます'); return; }
-
-  const key=document.getElementById('wc-api-key-input').value.trim();
-
-  if(!key){ showToast('APIキーを入力してください'); return; }
-
-  const statusEl=document.getElementById('wc-admin-status');
-
-  statusEl.textContent='保存中…';
-
-  try{
-
-    const {error}=await sb.from('app_settings').upsert({key:'wc_api_key',value:key,updated_at:new Date().toISOString()});
-
-    if(error){ statusEl.textContent='保存に失敗しました：'+(error.message||''); return; }
-
-    wcApiKeyCache=key;
-
-    wcDataLoaded=false;
-
-    statusEl.textContent='保存しました！';
-
-    showToast('APIキーを保存しました');
-
-    loadWcData();
-
-  }catch(e){ statusEl.textContent='保存中にエラーが発生しました'; }
-
-}
-
-
-
 // ニュースビューを開いたときの初期化
-
 function renderNewsView(){
-
-  if(isAdminUser()){
-
-    const btn=document.getElementById('wc-subtab-admin');
-
-    if(btn) btn.style.display='inline-block';
-
-  }
-
   showWcSubtab(wcCurrentSubtab);
-
-  loadWcData();
-
+  if(!wcDataLoaded) loadWcData();
 }
-
-
 
 function showNewsTab(tab){
-
   document.querySelectorAll('.news-tab').forEach(t=>t.classList.remove('active'));
-
   document.querySelectorAll('.news-tab-panel').forEach(p=>p.classList.remove('active'));
-
   document.getElementById('news-tab-'+tab).classList.add('active');
-
   document.getElementById('news-tab-panel-'+tab).classList.add('active');
-
 }
-
-
 
 function showWcSubtab(tab){
-
   wcCurrentSubtab=tab;
-
   document.querySelectorAll('.wc-subtab').forEach(b=>b.classList.remove('active'));
-
   const btn=document.getElementById('wc-subtab-'+tab);
-
   if(btn) btn.classList.add('active');
-
   document.querySelectorAll('.wc-panel').forEach(p=>{p.style.display='none';p.classList.remove('active');});
-
   const panel=document.getElementById('wc-'+tab+'-panel');
-
   if(panel){ panel.style.display='block'; panel.classList.add('active'); }
-
-  if(tab!=='admin' && !wcDataLoaded) loadWcData();
-
+  if(!wcDataLoaded) loadWcData();
 }
-
-
 
 let wcGroupsData=null, wcMatchesData=null, wcScorersData=null;
 
-
-
-// football-data.org からデータ取得（クライアント側fetch、管理者登録キーを使用）
-
+// Cloudflare Workerプロキシ経由でfootball-data.orgのデータを取得
 async function wcApiFetch(path){
-
-  const key=await fetchWcApiKey();
-
-  if(!key) throw new Error('NO_KEY');
-
-  const res=await fetch('https://api.football-data.org/v4'+path,{
-
-    headers:{'X-Auth-Token':key}
-
-  });
-
+  const res=await fetch(WC_PROXY_BASE+'?path='+encodeURIComponent(path));
   if(!res.ok){
-
     if(res.status===403||res.status===401) throw new Error('INVALID_KEY');
-
     if(res.status===429) throw new Error('RATE_LIMIT');
-
     throw new Error('FETCH_ERROR');
-
   }
-
   return res.json();
-
 }
-
-
 
 async function loadWcData(){
-
   const loadingEl=document.getElementById('wc-loading');
-
   const groupsPanel=document.getElementById('wc-groups-panel');
-
   const matchesPanel=document.getElementById('wc-matches-panel');
-
   const scorersPanel=document.getElementById('wc-scorers-panel');
-
   loadingEl.style.display='block';
-
   loadingEl.textContent='読み込み中…';
-
   [groupsPanel,matchesPanel,scorersPanel].forEach(p=>p.innerHTML='');
-
   try{
-
-    const key=await fetchWcApiKey();
-
-    if(!key){
-
-      loadingEl.style.display='none';
-
-      const msg='<div class="wc-error-box">⚽ ワールドカップ情報はまだ準備中です。<br>管理者がAPIキーを登録すると表示されます。</div>';
-
-      groupsPanel.innerHTML=msg; matchesPanel.innerHTML=msg; scorersPanel.innerHTML=msg;
-
-      wcDataLoaded=true;
-
-      return;
-
-    }
-
     const standings=await wcApiFetch('/competitions/'+WC_COMPETITION+'/standings');
-
     const matches=await wcApiFetch('/competitions/'+WC_COMPETITION+'/matches');
-
     let scorers=null;
-
     try{ scorers=await wcApiFetch('/competitions/'+WC_COMPETITION+'/scorers?limit=20'); }catch(e){ scorers=null; }
-
     wcGroupsData=standings; wcMatchesData=matches; wcScorersData=scorers;
-
     renderWcGroups(standings);
-
     renderWcMatches(matches);
-
     renderWcScorers(scorers);
-
     wcDataLoaded=true;
-
     loadingEl.style.display='none';
-
   }catch(e){
-
     loadingEl.style.display='none';
-
-    let msg='⚽ ワールドカップ情報の取得に失敗しました。';
-
-    if(e.message==='INVALID_KEY') msg='⚽ APIキーが無効です。管理者に設定し直してもらってください。';
-
+    let msg='⚽ ワールドカップ情報の取得に失敗しました。少し時間を置いてから開いてみてください。';
+    if(e.message==='INVALID_KEY') msg='⚽ ワールドカップ情報は現在準備中です。';
     if(e.message==='RATE_LIMIT') msg='⚽ APIへのアクセスが集中しています。少し時間を置いてから開いてください。';
-
     const box='<div class="wc-error-box">'+esc(msg)+'</div>';
-
     groupsPanel.innerHTML=box; matchesPanel.innerHTML=box; scorersPanel.innerHTML=box;
-
   }
-
 }
-
-
 
 // 国名コードを日本語に変換（主要国・よくあるもの。なければ原文表示）
-
 const WC_TEAM_NAME_JA={
-
   'Japan':'日本','Brazil':'ブラジル','Argentina':'アルゼンチン','Germany':'ドイツ',
-
   'France':'フランス','Spain':'スペイン','England':'イングランド','Portugal':'ポルトガル',
-
   'Netherlands':'オランダ','Belgium':'ベルギー','Italy':'イタリア','Croatia':'クロアチア',
-
   'Uruguay':'ウルグアイ','Colombia':'コロンビア','Mexico':'メキシコ','United States':'アメリカ',
-
   'Canada':'カナダ','Korea Republic':'韓国','South Korea':'韓国','Morocco':'モロッコ',
-
   'Senegal':'セネガル','Switzerland':'スイス','Denmark':'デンマーク','Poland':'ポーランド',
-
   'Ghana':'ガーナ','Cameroon':'カメルーン','Tunisia':'チュニジア','Ecuador':'エクアドル',
-
   'Wales':'ウェールズ','Iran':'イラン','Saudi Arabia':'サウジアラビア','Qatar':'カタール',
-
   'Australia':'オーストラリア','Serbia':'セルビア','Costa Rica':'コスタリカ',
-
   'New Zealand':'ニュージーランド','Jordan':'ヨルダン','Uzbekistan':'ウズベキスタン',
-
   'Egypt':'エジプト','Algeria':'アルジェリア','Ivory Coast':'コートジボワール',
-
   'Cape Verde':'カーボベルデ','South Africa':'南アフリカ','Curacao':'キュラソー',
-
   'Haiti':'ハイチ','Panama':'パナマ','Paraguay':'パラグアイ','Bolivia':'ボリビア',
-
   'Norway':'ノルウェー','Scotland':'スコットランド','Austria':'オーストリア',
-
   'Czech Republic':'チェコ','Slovakia':'スロバキア','Ukraine':'ウクライナ',
-
   'Turkey':'トルコ','Greece':'ギリシャ','Sweden':'スウェーデン','Finland':'フィンランド'
-
 };
-
 function wcTeamNameJa(name){ return WC_TEAM_NAME_JA[name]||name||''; }
 
-
-
 function renderWcGroups(standings){
-
   const panel=document.getElementById('wc-groups-panel');
-
   const groups=(standings&&standings.standings)?standings.standings.filter(s=>s.type==='TOTAL'):[];
-
   if(!groups.length){ panel.innerHTML='<div class="wc-error-box">グループ順位データがまだありません。</div>'; return; }
-
   let html='';
-
   groups.forEach(g=>{
-
     const groupLabel=g.group?('グループ '+g.group.replace('GROUP_','')):'順位表';
-
     html+='<div class="wc-group-card"><div class="wc-group-title">'+esc(groupLabel)+'</div>';
-
     html+='<table class="wc-group-table"><thead><tr><th>チーム</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th>得失点</th><th>点</th></tr></thead><tbody>';
-
     g.table.forEach(row=>{
-
       const crest=row.team&&row.team.crest?row.team.crest:'';
-
       const name=wcTeamNameJa(row.team?row.team.name:'');
-
       html+='<tr><td><div class="wc-team-cell">'+(crest?'<img class="wc-team-flag" src="'+esc(crest)+'" alt="">':'')+esc(name)+'</div></td>'+
-
         '<td>'+row.playedGames+'</td><td>'+row.won+'</td><td>'+row.draw+'</td><td>'+row.lost+'</td>'+
-
         '<td>'+(row.goalDifference>0?'+':'')+row.goalDifference+'</td><td><b>'+row.points+'</b></td></tr>';
-
     });
-
     html+='</tbody></table></div>';
-
   });
-
   panel.innerHTML=html;
-
 }
-
-
 
 function wcMatchStatusJa(status){
-
   const map={SCHEDULED:'試合前',TIMED:'試合前',IN_PLAY:'試合中',PAUSED:'試合中（HT）',
-
     FINISHED:'試合終了',POSTPONED:'延期',SUSPENDED:'中断',CANCELLED:'中止'};
-
   return map[status]||status;
-
 }
-
-
 
 function renderWcMatches(data){
-
   const panel=document.getElementById('wc-matches-panel');
-
   const matches=(data&&data.matches)?data.matches.slice().sort((a,b)=>new Date(b.utcDate)-new Date(a.utcDate)):[];
-
   if(!matches.length){ panel.innerHTML='<div class="wc-error-box">試合データがまだありません。</div>'; return; }
-
   let html='';
-
   matches.slice(0,60).forEach(m=>{
-
     const home=wcTeamNameJa(m.homeTeam?m.homeTeam.name:'未定');
-
     const away=wcTeamNameJa(m.awayTeam?m.awayTeam.name:'未定');
-
     const hs=(m.score&&m.score.fullTime&&m.score.fullTime.home!=null)?m.score.fullTime.home:null;
-
     const as=(m.score&&m.score.fullTime&&m.score.fullTime.away!=null)?m.score.fullTime.away:null;
-
     const scoreText=(hs!=null&&as!=null)?(hs+' - '+as):'vs';
-
     const dateStr=m.utcDate?new Date(m.utcDate).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-
     const stageLabel=m.stage?m.stage.replace(/_/g,' '):'';
-
     html+='<div class="wc-match-card">'+
-
       '<div class="wc-match-meta"><span>'+esc(dateStr)+'</span><span>'+esc(wcMatchStatusJa(m.status))+'</span></div>'+
-
       '<div class="wc-match-teams">'+
-
         '<div class="wc-match-side">'+(m.homeTeam&&m.homeTeam.crest?'<img class="wc-team-flag" src="'+esc(m.homeTeam.crest)+'" alt="">':'')+esc(home)+'</div>'+
-
         '<div class="wc-match-score">'+esc(scoreText)+'</div>'+
-
         '<div class="wc-match-side right">'+esc(away)+(m.awayTeam&&m.awayTeam.crest?'<img class="wc-team-flag" src="'+esc(m.awayTeam.crest)+'" alt="">':'')+'</div>'+
-
       '</div>'+
-
       (m.status==='FINISHED'?'<button class="wc-match-tweet-btn" onclick="tweetWcMatch(\''+esc(home).replace(/'/g,"\\'")+'\',\''+esc(away).replace(/'/g,"\\'")+'\','+(hs!=null?hs:0)+','+(as!=null?as:0)+',\''+esc(stageLabel).replace(/'/g,"\\'")+'\')">📢 この結果をツイートする</button>':'')+
-
     '</div>';
-
   });
-
   panel.innerHTML=html;
-
 }
-
-
 
 function renderWcScorers(data){
-
   const panel=document.getElementById('wc-scorers-panel');
-
   const scorers=(data&&data.scorers)?data.scorers:[];
-
   if(!scorers.length){ panel.innerHTML='<div class="wc-error-box">得点ランキングはまだ取得できません。<br>（大会が始まると表示されます）</div>'; return; }
-
   let html='<div style="background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:4px 14px;">';
-
   scorers.forEach((s,i)=>{
-
     const name=s.player?s.player.name:'';
-
     const team=wcTeamNameJa(s.team?s.team.name:'');
-
     html+='<div class="wc-scorer-row"><div class="wc-scorer-rank">'+(i+1)+'</div>'+
-
       '<div><div class="wc-scorer-name">'+esc(name)+'</div><div class="wc-scorer-team">'+esc(team)+'</div></div>'+
-
       '<div class="wc-scorer-goals">'+(s.goals||0)+'点</div></div>';
-
   });
-
   html+='</div>';
-
   panel.innerHTML=html;
-
 }
 
-
-
 // 試合結果をツイートとして投稿（既存のpostTweet基盤を再利用）
-
 function tweetWcMatch(home,away,hs,as,stage){
-
   if(!currentUser){ openProfileModal(); return; }
-
   const winner=hs===as?'引き分け':(hs>as?home+'の勝利':away+'の勝利');
-
   const stageText=stage?('【'+stage+'】'):'';
-
   const text='⚽ワールドカップ結果\n'+stageText+home+' '+hs+' - '+as+' '+away+'\n'+winner+'！ #ワールドカップ';
-
   document.getElementById('compose-input').value=text;
-
   const ci=document.getElementById('char-count');
-
   if(ci) ci.textContent=String(280-text.length);
-
   const pb=document.getElementById('post-btn');
-
   if(pb) pb.disabled=false;
-
   postTweet();
-
   goFeed();
-
 }
 
 </script>

@@ -1064,12 +1064,6 @@ body.modal-open{overflow:hidden;}
 
 .wc-panel.active{display:block !important;}
 
-.wc-group-select-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
-
-.wc-group-select-btn{padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);min-width:38px;}
-
-.wc-group-select-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-
 .wc-group-card{background:var(--bg3);border:1px solid var(--border);border-radius:14px;margin-bottom:14px;overflow:hidden;}
 
 .wc-group-title{padding:10px 14px;font-weight:700;font-size:14px;background:var(--bg4);border-bottom:1px solid var(--border);}
@@ -11216,51 +11210,24 @@ const WC_TEAM_NAME_JA={
 };
 function wcTeamNameJa(name){ return WC_TEAM_NAME_JA[name]||name||''; }
 
-let wcCurrentGroup=null; // 現在選択中のグループ（nullなら最初のグループ）
-
-function setWcGroup(groupKey){
-  wcCurrentGroup=groupKey;
-  renderWcGroups(wcGroupsData);
-}
-
 function renderWcGroups(standings){
   const panel=document.getElementById('wc-groups-panel');
   const groups=(standings&&standings.standings)?standings.standings.filter(s=>s.type==='TOTAL'):[];
   if(!groups.length){ panel.innerHTML='<div class="wc-error-box">グループ順位データがまだありません。</div>'; return; }
-
-  // グループキーの一覧を作成（グループ名がない場合は単一表として扱う）
-  const groupKeys=groups.map(g=>g.group||'__single__');
-  if(wcCurrentGroup===null || !groupKeys.includes(wcCurrentGroup)){
-    wcCurrentGroup=groupKeys[0];
-  }
-
   let html='';
-
-  // グループが複数あるときだけ切り替えボタンを表示
-  if(groups.length>1){
-    html+='<div class="wc-group-select-row">';
-    groups.forEach(g=>{
-      const key=g.group||'__single__';
-      const label=g.group?g.group.replace('GROUP_',''):'順位表';
-      html+='<button class="wc-group-select-btn'+(key===wcCurrentGroup?' active':'')+'" onclick="setWcGroup(\''+key.replace(/'/g,"")+'\')">'+esc(label)+'</button>';
+  groups.forEach(g=>{
+    const groupLabel=g.group?('グループ '+g.group.replace('GROUP_','')):'順位表';
+    html+='<div class="wc-group-card"><div class="wc-group-title">'+esc(groupLabel)+'</div>';
+    html+='<table class="wc-group-table"><thead><tr><th>チーム</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th>得失点</th><th>点</th></tr></thead><tbody>';
+    g.table.forEach(row=>{
+      const crest=row.team&&row.team.crest?row.team.crest:'';
+      const name=wcTeamNameJa(row.team?row.team.name:'');
+      html+='<tr><td><div class="wc-team-cell">'+(crest?'<img class="wc-team-flag" src="'+esc(crest)+'" alt="">':'')+esc(name)+'</div></td>'+
+        '<td>'+row.playedGames+'</td><td>'+row.won+'</td><td>'+row.draw+'</td><td>'+row.lost+'</td>'+
+        '<td>'+(row.goalDifference>0?'+':'')+row.goalDifference+'</td><td><b>'+row.points+'</b></td></tr>';
     });
-    html+='</div>';
-  }
-
-  const g=groups.find(gr=>(gr.group||'__single__')===wcCurrentGroup)||groups[0];
-  const groupLabel=g.group?('グループ '+g.group.replace('GROUP_','')):'順位表';
-
-  html+='<div class="wc-group-card"><div class="wc-group-title">'+esc(groupLabel)+'</div>';
-  html+='<table class="wc-group-table"><thead><tr><th>チーム</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th>得失点</th><th>点</th></tr></thead><tbody>';
-  g.table.forEach(row=>{
-    const crest=row.team&&row.team.crest?row.team.crest:'';
-    const name=wcTeamNameJa(row.team?row.team.name:'');
-    html+='<tr><td><div class="wc-team-cell">'+(crest?'<img class="wc-team-flag" src="'+esc(crest)+'" alt="">':'')+esc(name)+'</div></td>'+
-      '<td>'+row.playedGames+'</td><td>'+row.won+'</td><td>'+row.draw+'</td><td>'+row.lost+'</td>'+
-      '<td>'+(row.goalDifference>0?'+':'')+row.goalDifference+'</td><td><b>'+row.points+'</b></td></tr>';
+    html+='</tbody></table></div>';
   });
-  html+='</tbody></table></div>';
-
   panel.innerHTML=html;
 }
 

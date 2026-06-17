@@ -11210,16 +11210,51 @@ const WC_TEAM_NAME_JA={
 };
 function wcTeamNameJa(name){ return WC_TEAM_NAME_JA[name]||name||''; }
 
+// football-data.org の無料プランではグループ情報（group）が提供されないため、
+// 2026年大会の組み合わせを手動で対応表として保持し、チーム名からグループを判定する
+const WC_TEAM_TO_GROUP={
+  'Mexico':'A','South Korea':'A','Korea Republic':'A','Czechia':'A','South Africa':'A',
+  'Switzerland':'B','Canada':'B','Qatar':'B','Bosnia-Herzegovina':'B',
+  'Scotland':'C','Morocco':'C','Brazil':'C','Haiti':'C',
+  'United States':'D','Australia':'D','Turkey':'D','Paraguay':'D',
+  'Germany':'E','Ivory Coast':'E','Ecuador':'E','Curacao':'E','Curaçao':'E',
+  'Sweden':'F','Japan':'F','Netherlands':'F','Tunisia':'F',
+  'New Zealand':'G','Iran':'G','Belgium':'G','Egypt':'G',
+  'Uruguay':'H','Saudi Arabia':'H','Spain':'H','Cape Verde':'H','Cape Verde Islands':'H',
+  'Norway':'I','France':'I','Senegal':'I','Iraq':'I',
+  'Argentina':'J','Austria':'J','Jordan':'J','Algeria':'J',
+  'Congo DR':'K','Colombia':'K','Portugal':'K','Uzbekistan':'K',
+  'England':'L','Ghana':'L','Croatia':'L','Panama':'L'
+};
+
 function renderWcGroups(standings){
   const panel=document.getElementById('wc-groups-panel');
-  const groups=(standings&&standings.standings)?standings.standings.filter(s=>s.type==='TOTAL'):[];
-  if(!groups.length){ panel.innerHTML='<div class="wc-error-box">グループ順位データがまだありません。</div>'; return; }
+  const totalRow=(standings&&standings.standings)?standings.standings.find(s=>s.type==='TOTAL'):null;
+  if(!totalRow || !totalRow.table || !totalRow.table.length){ panel.innerHTML='<div class="wc-error-box">グループ順位データがまだありません。</div>'; return; }
+
+  // チームをグループ別に振り分け
+  const byGroup={};
+  totalRow.table.forEach(row=>{
+    const teamName=row.team?row.team.name:'';
+    const groupKey=WC_TEAM_TO_GROUP[teamName]||'?';
+    if(!byGroup[groupKey]) byGroup[groupKey]=[];
+    byGroup[groupKey].push(row);
+  });
+
+  const groupKeysSorted=Object.keys(byGroup).filter(k=>k!=='?').sort();
+  if(byGroup['?']) groupKeysSorted.push('?'); // 対応表にないチームは最後に「その他」としてまとめる
+
   let html='';
-  groups.forEach(g=>{
-    const groupLabel=g.group?('グループ '+g.group.replace('GROUP_','')):'順位表';
+  groupKeysSorted.forEach(key=>{
+    const rows=byGroup[key].slice().sort((a,b)=>{
+      if(b.points!==a.points) return b.points-a.points;
+      if(b.goalDifference!==a.goalDifference) return b.goalDifference-a.goalDifference;
+      return (b.goalsFor||0)-(a.goalsFor||0);
+    });
+    const groupLabel=key==='?'?'その他':('グループ '+key);
     html+='<div class="wc-group-card"><div class="wc-group-title">'+esc(groupLabel)+'</div>';
     html+='<table class="wc-group-table"><thead><tr><th>チーム</th><th>試合</th><th>勝</th><th>分</th><th>敗</th><th>得失点</th><th>点</th></tr></thead><tbody>';
-    g.table.forEach(row=>{
+    rows.forEach(row=>{
       const crest=row.team&&row.team.crest?row.team.crest:'';
       const name=wcTeamNameJa(row.team?row.team.name:'');
       html+='<tr><td><div class="wc-team-cell">'+(crest?'<img class="wc-team-flag" src="'+esc(crest)+'" alt="">':'')+esc(name)+'</div></td>'+

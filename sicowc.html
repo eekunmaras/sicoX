@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SicoWC — ワールドカップ予想</title>
+<style>
+:root{
+  --pitch:#0c1410;--pitch2:#0f1a14;--line:#1f2e24;--line2:#2a3d30;
+  --paper:#f4efe1;--paper-dim:#cfc6ab;
+  --gold:#d4af37;--gold-dim:#8a7330;
+  --win:#3ecf8e;--draw:#e8c44d;--lose:#e0566a;
+  --ink:#0c1410;--text:#eef2ec;--text2:#7c8c81;
+  --font-display:'Oswald','Arial Narrow',sans-serif;
+  --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'SF Mono',Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:var(--pitch);color:var(--text);font-family:var(--font-body);min-height:100%;}
+.sr-only{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
+button{font-family:inherit;}
+::-webkit-scrollbar{width:0;height:0;}
+
+.wc-root{
+  max-width:480px;margin:0 auto;min-height:100vh;position:relative;
+  background:
+    repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 2px,transparent 2px 42px),
+    radial-gradient(ellipse at 50% -10%,rgba(212,175,55,.07),transparent 60%),
+    var(--pitch);
+}
+
+/* ── header ── */
+.wc-hd{
+  position:sticky;top:0;z-index:30;background:rgba(12,20,16,.92);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);padding:14px 16px 12px;
+}
+.wc-hd-top{display:flex;align-items:center;justify-content:space-between;}
+.wc-brand{display:flex;align-items:center;gap:8px;}
+.wc-brand-mark{
+  width:26px;height:26px;border-radius:50%;border:2px solid var(--gold);
+  display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;
+  background:repeating-conic-gradient(var(--ink) 0deg 30deg, var(--paper) 30deg 60deg);
+}
+.wc-brand-name{font-family:var(--font-display);font-size:17px;letter-spacing:.06em;font-weight:600;text-transform:uppercase;color:var(--paper);}
+.wc-brand-sub{font-size:9px;letter-spacing:.14em;color:var(--gold-dim);text-transform:uppercase;margin-top:1px;}
+.wc-balance{text-align:right;}
+.wc-balance-lbl{font-size:9px;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;}
+.wc-balance-val{font-family:var(--font-mono);font-size:17px;font-weight:600;color:var(--gold);line-height:1.3;}
+.wc-sync-note{font-size:10px;color:var(--text2);margin-top:8px;}
+
+.wc-tabs{display:flex;gap:6px;padding:10px 16px 0;}
+.wc-tab{
+  flex:1;text-align:center;padding:9px 4px;font-size:12px;font-weight:600;letter-spacing:.02em;
+  border-radius:8px 8px 0 0;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;
+  transition:color .15s;
+}
+.wc-tab.on{color:var(--paper);border-bottom-color:var(--gold);}
+
+.wc-body{padding:14px 16px 90px;}
+.wc-section-title{
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);
+  margin:18px 0 10px;display:flex;align-items:center;gap:8px;
+}
+.wc-section-title::after{content:'';flex:1;height:1px;background:var(--line);}
+.wc-empty{
+  text-align:center;padding:34px 16px;color:var(--text2);font-size:13px;line-height:1.7;
+  border:1px dashed var(--line2);border-radius:14px;
+}
+.wc-loading{text-align:center;padding:30px 0;color:var(--text2);font-size:13px;}
+.wc-error-box{
+  text-align:center;padding:24px 16px;color:var(--lose);font-size:12.5px;line-height:1.7;
+  background:rgba(224,86,106,.07);border:1px solid rgba(224,86,106,.25);border-radius:12px;
+}
+
+/* ── match card (betting slip look) ── */
+.match-card{
+  position:relative;background:var(--pitch2);border:1px solid var(--line);border-radius:14px;
+  padding:13px 14px 12px;margin-bottom:12px;overflow:hidden;
+}
+.match-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line2);
+}
+.match-card.live::before{background:var(--win);box-shadow:0 0 8px var(--win);}
+.match-card.settled::before{background:var(--gold-dim);}
+.match-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.match-stage{font-size:10px;color:var(--gold-dim);letter-spacing:.05em;text-transform:uppercase;}
+.match-status{
+  font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;letter-spacing:.03em;
+  background:var(--line);color:var(--text2);
+}
+.match-status.live{background:rgba(62,207,142,.15);color:var(--win);}
+.match-status.fin{background:rgba(255,255,255,.06);color:var(--paper-dim);}
+.match-time{font-size:10px;color:var(--text2);}
+
+.match-teams{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.team-block{flex:1;display:flex;align-items:center;gap:8px;min-width:0;}
+.team-block.away{flex-direction:row-reverse;text-align:right;}
+.team-flag{width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--line);}
+.team-name{font-size:14px;font-weight:600;color:var(--paper);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.match-score{
+  font-family:var(--font-mono);font-size:19px;font-weight:700;padding:0 8px;white-space:nowrap;color:var(--text);
+  min-width:54px;text-align:center;
+}
+.match-score.vs{font-size:13px;color:var(--text2);font-weight:500;}
+
+/* odds buttons */
+.odds-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+.odds-btn{
+  display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px;border-radius:9px;
+  border:1px solid var(--line2);background:rgba(255,255,255,.02);cursor:pointer;transition:all .12s;
+}
+.odds-btn:active{transform:scale(.97);}
+.odds-btn .ol{font-size:10px;color:var(--text2);letter-spacing:.02em;}
+.odds-btn .ov{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--paper);}
+.odds-btn.sel{background:rgba(212,175,55,.12);border-color:var(--gold);}
+.odds-btn.sel .ov{color:var(--gold);}
+.odds-btn.win .ov{color:var(--win);}
+.odds-btn.lose .ov{color:var(--lose);}
+.odds-btn.disabled{opacity:.35;pointer-events:none;}
+
+.bet-row{display:none;margin-top:10px;}
+.bet-row.open{display:block;}
+.bet-amt-grid{display:flex;gap:5px;flex:1;}
+.bet-amt-btn{
+  flex:1;font-family:var(--font-mono);font-size:11.5px;padding:7px 2px;border-radius:7px;
+  border:1px solid var(--line2);background:rgba(255,255,255,.02);color:var(--paper-dim);cursor:pointer;
+}
+.bet-amt-btn.sel{background:rgba(212,175,55,.14);border-color:var(--gold);color:var(--gold);font-weight:700;}
+.bet-custom-wrap{display:flex;align-items:center;gap:5px;margin-top:6px;}
+.bet-custom-wrap .bcw-lbl{font-size:10.5px;color:var(--text2);white-space:nowrap;}
+.bet-custom-input{
+  flex:1;min-width:0;font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--paper);
+  background:rgba(255,255,255,.03);border:1px solid var(--line2);border-radius:7px;padding:7px 9px;
+  text-align:right;
+}
+.bet-custom-input:focus{outline:none;border-color:var(--gold);}
+.bet-custom-input.err{border-color:var(--lose);color:var(--lose);}
+.bet-custom-suffix{font-size:11px;color:var(--text2);}
+.bet-max-btn{
+  font-size:10.5px;font-weight:700;color:var(--gold);background:rgba(212,175,55,.1);
+  border:1px solid var(--gold-dim);border-radius:7px;padding:7px 9px;cursor:pointer;white-space:nowrap;
+}
+.bet-custom-err{font-size:10.5px;color:var(--lose);margin-top:4px;display:none;}
+.bet-confirm{
+  font-family:var(--font-mono);font-size:12px;font-weight:700;padding:8px 14px;border-radius:7px;
+  border:none;background:var(--gold);color:var(--ink);cursor:pointer;white-space:nowrap;letter-spacing:.02em;
+}
+.bet-confirm:disabled{background:var(--line2);color:var(--text2);}
+.bet-potential{font-size:10.5px;color:var(--text2);margin-top:6px;text-align:right;}
+.bet-potential b{color:var(--gold);}
+
+.already-bet{
+  margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(212,175,55,.08);
+  border:1px solid rgba(212,175,55,.25);font-size:11.5px;color:var(--paper-dim);display:flex;
+  justify-content:space-between;align-items:center;
+}
+.already-bet b{color:var(--gold);}
+.already-bet .res-won{color:var(--win);font-weight:700;}
+.already-bet .res-lost{color:var(--lose);font-weight:700;}
+
+.tweet-result-btn{
+  margin-top:10px;width:100%;padding:8px;border-radius:999px;border:1px solid var(--gold-dim);
+  background:transparent;color:var(--gold);font-size:11.5px;font-weight:700;cursor:pointer;
+}
+.tweet-result-btn:hover{background:rgba(212,175,55,.08);}
+
+/* ── champion picks ── */
+.champ-intro{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px;}
+.champ-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.champ-card{
+  position:relative;background:var(--pitch2);border:1px solid var(--line);border-radius:12px;
+  padding:11px 10px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .12s;
+}
+.champ-card:active{transform:scale(.97);}
+.champ-card.sel{border-color:var(--gold);background:rgba(212,175,55,.1);}
+.champ-card.disabled{opacity:.4;pointer-events:none;}
+.champ-flag{width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--line);}
+.champ-name{font-size:12.5px;font-weight:600;color:var(--paper);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
+.champ-odds{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--gold-dim);}
+.champ-card.sel .champ-odds{color:var(--gold);}
+
+.champ-slip{
+  position:sticky;bottom:0;margin:14px -16px -90px;padding:14px 16px calc(90px + 14px);
+  background:linear-gradient(to top,var(--pitch) 60%,transparent);
+}
+.champ-slip-inner{
+  background:var(--pitch2);border:1px solid var(--gold-dim);border-radius:14px;padding:12px 14px;
+}
+.champ-slip-pick{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px;}
+.champ-slip-pick b{color:var(--gold);}
+
+/* ── slips / my tickets ── */
+.ticket-card{
+  background:var(--pitch2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px;
+}
+.ticket-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.ticket-type{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.02em;}
+.ticket-type.match{background:rgba(212,175,55,.12);color:var(--gold);}
+.ticket-type.champ{background:rgba(212,175,55,.2);color:var(--gold);}
+.ticket-status{font-size:10.5px;font-weight:700;}
+.ticket-status.pending{color:var(--text2);}
+.ticket-status.won{color:var(--win);}
+.ticket-status.lost{color:var(--lose);}
+.ticket-desc{font-size:13px;color:var(--paper);margin-bottom:4px;}
+.ticket-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);font-family:var(--font-mono);}
+.ticket-foot .gain{color:var(--win);font-weight:700;}
+.ticket-foot .loss{color:var(--lose);font-weight:700;}
+
+/* ── how-it-works strip ── */
+.rules-strip{
+  display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px;
+}
+.rules-pill{
+  flex-shrink:0;font-size:10.5px;color:var(--text2);background:var(--pitch2);border:1px solid var(--line);
+  padding:6px 11px;border-radius:999px;white-space:nowrap;
+}
+.rules-pill b{color:var(--gold);}
+
+/* ── bottom nav (standalone mode) ── */
+.wc-bottomnav{
+  position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:40;
+  background:rgba(12,20,16,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);
+  display:flex;padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+}
+.wc-bottomnav.hidden{display:none;}
+.wc-nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0;cursor:pointer;
+  color:var(--text2);font-size:10px;
+}
+.wc-nav-item.on{color:var(--gold);}
+.wc-nav-icon{font-size:17px;}
+
+/* ── toast ── */
+.wc-toast-area{
+  position:fixed;left:0;right:0;top:14px;max-width:480px;margin:0 auto;z-index:60;padding:0 16px;
+  pointer-events:none;
+}
+.wc-toast{
+  background:var(--pitch2);border:1px solid var(--line2);border-radius:10px;padding:10px 14px;
+  font-size:12.5px;margin-bottom:6px;opacity:0;transform:translateY(-8px);transition:all .25s;color:var(--text);
+}
+.wc-toast.show{opacity:1;transform:translateY(0);}
+.wc-toast.win{border-color:var(--win);color:var(--win);}
+.wc-toast.lose{border-color:var(--lose);color:var(--lose);}
+.wc-toast.gold{border-color:var(--gold);color:var(--gold);}
+
+/* ── confirm modal ── */
+.wc-modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:70;display:none;align-items:center;justify-content:center;
+  padding:20px;
+}
+.wc-modal-bg.open{display:flex;}
+.wc-modal{
+  width:100%;max-width:360px;background:var(--pitch2);border:1px solid var(--gold-dim);border-radius:16px;padding:20px;
+}
+.wc-modal h3{font-family:var(--font-display);font-size:16px;letter-spacing:.03em;color:var(--paper);margin-bottom:12px;text-transform:uppercase;}
+.wc-modal p{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px;}
+.wc-modal p b{color:var(--gold);}
+.wc-modal-actions{display:flex;gap:8px;}
+.wc-modal-btn{flex:1;padding:11px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;}
+.wc-modal-btn.cancel{background:var(--line);color:var(--text2);}
+.wc-modal-btn.confirm{background:var(--gold);color:var(--ink);}
+
+@media (min-width:481px){
+  .wc-root{border-left:1px solid var(--line);border-right:1px solid var(--line);}
+}
+</style>
+</head>
+<body>
+
+<h1 class="sr-only">SicoWC — ワールドカップ予想ベッティング</h1>
+<div class="wc-root" id="wcRoot">
+
+  <div class="wc-hd">
+    <div class="wc-hd-top">
+      <div class="wc-brand">
+        <div class="wc-brand-mark">⚽</div>
+        <div>
+          <div class="wc-brand-name">SicoWC</div>
+          <div class="wc-brand-sub">World Cup Predictions</div>
+        </div>
+      </div>
+      <div class="wc-balance">
+        <div class="wc-balance-lbl">所持pt</div>
+        <div class="wc-balance-val" id="balVal">0</div>
+      </div>
+    </div>
+    <div class="wc-sync-note" id="syncNote">sicoXポイントと同期中...</div>
+    <div class="wc-tabs">
+      <div class="wc-tab on" data-tab="matches" onclick="switchTab('matches')">試合予想</div>
+      <div class="wc-tab" data-tab="champion" onclick="switchTab('champion')">優勝予想</div>
+      <div class="wc-tab" data-tab="tickets" onclick="switchTab('tickets')">マイ予想</div>
+    </div>
+  </div>
+
+  <div class="wc-body">
+
+    <!-- ===== MATCHES TAB ===== -->
+    <div class="wc-panel" id="panel-matches">
+      <div class="rules-strip">
+        <div class="rules-pill">勝ち <b>×1.8</b></div>
+        <div class="rules-pill">引き分け <b>×3.0</b></div>
+        <div class="rules-pill">キックオフ後は受付終了</div>
+        <div class="rules-pill">結果確定で自動払出</div>
+      </div>
+      <div class="wc-loading" id="matchesLoading">読み込み中…</div>
+      <div id="liveMatchesWrap"></div>
+      <div id="upcomingMatchesWrap"></div>
+      <div id="finishedMatchesWrap"></div>
+    </div>
+
+    <!-- ===== CHAMPION TAB ===== -->
+    <div class="wc-panel" id="panel-champion" style="display:none;">
+      <div class="champ-intro">優勝すると思う1チームに賭けます。オッズはFIFA世界ランキング（大会開幕時点）を基準に算出した固定倍率で、大会中の試合結果が出ても変動しません。大会終了まで予想の変更はできません。的中すれば賭けptがオッズ倍になって戻ってきます。</div>
+      <div class="wc-loading" id="champLoading">読み込み中…</div>
+      <div id="champGrid"></div>
+      <div id="champSlipWrap"></div>
+    </div>
+
+    <!-- ===== TICKETS TAB ===== -->
+    <div class="wc-panel" id="panel-tickets" style="display:none;">
+      <div class="wc-section-title">保留中の予想</div>
+      <div id="pendingTicketsWrap"><div class="wc-empty">まだ予想がありません</div></div>
+      <div class="wc-section-title">確定した予想</div>
+      <div id="settledTicketsWrap"><div class="wc-empty">まだ確定した予想がありません</div></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="wc-bottomnav" id="standaloneNav">
+  <div class="wc-nav-item on" data-tab="matches" onclick="switchTab('matches')"><span class="wc-nav-icon">⚽</span>試合</div>
+  <div class="wc-nav-item" data-tab="champion" onclick="switchTab('champion')"><span class="wc-nav-icon">🏆</span>優勝</div>
+  <div class="wc-nav-item" data-tab="tickets" onclick="switchTab('tickets')"><span class="wc-nav-icon">🎫</span>予想</div>
+</div>
+
+<div class="wc-toast-area" id="toastArea"></div>
+
+<div class="wc-modal-bg" id="confirmModal">
+  <div class="wc-modal">
+    <h3 id="modalTitle">予想を確定</h3>
+    <p id="modalBody"></p>
+    <div class="wc-modal-actions">
+      <button class="wc-modal-btn cancel" onclick="closeModal()">キャンセル</button>
+      <button class="wc-modal-btn confirm" id="modalConfirmBtn">確定する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// SicoWC — ワールドカップ予想ベッティングゲーム
+// SicoFXと同じpostMessage設計でsicoX本体とpt連携する。
+// 単体で開いた場合はスタンドアロンpt(10,000pt初期)で動作。
+// ══════════════════════════════════════════════════════════
+
+const WC_EMBEDDED = window.parent && window.parent !== window;
+const WC_REQS = new Map();
+
+function wcReq(type, payload={}, timeout=7000){
+  if(!WC_EMBEDDED) return Promise.resolve({ok:false, error:'sicoX内から起動してください'});
+  const reqId = 'wcbet'+Date.now()+Math.random().toString(36).slice(2,8);
+  return new Promise(resolve=>{
+    const timer=setTimeout(()=>{WC_REQS.delete(reqId);resolve({ok:false,error:'sicoXとの通信がタイムアウトしました'});},timeout);
+    WC_REQS.set(reqId,{resolve,timer});
+    parent.postMessage(Object.assign({type,reqId},payload),'*');
+  });
+}
+window.addEventListener('message', e=>{
+  const msg=e.data||{};
+  if(msg.type==='wcbet:response' && WC_REQS.has(msg.reqId)){
+    const req=WC_REQS.get(msg.reqId);
+    clearTimeout(req.timer);
+    WC_REQS.delete(msg.reqId);
+    req.resolve(msg);
+  }
+});
+
+function setSyncNote(text){
+  const el=document.getElementById('syncNote'); if(el) el.textContent=text;
+}
+
+// ── データ取得（sicoX本体と同じWorkerプロキシ） ──
+const WC_COMPETITION = 'WC';
+const WC_PROXY_BASE = 'https://sicox.eekunmaras.workers.dev/wc-proxy';
+
+async function wcApiFetch(path){
+  const res = await fetch(WC_PROXY_BASE+'?path='+encodeURIComponent(path));
+  if(!res.ok){
+    if(res.status===403||res.status===401) throw new Error('INVALID_KEY');
+    if(res.status===429) throw new Error('RATE_LIMIT');
+    throw new Error('FETCH_ERROR');
+  }
+  return res.json();
+}
+
+const WC_TEAM_NAME_JA={
+  'Japan':'日本','Brazil':'ブラジル','Argentina':'アルゼンチン','Germany':'ドイツ',
+  'France':'フランス','Spain':'スペイン','England':'イングランド','Portugal':'ポルトガル',
+  'Netherlands':'オランダ','Belgium':'ベルギー','Italy':'イタリア','Croatia':'クロアチア',
+  'Uruguay':'ウルグアイ','Colombia':'コロンビア','Mexico':'メキシコ','United States':'アメリカ',
+  'Canada':'カナダ','Korea Republic':'韓国','South Korea':'韓国','Morocco':'モロッコ',
+  'Senegal':'セネガル','Switzerland':'スイス','Denmark':'デンマーク','Poland':'ポーランド',
+  'Ghana':'ガーナ','Cameroon':'カメルーン','Tunisia':'チュニジア','Ecuador':'エクアドル',
+  'Wales':'ウェールズ','Iran':'イラン','Saudi Arabia':'サウジアラビア','Qatar':'カタール',
+  'Australia':'オーストラリア','Serbia':'セルビア','Costa Rica':'コスタリカ',
+  'New Zealand':'ニュージーランド','Jordan':'ヨルダン','Uzbekistan':'ウズベキスタン',
+  'Egypt':'エジプト','Algeria':'アルジェリア','Ivory Coast':'コートジボワール',
+  'Cape Verde':'カーボベルデ','South Africa':'南アフリカ','Curacao':'キュラソー',
+  'Haiti':'ハイチ','Panama':'パナマ','Paraguay':'パラグアイ','Bolivia':'ボリビア',
+  'Norway':'ノルウェー','Scotland':'スコットランド','Austria':'オーストリア',
+  'Czech Republic':'チェコ','Slovakia':'スロバキア','Ukraine':'ウクライナ',
+  'Turkey':'トルコ','Greece':'ギリシャ','Sweden':'スウェーデン','Finland':'フィンランド'
+};
+function teamJa(name){ return WC_TEAM_NAME_JA[name]||name||''; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ── 固定オッズ ──
+const ODDS_HOME=1.8, ODDS_DRAW=3.0, ODDS_AWAY=1.8;
+// 優勝オッズ：FIFAランキング的な強さの仮の階層。実データのstandings(grupo順位)から強さスコアを出して割り当てる。
+// FIFA男子ランキングのレーティングポイント参考値（2026年6月時点・実装時の参考値として固定）
+// 大会中に結果が出ても更新しない（一貫性重視）。出典: FIFA/Coca-Cola Men's World Ranking, ESPN (2026年6月11日)
+const FIFA_RATING = {
+  'Argentina': 1880, 'Spain': 1875, 'France': 1872, 'England': 1834,
+  'Portugal': 1764, 'Brazil': 1762, 'Morocco': 1756, 'Netherlands': 1750,
+  'Belgium': 1735, 'Germany': 1730, 'Croatia': 1717, 'Italy': 1702,
+  'Colombia': 1701, 'Mexico': 1683, 'Senegal': 1680, 'Uruguay': 1673,
+  'USA': 1665, 'United States': 1665, 'Japan': 1652, 'Switzerland': 1649, 'Iran': 1620,
+  'Denmark': 1610, 'Turkey': 1600, 'Türkiye': 1600, 'Ecuador': 1590, 'Austria': 1580,
+  'South Korea': 1570, 'Korea Republic': 1570, 'Nigeria': 1560, 'Australia': 1550, 'Algeria': 1540,
+  'Egypt': 1530, 'Canada': 1520,
+  'Norway': 1510, 'Ukraine': 1500, 'Ivory Coast': 1492, 'Côte d\'Ivoire': 1492, 'Panama': 1484,
+  'Russia': 1476, 'Poland': 1468, 'Wales': 1460, 'Sweden': 1452, 'Hungary': 1444, 'Paraguay': 1436,
+  'Czechia': 1412, 'Czech Republic': 1412, 'Scotland': 1428, 'Serbia': 1420, 'Cameroon': 1412, 'Tunisia': 1404,
+  'Congo DR': 1396, 'DR Congo': 1396, 'Slovakia': 1388, 'Greece': 1380, 'Venezuela': 1372, 'Uzbekistan': 1364,
+  'Qatar': 1330, 'Iraq': 1322, 'South Africa': 1306, 'Saudi Arabia': 1298,
+  'Jordan': 1282, 'Bosnia and Herzegovina': 1270, 'Cape Verde': 1258, 'Ghana': 1226, 'Curacao': 1178, 'Curaçao': 1178,
+  'Haiti': 1170, 'New Zealand': 1146,
+};
+const FIFA_RATING_BASE = 1880; // 1位チームの参考レーティング（オッズ計算の基準点）
+const FIFA_ODDS_MIN = 4.2;     // 最有力候補の優勝オッズ下限
+const FIFA_ODDS_SCALE = 130;   // レーティング差に対するオッズの上がり方（大きいほど緩やか）
+const FIFA_ODDS_MAX = 999;     // 最低評価チームでもこの倍率でクランプ
+
+function fifaChampOdds(teamName){
+  const r = FIFA_RATING[teamName];
+  const rating = (r!=null) ? r : 1150; // ランキング表に無いチームは最弱クラス相当を仮定
+  const diff = Math.max(0, FIFA_RATING_BASE - rating);
+  const odds = FIFA_ODDS_MIN * Math.exp(diff / FIFA_ODDS_SCALE);
+  return Math.min(Math.round(Math.min(odds, FIFA_ODDS_MAX) * 10) / 10, FIFA_ODDS_MAX);
+}
+
+// ══ アプリ状態 ══
+let G={
+  balance: WC_EMBEDDED ? 0 : 10000,
+  matchesData:null, standingsData:null,
+  myMatchBets:{},     // matchId -> {pick:'home'|'draw'|'away', amount, odds, status:'pending'|'won'|'lost', payout}
+  myChampPick:null,   // {team, odds, amount, status}
+  ticketLog:[],        // 履歴表示用（試合確定分）
+  curTab:'matches',
+  selectedMatch:null, selectedPick:null, selectedAmt:0,
+  selectedChamp:null,
+};
+
+const STORAGE_KEY='sicowc:state:v1';
+
+function saveLocal(){
+  if(WC_EMBEDDED) return; // embedded時はsicoX側のストレージに委ねる(将来拡張)。standaloneはlocalStateのみメモリ保持。
+}
+
+function fmtPt(n){ return Math.round(n).toLocaleString(); }
+
+function addToast(msg, cls=''){
+  const area=document.getElementById('toastArea');
+  const el=document.createElement('div');
+  el.className='wc-toast '+cls; el.textContent=msg;
+  area.appendChild(el);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));
+  setTimeout(()=>{el.classList.remove('show'); setTimeout(()=>el.remove(),300);},3200);
+  while(area.children.length>3) area.removeChild(area.firstChild);
+}
+
+function switchTab(tab){
+  G.curTab=tab;
+  document.querySelectorAll('.wc-tab').forEach(t=>t.classList.toggle('on', t.dataset.tab===tab));
+  document.querySelectorAll('.wc-nav-item').forEach(t=>t.classList.toggle('on', t.dataset.tab===tab));
+  document.querySelectorAll('.wc-panel').forEach(p=>p.style.display='none');
+  document.getElementById('panel-'+tab).style.display='block';
+  if(tab==='tickets') renderTickets();
+}
+
+// ══ ポイント・予想状態の同期（サーバー＝Supabaseが正） ══
+async function loadParentBalance(){
+  if(!WC_EMBEDDED){ setSyncNote('スタンドアロン残高でプレイ中'); updateBalanceUI(); return; }
+  setSyncNote('sicoXポイントと同期中...');
+  const res = await wcReq('wcbet:state:init', {}, 8000);
+  if(res.ok){
+    G.balance = Math.max(0, Math.round(Number(res.balance)||0));
+    G.myMatchBets = res.matchBets || {};
+    G.myChampPick = res.championBet || null;
+    setSyncNote('sicoX所持ポイントを使用中');
+  } else {
+    G.balance = 0;
+    setSyncNote(res.error || 'sicoXポイントを取得できませんでした');
+    addToast(res.error || 'ポイント取得に失敗しました','lose');
+  }
+  updateBalanceUI();
+}
+
+// スタンドアロン（非埋め込み）デモ用のローカル残高調整のみに使用。
+// 埋め込みモードでの賭けの確定・決済は専用のRPC経由メッセージ（wcbet:bet:*, wcbet:sync:matches）で行うため、
+// このsyncPointDeltaは賭けの確定処理からは呼ばれない（互換用に残置）。
+async function syncPointDelta(delta, reason, refId){
+  const cleanDelta = Math.round(Number(delta)||0);
+  if(cleanDelta===0) return {ok:true, balance:G.balance};
+  if(!WC_EMBEDDED){
+    G.balance = Math.max(0, Math.round(G.balance + cleanDelta));
+    updateBalanceUI();
+    return {ok:true, balance:G.balance};
+  }
+  const res = await wcReq('wcbet:points:update', {delta:cleanDelta, reason, refId}, 9000);
+  if(!res.ok){ addToast(res.error || 'ポイント反映に失敗しました','lose'); return res; }
+  G.balance = Math.max(0, Math.round(Number(res.balance)||0));
+  updateBalanceUI();
+  return res;
+}
+
+function updateBalanceUI(){
+  document.getElementById('balVal').textContent = fmtPt(G.balance);
+}
+
+// ══ 試合データ取得 ══
+async function loadMatchData(){
+  const loadingEl=document.getElementById('matchesLoading');
+  loadingEl.style.display='block'; loadingEl.textContent='読み込み中…';
+  try{
+    const standings = await wcApiFetch('/competitions/'+WC_COMPETITION+'/standings');
+    const matches = await wcApiFetch('/competitions/'+WC_COMPETITION+'/matches');
+    G.standingsData=standings; G.matchesData=matches;
+    loadingEl.style.display='none';
+    renderMatches();
+    renderChampionPicks();
+  }catch(e){
+    loadingEl.style.display='none';
+    let msg='⚽ 試合データの取得に失敗しました。少し時間を置いてから開いてみてください。';
+    if(e.message==='INVALID_KEY') msg='⚽ ワールドカップ情報は現在準備中です。';
+    if(e.message==='RATE_LIMIT') msg='⚽ APIへのアクセスが集中しています。少し時間を置いてから開いてください。';
+    document.getElementById('liveMatchesWrap').innerHTML='';
+    document.getElementById('upcomingMatchesWrap').innerHTML='<div class="wc-error-box">'+esc(msg)+'</div>';
+    document.getElementById('finishedMatchesWrap').innerHTML='';
+    document.getElementById('champGrid').innerHTML='<div class="wc-error-box">'+esc(msg)+'</div>';
+    document.getElementById('champLoading').style.display='none';
+  }
+}
+
+function matchStatusJa(status){
+  const map={SCHEDULED:'試合前',TIMED:'試合前',IN_PLAY:'試合中',PAUSED:'試合中（HT）',
+    FINISHED:'試合終了',POSTPONED:'延期',SUSPENDED:'中断',CANCELLED:'中止'};
+  return map[status]||status;
+}
+
+function isBettable(status){
+  return status==='SCHEDULED' || status==='TIMED';
+}
+
+// ══ 試合一覧の描画 ══
+function renderMatches(){
+  const data=G.matchesData;
+  const all=(data&&data.matches)?data.matches.slice():[];
+  const upcoming = all.filter(m=>isBettable(m.status))
+    .sort((a,b)=>new Date(a.utcDate)-new Date(b.utcDate));
+  const live = all.filter(m=>m.status==='IN_PLAY'||m.status==='PAUSED');
+  const finished = all.filter(m=>m.status==='FINISHED')
+    .sort((a,b)=>new Date(b.utcDate)-new Date(a.utcDate));
+
+  document.getElementById('liveMatchesWrap').innerHTML = live.length
+    ? '<div class="wc-section-title">試合中</div>' + live.map(m=>matchCardHtml(m)).join('')
+    : '';
+
+  document.getElementById('upcomingMatchesWrap').innerHTML = upcoming.length
+    ? '<div class="wc-section-title">予想受付中</div>' + upcoming.slice(0,30).map(m=>matchCardHtml(m)).join('')
+    : (live.length || finished.length ? '' : '<div class="wc-empty">現在受付中の試合がありません。<br>大会が始まると表示されます。</div>');
+
+  document.getElementById('finishedMatchesWrap').innerHTML = finished.length
+    ? '<div class="wc-section-title">結果確定済み</div>' + finished.slice(0,20).map(m=>matchCardHtml(m)).join('')
+    : '';
+
+  attachMatchCardHandlers();
+  syncMatchesWithParent(all);
+}
+
+function matchCardHtml(m){
+  const home=teamJa(m.homeTeam?m.homeTeam.name:'未定');
+  const away=teamJa(m.awayTeam?m.awayTeam.name:'未定');
+  const homeCrest=m.homeTeam&&m.homeTeam.crest?m.homeTeam.crest:'';
+  const awayCrest=m.awayTeam&&m.awayTeam.crest?m.awayTeam.crest:'';
+  const hs=(m.score&&m.score.fullTime&&m.score.fullTime.home!=null)?m.score.fullTime.home:null;
+  const as=(m.score&&m.score.fullTime&&m.score.fullTime.away!=null)?m.score.fullTime.away:null;
+  const hasScore = hs!=null && as!=null;
+  const dateStr=m.utcDate?new Date(m.utcDate).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+  const stageLabel=m.stage?m.stage.replace(/_/g,' '):'';
+  const bettable=isBettable(m.status);
+  const cardCls = m.status==='IN_PLAY'||m.status==='PAUSED' ? 'live' : (m.status==='FINISHED'?'settled':'');
+  const matchId=String(m.id);
+  const existingBet=G.myMatchBets[matchId];
+
+  let resultPick=null;
+  if(hasScore){ resultPick = hs===as ? 'draw' : (hs>as ? 'home' : 'away'); }
+
+  let oddsHtml='';
+  if(bettable){
+    oddsHtml = '<div class="odds-row">'+
+      oddsBtnHtml(matchId,'home','勝ち '+home,ODDS_HOME,existingBet)+
+      oddsBtnHtml(matchId,'draw','引き分け',ODDS_DRAW,existingBet)+
+      oddsBtnHtml(matchId,'away','勝ち '+away,ODDS_AWAY,existingBet)+
+      '</div>'+
+      '<div class="bet-row" id="betRow-'+matchId+'">'+
+        '<div style="flex:1;">'+
+          '<div class="bet-amt-grid">'+
+            [100,300,500,1000].map(a=>'<button class="bet-amt-btn" data-amt="'+a+'" onclick="selectBetAmt(\''+matchId+'\','+a+',this)">'+a+'</button>').join('')+
+          '</div>'+
+          '<div class="bet-custom-wrap">'+
+            '<span class="bcw-lbl">自由入力</span>'+
+            '<input type="number" class="bet-custom-input" id="betCustom-'+matchId+'" min="1" step="1" placeholder="pt" inputmode="numeric" oninput="onCustomBetInput(\''+matchId+'\',this.value)">'+
+            '<span class="bet-custom-suffix">pt</span>'+
+            '<button class="bet-max-btn" onclick="setMaxBet(\''+matchId+'\')">MAX</button>'+
+          '</div>'+
+          '<div class="bet-custom-err" id="betCustomErr-'+matchId+'"></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="bet-potential" id="betPotential-'+matchId+'" style="display:none;"></div>'+
+      '<button class="bet-confirm" id="betConfirm-'+matchId+'" disabled style="width:100%;margin-top:8px;padding:10px;" onclick="openMatchBetModal(\''+matchId+'\')">予想する</button>';
+  } else if(existingBet){
+    let statusHtml;
+    if(existingBet.status==='pending'){
+      statusHtml = '保留中（結果待ち）';
+    } else if(existingBet.status==='won'){
+      statusHtml = '<span class="res-won">的中！ +'+fmtPt(existingBet.payout)+'pt</span>';
+    } else {
+      statusHtml = '<span class="res-lost">不的中</span>';
+    }
+    const pickLabel = existingBet.pick==='home'?(home+'勝ち'):existingBet.pick==='away'?(away+'勝ち'):'引き分け';
+    oddsHtml = '<div class="already-bet"><span>あなたの予想: <b>'+esc(pickLabel)+'</b>（'+fmtPt(existingBet.amount)+'pt）</span>'+statusHtml+'</div>';
+  } else if(m.status==='FINISHED'){
+    oddsHtml = '<div class="wc-empty" style="padding:10px 0;border:none;">この試合には予想していません</div>';
+  }
+
+  const tweetBtn = (m.status==='FINISHED')
+    ? '<button class="tweet-result-btn" onclick="tweetWcMatch(\''+esc(home).replace(/'/g,"\\'")+'\',\''+esc(away).replace(/'/g,"\\'")+'\','+(hs!=null?hs:0)+','+(as!=null?as:0)+',\''+esc(stageLabel).replace(/'/g,"\\'")+'\')">📢 この結果をsicoXでポストする</button>'
+    : '';
+
+  return '<div class="match-card '+cardCls+'" data-match-id="'+matchId+'">'+
+    '<div class="match-meta"><span class="match-stage">'+esc(stageLabel)+'</span>'+
+      '<span class="match-status '+(m.status==='IN_PLAY'||m.status==='PAUSED'?'live':(m.status==='FINISHED'?'fin':''))+'">'+esc(matchStatusJa(m.status))+'</span></div>'+
+    '<div class="match-teams">'+
+      '<div class="team-block">'+(homeCrest?'<img class="team-flag" src="'+esc(homeCrest)+'" alt="">':'')+'<span class="team-name">'+esc(home)+'</span></div>'+
+      '<div class="match-score'+(hasScore?'':' vs')+'">'+(hasScore?(hs+' - '+as):dateStr)+'</div>'+
+      '<div class="team-block away">'+(awayCrest?'<img class="team-flag" src="'+esc(awayCrest)+'" alt="">':'')+'<span class="team-name">'+esc(away)+'</span></div>'+
+    '</div>'+
+    oddsHtml+
+    tweetBtn+
+  '</div>';
+}
+
+function oddsBtnHtml(matchId,pick,label,odds,existingBet){
+  const sel = existingBet ? '' : '';
+  return '<div class="odds-btn" data-pick="'+pick+'" onclick="selectMatchPick(\''+matchId+'\',\''+pick+'\',this)">'+
+    '<div class="ol">'+esc(label)+'</div><div class="ov">×'+odds.toFixed(1)+'</div></div>';
+}
+
+function attachMatchCardHandlers(){ /* イベントはinline onclickで割当済み */ }
+
+function selectMatchPick(matchId, pick, btnEl){
+  if(G.myMatchBets[matchId]) return; // 既に予想済みなら変更不可
+  G.selectedMatch=matchId; G.selectedPick=pick;
+  const card=btnEl.closest('.match-card');
+  card.querySelectorAll('.odds-btn').forEach(b=>b.classList.remove('sel'));
+  btnEl.classList.add('sel');
+  const row=document.getElementById('betRow-'+matchId);
+  row.classList.add('open');
+  const confirmBtn=document.getElementById('betConfirm-'+matchId);
+  if(confirmBtn) confirmBtn.disabled = !(G.selectedAmt>0 && G.selectedAmt<=G.balance);
+  updateBetPotential(matchId);
+}
+
+function selectBetAmt(matchId, amt, btnEl){
+  G.selectedMatch=matchId; G.selectedAmt=amt;
+  const row=document.getElementById('betRow-'+matchId);
+  row.querySelectorAll('.bet-amt-btn').forEach(b=>b.classList.remove('sel'));
+  btnEl.classList.add('sel');
+  const customInput=document.getElementById('betCustom-'+matchId);
+  if(customInput) customInput.value='';
+  clearBetCustomErr(matchId);
+  const confirmBtn=document.getElementById('betConfirm-'+matchId);
+  confirmBtn.disabled = !(G.selectedPick && amt>0 && amt<=G.balance);
+  updateBetPotential(matchId);
+}
+
+function clearBetCustomErr(matchId){
+  const errEl=document.getElementById('betCustomErr-'+matchId);
+  const inputEl=document.getElementById('betCustom-'+matchId);
+  if(errEl){ errEl.style.display='none'; errEl.textContent=''; }
+  if(inputEl) inputEl.classList.remove('err');
+}
+
+function onCustomBetInput(matchId, rawVal){
+  G.selectedMatch=matchId;
+  const row=document.getElementById('betRow-'+matchId);
+  const confirmBtn=document.getElementById('betConfirm-'+matchId);
+  const errEl=document.getElementById('betCustomErr-'+matchId);
+  const inputEl=document.getElementById('betCustom-'+matchId);
+  row.querySelectorAll('.bet-amt-btn').forEach(b=>b.classList.remove('sel'));
+
+  const n=Math.floor(Number(rawVal));
+  if(!rawVal || isNaN(n) || n<=0){
+    G.selectedAmt=0;
+    clearBetCustomErr(matchId);
+    confirmBtn.disabled=true;
+    updateBetPotential(matchId);
+    return;
+  }
+  if(n>G.balance){
+    G.selectedAmt=G.balance;
+    inputEl.classList.add('err');
+    errEl.style.display='block';
+    errEl.textContent='所持pt（'+fmtPt(G.balance)+'pt）を超えています。最大まで賭けるには「MAX」を使ってください。';
+    confirmBtn.disabled = !(G.selectedPick && G.balance>0);
+    updateBetPotential(matchId, n); // 入力値そのものは表示するが賭け可能額はクランプ済み
+    return;
+  }
+  clearBetCustomErr(matchId);
+  G.selectedAmt=n;
+  confirmBtn.disabled = !(G.selectedPick && n>0);
+  updateBetPotential(matchId);
+}
+
+function setMaxBet(matchId){
+  const inputEl=document.getElementById('betCustom-'+matchId);
+  const row=document.getElementById('betRow-'+matchId);
+  row.querySelectorAll('.bet-amt-btn').forEach(b=>b.classList.remove('sel'));
+  if(inputEl) inputEl.value = G.balance>0 ? G.balance : '';
+  clearBetCustomErr(matchId);
+  G.selectedMatch=matchId; G.selectedAmt=G.balance;
+  const confirmBtn=document.getElementById('betConfirm-'+matchId);
+  confirmBtn.disabled = !(G.selectedPick && G.balance>0);
+  updateBetPotential(matchId);
+}
+
+function pickOdds(pick){
+  return pick==='home'?ODDS_HOME:pick==='draw'?ODDS_DRAW:ODDS_AWAY;
+}
+
+function updateBetPotential(matchId, displayAmtOverride){
+  const el=document.getElementById('betPotential-'+matchId);
+  if(!el) return;
+  const amt = displayAmtOverride!=null ? displayAmtOverride : G.selectedAmt;
+  if(G.selectedMatch===matchId && G.selectedPick && amt>0){
+    const odds=pickOdds(G.selectedPick);
+    const potential=Math.round(amt*odds);
+    el.style.display='block';
+    el.innerHTML='的中時の獲得: <b>+'+fmtPt(potential)+'pt</b>（×'+odds.toFixed(1)+'）';
+  } else {
+    el.style.display='none';
+  }
+}
+
+function openMatchBetModal(matchId){
+  if(G.selectedMatch!==matchId || !G.selectedPick || !G.selectedAmt) return;
+  if(G.selectedAmt>G.balance){ addToast('残高が不足しています','lose'); return; }
+  const m=findMatchById(matchId);
+  if(!m) return;
+  const home=teamJa(m.homeTeam?m.homeTeam.name:'未定');
+  const away=teamJa(m.awayTeam?m.awayTeam.name:'未定');
+  const pickLabel = G.selectedPick==='home'?(home+'の勝ち'):G.selectedPick==='away'?(away+'の勝ち'):'引き分け';
+  const odds=pickOdds(G.selectedPick);
+  const potential=Math.round(G.selectedAmt*odds);
+  document.getElementById('modalTitle').textContent='試合予想を確定';
+  document.getElementById('modalBody').innerHTML=
+    home+' vs '+away+'<br><br>予想: <b>'+esc(pickLabel)+'</b>　賭けpt: <b>'+fmtPt(G.selectedAmt)+'pt</b><br>'+
+    '的中時の獲得: <b>+'+fmtPt(potential)+'pt</b>（×'+odds.toFixed(1)+'）';
+  document.getElementById('modalConfirmBtn').onclick=()=>confirmMatchBet(matchId);
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function confirmMatchBet(matchId){
+  closeModal();
+  const pick=G.selectedPick, amt=G.selectedAmt, odds=pickOdds(pick);
+  if(amt>G.balance){ addToast('残高が不足しています','lose'); return; }
+  const m=findMatchById(matchId);
+  const home=teamJa(m.homeTeam?m.homeTeam.name:'');
+  const away=teamJa(m.awayTeam?m.awayTeam.name:'');
+  const stage=m.stage?m.stage.replace(/_/g,' '):'';
+  if(!WC_EMBEDDED){
+    const id='wcbet-match-'+matchId+'-'+Date.now();
+    const res=await syncPointDelta(-amt, 'SicoWC 試合予想 '+home+' vs '+away, id);
+    if(!res.ok) return;
+    G.myMatchBets[matchId]={pick, amount:amt, odds, status:'pending', payout:0, home, away};
+    addToast('予想を受け付けました（-'+fmtPt(amt)+'pt）','gold');
+    G.selectedMatch=null; G.selectedPick=null; G.selectedAmt=0;
+    renderMatches();
+    return;
+  }
+  const res = await wcReq('wcbet:bet:match', {matchId, homeTeam:home, awayTeam:away, stage, pick, odds, amount:amt}, 9000);
+  if(!res.ok){ addToast(res.error || '予想の登録に失敗しました','lose'); return; }
+  G.balance = Math.max(0, Math.round(Number(res.balance)||0));
+  const b=res.bet||{};
+  G.myMatchBets[matchId]={pick:b.pick||pick, amount:b.amount!=null?b.amount:amt, odds:b.odds!=null?b.odds:odds, status:b.status||'pending', payout:b.payout||0, home, away};
+  updateBalanceUI();
+  addToast('予想を受け付けました（-'+fmtPt(amt)+'pt）','gold');
+  G.selectedMatch=null; G.selectedPick=null; G.selectedAmt=0;
+  renderMatches();
+}
+
+function findMatchById(matchId){
+  const all=(G.matchesData&&G.matchesData.matches)?G.matchesData.matches:[];
+  return all.find(m=>String(m.id)===String(matchId));
+}
+
+// ══ 試合の同期＆決済（埋め込み時はSupabase RPC経由でサーバーが正として決済する） ══
+async function syncMatchesWithParent(allMatches){
+  if(!WC_EMBEDDED){
+    // スタンドアロン用：旧来のクライアント側ローカル決済シミュレーションを維持
+    const finished=allMatches.filter(m=>m.status==='FINISHED');
+    for(const m of finished){
+      const matchId=String(m.id);
+      const bet=G.myMatchBets[matchId];
+      if(!bet || bet.status!=='pending') continue;
+      const hs=(m.score&&m.score.fullTime&&m.score.fullTime.home!=null)?m.score.fullTime.home:null;
+      const as=(m.score&&m.score.fullTime&&m.score.fullTime.away!=null)?m.score.fullTime.away:null;
+      if(hs==null||as==null) continue;
+      const result = hs===as ? 'draw' : (hs>as ? 'home' : 'away');
+      const won = bet.pick===result;
+      bet.status = won ? 'won' : 'lost';
+      if(won){
+        const payout=Math.round(bet.amount*bet.odds);
+        bet.payout=payout;
+        const res=await syncPointDelta(payout, 'SicoWC 予想的中 '+bet.home+' vs '+bet.away, 'wcbet-payout-'+matchId);
+        if(res.ok) addToast(bet.home+' vs '+bet.away+' 的中！ +'+fmtPt(payout)+'pt','win');
+      } else {
+        addToast(bet.home+' vs '+bet.away+' の予想は不的中でした','lose');
+      }
+    }
+    if(document.getElementById('panel-tickets').style.display!=='none') renderTickets();
+    return;
+  }
+  const payload = allMatches.map(m=>({
+    id:String(m.id), homeTeam:m.homeTeam?m.homeTeam.name:null, awayTeam:m.awayTeam?m.awayTeam.name:null,
+    stage:m.stage||null, status:m.status,
+    utcDate:m.utcDate||null,
+    homeScore:(m.score&&m.score.fullTime&&m.score.fullTime.home!=null)?m.score.fullTime.home:null,
+    awayScore:(m.score&&m.score.fullTime&&m.score.fullTime.away!=null)?m.score.fullTime.away:null
+  }));
+  const res = await wcReq('wcbet:sync:matches', {matches:payload}, 15000);
+  if(!res.ok) return;
+  applyServerState(res);
+}
+
+function applyServerState(res){
+  G.balance = Math.max(0, Math.round(Number(res.balance)||0));
+  const newBets = res.matchBets || {};
+  Object.keys(newBets).forEach(matchId=>{
+    const before=G.myMatchBets[matchId];
+    const after=newBets[matchId];
+    if(before && before.status==='pending' && after.status==='won'){
+      addToast(after.home+' vs '+after.away+' 的中！ +'+fmtPt(after.payout)+'pt','win');
+    } else if(before && before.status==='pending' && after.status==='lost'){
+      addToast(after.home+' vs '+after.away+' の予想は不的中でした','lose');
+    }
+  });
+  G.myMatchBets = newBets;
+
+  const newChamp = res.championBet || null;
+  const beforeChamp = G.myChampPick;
+  if(beforeChamp && beforeChamp.status==='pending' && newChamp && newChamp.status==='won'){
+    addToast('優勝予想的中！ +'+fmtPt(newChamp.payout)+'pt','win');
+  } else if(beforeChamp && beforeChamp.status==='pending' && newChamp && newChamp.status==='lost'){
+    addToast('優勝予想は不的中でした','lose');
+  }
+  G.myChampPick = newChamp;
+
+  updateBalanceUI();
+  renderMatches();
+  renderChampionPicks();
+  if(document.getElementById('panel-tickets').style.display!=='none') renderTickets();
+}
+
+// ══ 優勝予想（FIFAランキングのレーティングポイントに基づく固定オッズ） ══
+function getEntrantTeams(){
+  // standings(グループ表)と matches(対戦表) の両方から出場チーム一覧を集める（重複除去）
+  const seen={}; const teams=[];
+  const standings=G.standingsData;
+  const groups=(standings&&standings.standings)?standings.standings.filter(s=>s.type==='TOTAL'):[];
+  groups.forEach(g=>{
+    (g.table||[]).forEach(row=>{
+      if(row.team && row.team.name && !seen[row.team.name]){
+        seen[row.team.name]=true;
+        teams.push({name:row.team.name, crest:row.team.crest});
+      }
+    });
+  });
+  const all=(G.matchesData&&G.matchesData.matches)?G.matchesData.matches:[];
+  all.forEach(m=>{
+    [m.homeTeam,m.awayTeam].forEach(t=>{
+      if(t&&t.name&&!seen[t.name]){ seen[t.name]=true; teams.push({name:t.name,crest:t.crest}); }
+    });
+  });
+  // FIFAランキングのレーティングが高い順に並べる（ランキング外のチームは最後尾）
+  teams.sort((a,b)=>{
+    const ra = FIFA_RATING[a.name]!=null ? FIFA_RATING[a.name] : -1;
+    const rb = FIFA_RATING[b.name]!=null ? FIFA_RATING[b.name] : -1;
+    return rb-ra;
+  });
+  return teams;
+}
+
+function renderChampionPicks(){
+  const loadingEl=document.getElementById('champLoading');
+  let teams=getEntrantTeams();
+  loadingEl.style.display='none';
+  if(!teams.length){
+    document.getElementById('champGrid').innerHTML='<div class="wc-empty">出場チーム情報がまだありません。<br>大会が始まると表示されます。</div>';
+    return;
+  }
+  const html = teams.slice(0,48).map((t)=>{
+    const odds = fifaChampOdds(t.name);
+    const disabled = G.myChampPick && G.myChampPick.team!==t.name;
+    const sel = G.myChampPick && G.myChampPick.team===t.name;
+    return '<div class="champ-card'+(sel?' sel':'')+(disabled?' disabled':'')+'" data-team="'+esc(t.name)+'" data-odds="'+odds+'" onclick="selectChampPick(this)">'+
+      (t.crest?'<img class="champ-flag" src="'+esc(t.crest)+'" alt="">':'<div class="champ-flag"></div>')+
+      '<span class="champ-name">'+esc(teamJa(t.name))+'</span>'+
+      '<span class="champ-odds">×'+odds+'</span>'+
+    '</div>';
+  }).join('');
+  document.getElementById('champGrid').innerHTML = '<div class="champ-grid">'+html+'</div>';
+  renderChampSlip();
+}
+
+function selectChampPick(el){
+  if(G.myChampPick) return; // 既に確定済みなら変更不可
+  document.querySelectorAll('.champ-card').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  G.selectedChamp={team:el.dataset.team, odds:parseFloat(el.dataset.odds)};
+  renderChampSlip();
+}
+
+function renderChampSlip(){
+  const wrap=document.getElementById('champSlipWrap');
+  if(G.myChampPick){
+    const p=G.myChampPick;
+    let statusLine='保留中（大会終了後に確定）';
+    if(p.status==='won') statusLine='<span class="res-won">優勝的中！ +'+fmtPt(p.payout)+'pt</span>';
+    if(p.status==='lost') statusLine='<span class="res-lost">不的中</span>';
+    wrap.innerHTML = '<div class="champ-slip"><div class="champ-slip-inner">'+
+      '<div class="champ-slip-pick">優勝予想: <b>'+esc(teamJa(p.team))+'</b>（'+fmtPt(p.amount)+'pt ×'+p.odds+'）</div>'+
+      '<div style="font-size:12px;color:var(--text2);">'+statusLine+'</div>'+
+    '</div></div>';
+    return;
+  }
+  if(!G.selectedChamp){ wrap.innerHTML=''; return; }
+  const t=G.selectedChamp;
+  wrap.innerHTML = '<div class="champ-slip"><div class="champ-slip-inner">'+
+    '<div class="champ-slip-pick">優勝予想: <b>'+esc(teamJa(t.team))+'</b>（オッズ ×'+t.odds+'）</div>'+
+    '<div class="bet-amt-grid" style="margin-bottom:6px;">'+
+      [500,1000,3000,5000].map(a=>'<button class="bet-amt-btn" data-amt="'+a+'" onclick="selectChampAmt('+a+',this)">'+a+'</button>').join('')+
+    '</div>'+
+    '<div class="bet-custom-wrap">'+
+      '<span class="bcw-lbl">自由入力</span>'+
+      '<input type="number" class="bet-custom-input" id="champCustomInput" min="1" step="1" placeholder="pt" inputmode="numeric" oninput="onCustomChampInput(this.value)">'+
+      '<span class="bet-custom-suffix">pt</span>'+
+      '<button class="bet-max-btn" onclick="setMaxChampBet()">MAX</button>'+
+    '</div>'+
+    '<div class="bet-custom-err" id="champCustomErr"></div>'+
+    '<div class="bet-potential" id="champPotential" style="display:none;margin:8px 0;"></div>'+
+    '<button class="bet-confirm" id="champConfirmBtn" disabled style="width:100%;padding:11px;" onclick="openChampBetModal()">優勝予想を確定する</button>'+
+  '</div></div>';
+}
+
+let champSelectedAmt=0;
+function selectChampAmt(amt, btnEl){
+  champSelectedAmt=amt;
+  document.querySelectorAll('#champSlipWrap .bet-amt-btn').forEach(b=>b.classList.remove('sel'));
+  btnEl.classList.add('sel');
+  const customInput=document.getElementById('champCustomInput');
+  if(customInput) customInput.value='';
+  clearChampCustomErr();
+  document.getElementById('champConfirmBtn').disabled = !(amt>0 && amt<=G.balance);
+  updateChampPotential();
+}
+
+function clearChampCustomErr(){
+  const errEl=document.getElementById('champCustomErr');
+  const inputEl=document.getElementById('champCustomInput');
+  if(errEl){ errEl.style.display='none'; errEl.textContent=''; }
+  if(inputEl) inputEl.classList.remove('err');
+}
+
+function onCustomChampInput(rawVal){
+  document.querySelectorAll('#champSlipWrap .bet-amt-btn').forEach(b=>b.classList.remove('sel'));
+  const confirmBtn=document.getElementById('champConfirmBtn');
+  const errEl=document.getElementById('champCustomErr');
+  const inputEl=document.getElementById('champCustomInput');
+
+  const n=Math.floor(Number(rawVal));
+  if(!rawVal || isNaN(n) || n<=0){
+    champSelectedAmt=0;
+    clearChampCustomErr();
+    confirmBtn.disabled=true;
+    updateChampPotential();
+    return;
+  }
+  if(n>G.balance){
+    champSelectedAmt=G.balance;
+    inputEl.classList.add('err');
+    errEl.style.display='block';
+    errEl.textContent='所持pt（'+fmtPt(G.balance)+'pt）を超えています。最大まで賭けるには「MAX」を使ってください。';
+    confirmBtn.disabled = !(G.balance>0);
+    updateChampPotential(n);
+    return;
+  }
+  clearChampCustomErr();
+  champSelectedAmt=n;
+  confirmBtn.disabled = !(n>0);
+  updateChampPotential();
+}
+
+function setMaxChampBet(){
+  const inputEl=document.getElementById('champCustomInput');
+  document.querySelectorAll('#champSlipWrap .bet-amt-btn').forEach(b=>b.classList.remove('sel'));
+  if(inputEl) inputEl.value = G.balance>0 ? G.balance : '';
+  clearChampCustomErr();
+  champSelectedAmt=G.balance;
+  document.getElementById('champConfirmBtn').disabled = !(G.balance>0);
+  updateChampPotential();
+}
+
+function updateChampPotential(displayAmtOverride){
+  const potEl=document.getElementById('champPotential');
+  if(!potEl) return;
+  const amt = displayAmtOverride!=null ? displayAmtOverride : champSelectedAmt;
+  if(amt>0 && G.selectedChamp){
+    const potential=Math.round(amt*G.selectedChamp.odds);
+    potEl.style.display='block';
+    potEl.innerHTML='優勝的中時の獲得: <b>+'+fmtPt(potential)+'pt</b>';
+  } else {
+    potEl.style.display='none';
+  }
+}
+
+function openChampBetModal(){
+  if(!G.selectedChamp || champSelectedAmt<=0) return;
+  if(champSelectedAmt>G.balance){ addToast('残高が不足しています','lose'); return; }
+  const t=G.selectedChamp;
+  const potential=Math.round(champSelectedAmt*t.odds);
+  document.getElementById('modalTitle').textContent='優勝予想を確定';
+  document.getElementById('modalBody').innerHTML=
+    '優勝予想: <b>'+esc(teamJa(t.team))+'</b>（オッズ ×'+t.odds+'）<br>賭けpt: <b>'+fmtPt(champSelectedAmt)+'pt</b><br><br>'+
+    '優勝的中時の獲得: <b>+'+fmtPt(potential)+'pt</b><br><br>'+
+    '<span style="color:var(--lose);">※大会終了まで予想の変更はできません。</span>';
+  document.getElementById('modalConfirmBtn').onclick=confirmChampBet;
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+async function confirmChampBet(){
+  closeModal();
+  const t=G.selectedChamp, amt=champSelectedAmt;
+  if(amt>G.balance){ addToast('残高が不足しています','lose'); return; }
+  if(!WC_EMBEDDED){
+    const id='wcbet-champ-'+Date.now();
+    const res=await syncPointDelta(-amt, 'SicoWC 優勝予想 '+t.team, id);
+    if(!res.ok) return;
+    G.myChampPick={team:t.team, odds:t.odds, amount:amt, status:'pending', payout:0};
+    addToast('優勝予想を受け付けました（-'+fmtPt(amt)+'pt）','gold');
+    renderChampionPicks();
+    return;
+  }
+  const res = await wcReq('wcbet:bet:champion', {team:t.team, odds:t.odds, amount:amt}, 9000);
+  if(!res.ok){ addToast(res.error || '優勝予想の登録に失敗しました','lose'); return; }
+  G.balance = Math.max(0, Math.round(Number(res.balance)||0));
+  const b=res.bet||{};
+  G.myChampPick={team:b.team||t.team, odds:b.odds!=null?b.odds:t.odds, amount:b.amount!=null?b.amount:amt, status:b.status||'pending', payout:b.payout||0};
+  updateBalanceUI();
+  addToast('優勝予想を受け付けました（-'+fmtPt(amt)+'pt）','gold');
+  renderChampionPicks();
+}
+
+function closeModal(){ document.getElementById('confirmModal').classList.remove('open'); }
+
+// ══ マイ予想（履歴）タブ ══
+function renderTickets(){
+  const pendingWrap=document.getElementById('pendingTicketsWrap');
+  const settledWrap=document.getElementById('settledTicketsWrap');
+  const pending=[], settled=[];
+
+  Object.keys(G.myMatchBets).forEach(matchId=>{
+    const b=G.myMatchBets[matchId];
+    const pickLabel=b.pick==='home'?(b.home+'の勝ち'):b.pick==='away'?(b.away+'の勝ち'):'引き分け';
+    const ticket={type:'match', label:b.home+' vs '+b.away, desc:pickLabel, amount:b.amount, odds:b.odds, status:b.status, payout:b.payout};
+    (b.status==='pending'?pending:settled).push(ticket);
+  });
+  if(G.myChampPick){
+    const p=G.myChampPick;
+    const ticket={type:'champ', label:'優勝予想', desc:teamJa(p.team)+' の優勝', amount:p.amount, odds:p.odds, status:p.status, payout:p.payout};
+    (p.status==='pending'?pending:settled).push(ticket);
+  }
+
+  pendingWrap.innerHTML = pending.length
+    ? pending.map(ticketCardHtml).join('')
+    : '<div class="wc-empty">まだ予想がありません</div>';
+  settledWrap.innerHTML = settled.length
+    ? settled.map(ticketCardHtml).join('')
+    : '<div class="wc-empty">まだ確定した予想がありません</div>';
+}
+
+function ticketCardHtml(t){
+  const statusCls = t.status==='pending'?'pending':t.status==='won'?'won':'lost';
+  const statusLabel = t.status==='pending'?'保留中':t.status==='won'?'的中':'不的中';
+  const footRight = t.status==='won'
+    ? '<span class="gain">+'+fmtPt(t.payout)+'pt</span>'
+    : t.status==='lost' ? '<span class="loss">-'+fmtPt(t.amount)+'pt</span>'
+    : '賭け '+fmtPt(t.amount)+'pt';
+  return '<div class="ticket-card">'+
+    '<div class="ticket-top"><span class="ticket-type '+(t.type==='champ'?'champ':'match')+'">'+(t.type==='champ'?'優勝予想':'試合予想')+'</span>'+
+      '<span class="ticket-status '+statusCls+'">'+statusLabel+'</span></div>'+
+    '<div class="ticket-desc">'+esc(t.label)+' — '+esc(t.desc)+'</div>'+
+    '<div class="ticket-foot"><span>オッズ ×'+t.odds+'</span>'+footRight+'</div>'+
+  '</div>';
+}
+
+// ══ 試合結果をsicoXへポスト ══
+async function tweetWcMatch(home,away,hs,as,stage){
+  const winner = hs===as ? '引き分け' : (hs>as ? home+'の勝利' : away+'の勝利');
+  const stageText = stage ? ('【'+stage+'】') : '';
+  const text = '⚽SicoWC予想結果\n'+stageText+home+' '+hs+' - '+as+' '+away+'\n'+winner+'！ #ワールドカップ #SicoWC';
+  if(!WC_EMBEDDED){ addToast('sicoX内から起動するとポストできます','gold'); return; }
+  const res = await wcReq('wcbet:tweet', {text, home, away, hs, as, stage}, 7000);
+  if(res.ok) addToast('sicoXにポストしました','win');
+  else addToast(res.error || 'ポストに失敗しました','lose');
+}
+window.tweetWcMatch=tweetWcMatch;
+
+// ══ 離脱時：保留中の賭けは没収しない（ステータスはpendingのまま保持） ══
+// SicoFXのような強制決済は行わない。試合は外部要因で結果が出るまで保留が正しい。
+
+// ══ 自動更新（5分おきに試合データを再取得） ══
+let pollTimer=null;
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer=setInterval(()=>{ loadMatchData(); }, 5*60*1000);
+}
+
+// ══ 初期化 ══
+(async function init(){
+  if(!WC_EMBEDDED) document.getElementById('standaloneNav').classList.remove('hidden');
+  else document.getElementById('standaloneNav').classList.add('hidden');
+  await loadParentBalance();
+  await loadMatchData();
+  startPolling();
+})();
+</script>
+</body>
+</html>

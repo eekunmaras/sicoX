@@ -2177,7 +2177,7 @@ const GROK_USER = {
 
 // ⚠️ 管理者にしたいユーザーの @ハンドル をここに追加してください
 
-const ADMIN_HANDLES = ['emara'];
+const ADMIN_HANDLES = ['admin'];
 
 function isAdminUser(){
 
@@ -7934,7 +7934,7 @@ canvas.next-cv{display:block;margin:0 auto;}
 
 #flash{position:fixed;inset:0;pointer-events:none;z-index:80;background:#fff;opacity:0;}
 
-#hint{flex-shrink:0;font-size:9px;color:rgba(120,170,255,0.5);text-align:center;padding:2px 4px 3px;line-height:1.7;width:100%;}
+#hint{flex-shrink:0;font-size:9px;color:rgba(120,170,255,0.45);text-align:center;padding:1px 4px 2px;line-height:1.5;width:100%;max-width:400px;}
 
 #overlay{position:fixed;inset:0;z-index:100;background:rgba(0,8,40,0.93);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
 
@@ -7978,9 +7978,24 @@ canvas.next-cv{display:block;margin:0 auto;}
 
 #ranking-close{display:block;width:100%;margin-top:12px;background:#001166;border:1px solid #3366cc;color:#88bbff;border-radius:8px;padding:7px;font-size:13px;cursor:pointer;font-family:inherit;}
 
+/* ── コントロール選択 ── */
+#ctrl-select{text-align:center;margin-top:2px;}
+#ctrl-select-lbl{font-size:11px;color:#6688bb;letter-spacing:1px;margin-bottom:8px;}
+#ctrl-select-btns{display:flex;gap:10px;justify-content:center;}
+.ctrl-sel-btn{background:#001166;border:2px solid #3366ff;color:#88bbff;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;letter-spacing:.5px;transition:all .12s;-webkit-tap-highlight-color:transparent;}
+.ctrl-sel-btn:active{opacity:.75;}
+.ctrl-sel-btn.selected{background:linear-gradient(135deg,#1a33bb,#2255ee);color:#fff;border-color:#55aaff;box-shadow:0 0 14px rgba(85,170,255,.55);}
 
-
-
+/* ── バーチャルパッド（固定オーバーレイ・半透過） ── */
+#vpad{display:none;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:400px;background:transparent;padding:8px 16px max(14px,env(safe-area-inset-bottom));align-items:center;justify-content:space-between;pointer-events:none;z-index:50;-webkit-tap-highlight-color:transparent;}
+#vpad.active{display:flex;}
+#vpad-left,#vpad-right{display:flex;gap:10px;pointer-events:auto;}
+.vpad-btn{width:62px;height:62px;border-radius:14px;border:2px solid rgba(100,160,255,.4);background:rgba(8,20,80,.42);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);color:rgba(140,190,255,.85);font-size:26px;font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;display:flex;align-items:center;justify-content:center;touch-action:none;box-shadow:0 2px 10px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);transition:transform .06s,box-shadow .06s,background .06s,opacity .06s;}
+.vpad-btn.pressed,.vpad-btn:active{background:rgba(30,70,200,.55);border-color:rgba(120,180,255,.7);transform:scale(.9) translateY(2px);box-shadow:0 1px 4px rgba(0,0,0,.4);}
+.vpad-btn-rot{border-color:rgba(80,220,110,.38);color:rgba(140,255,170,.82);}
+.vpad-btn-rot.pressed,.vpad-btn-rot:active{background:rgba(10,80,40,.55);border-color:rgba(100,255,130,.65);}
+.vpad-btn-drop{border-color:rgba(220,180,60,.38);color:rgba(255,220,130,.82);}
+.vpad-btn-drop.pressed,.vpad-btn-drop:active{background:rgba(80,60,0,.55);border-color:rgba(255,210,80,.65);}
 
 /* ── Shop modal – Mercari style ── */
 
@@ -8190,7 +8205,18 @@ canvas.next-cv{display:block;margin:0 auto;}
 
 </div>
 
-<div id="hint">📱タップ:回転 ←→スワイプ:移動 ↓スワイプ:落下 ⌨ ←→:移動 ↑/Z:回転 Space:落下</div>
+<div id="hint"></div>
+
+<div id="vpad">
+  <div id="vpad-left">
+    <button class="vpad-btn" id="vbtn-left">◀</button>
+    <button class="vpad-btn" id="vbtn-right">▶</button>
+  </div>
+  <div id="vpad-right">
+    <button class="vpad-btn vpad-btn-rot" id="vbtn-rotate">↻</button>
+    <button class="vpad-btn vpad-btn-drop" id="vbtn-drop">▼</button>
+  </div>
+</div>
 
 
 
@@ -8208,23 +8234,19 @@ canvas.next-cv{display:block;margin:0 auto;}
 
   <button id="tweet-btn">𝕏 スコアをポスト</button>
 
+  <div id="ctrl-select">
+    <div id="ctrl-select-lbl">⚙ 操作方法を選択</div>
+    <div id="ctrl-select-btns">
+      <button class="ctrl-sel-btn" id="sel-touch" onclick="selectCtrl('touch')">📱 タッチ</button>
+      <button class="ctrl-sel-btn" id="sel-vpad" onclick="selectCtrl('vpad')">🕹️ コントローラー</button>
+    </div>
+  </div>
+
   <button id="play-btn">ゲームスタート</button>
 
   <button id="ov-ranking-btn" onclick="openRanking()">🏆 ランキングを見る</button>
 
-  <div id="ov-how" style="font-size:11px;color:#6688bb;text-align:center;line-height:1.9;max-width:260px;">
-
-    📱 <b style="color:#88bbff">左右スワイプ</b> で移動（指に追従）<br>
-
-    📱 <b style="color:#88bbff">タップ</b> で回転<br>
-
-    📱 <b style="color:#88bbff">下スワイプ</b> で高速落下<br>
-
-    ⌨ ←→ で移動 ／ ↑ or Z で回転 ／ Space で落下<br>
-
-    同色4個以上でまとめて消える！
-
-  </div>
+  <div id="ov-how" style="font-size:11px;color:#6688bb;text-align:center;line-height:1.9;max-width:260px;"></div>
 
 </div>
 
@@ -8247,6 +8269,9 @@ canvas.next-cv{display:block;margin:0 auto;}
 
 
 <script>
+
+/* ctrl mode – declared early for resize() */
+let ctrlMode=(()=>{try{return localStorage.getItem('puyo_ctrl')||'touch';}catch(e){return 'touch';}})();
 
 const COLS=6,ROWS=14,VIS=12,SPAWN_COL=Math.floor(6/2);
 
@@ -8292,9 +8317,9 @@ function resize(){
 
   const topH=document.getElementById('top-bar').offsetHeight||50;
 
-  const hintH=document.getElementById('hint').offsetHeight||22;
+  const hintH=document.getElementById('hint').offsetHeight||0;
 
-  const avail=window.innerHeight-topH-hintH-10;
+  const avail=window.innerHeight-topH-hintH-8;
 
   CELL=Math.max(28,Math.min(46,Math.floor(avail/VIS)));
 
@@ -8682,7 +8707,72 @@ boardCv.addEventListener('touchend',e=>{
 
 document.addEventListener('keydown',e=>{if(isOver)return;switch(e.key){case 'ArrowLeft':e.preventDefault();tryMove(0,-1);break;case 'ArrowRight':e.preventDefault();tryMove(0,1);break;case 'ArrowDown':e.preventDefault();tryMove(1,0);break;case 'ArrowUp':case 'z':case 'Z':e.preventDefault();tryRotate(true);break;case 'x':case 'X':e.preventDefault();tryRotate(false);break;case ' ':e.preventDefault();hardDrop();break;}});
 
-document.getElementById('play-btn').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';init();});
+document.getElementById('play-btn').addEventListener('click',()=>{document.getElementById('overlay').style.display='none';applyCtrlMode();init();});
+
+/* ── コントロールモード ── */
+function selectCtrl(mode){
+  ctrlMode=mode;
+  try{localStorage.setItem('puyo_ctrl',mode);}catch(e){}
+  document.querySelectorAll('.ctrl-sel-btn').forEach(b=>b.classList.remove('selected'));
+  const btn=document.getElementById('sel-'+mode);
+  if(btn)btn.classList.add('selected');
+}
+
+function applyCtrlMode(){
+  const vpad=document.getElementById('vpad');
+  const hint=document.getElementById('hint');
+  if(ctrlMode==='vpad'){
+    vpad.classList.add('active');
+    hint.textContent='🕹️ ◀▶:移動  ↻:回転  ▼:落下  ⌨ ←→:移動 ↑/Z:回転 Space:落下';
+    const ovHow=document.getElementById('ov-how');
+    if(ovHow)ovHow.innerHTML='🕹️ <b style="color:#88bbff">◀▶ ボタン</b> で移動<br>🕹️ <b style="color:#88bbff">↻ ボタン</b> で回転<br>🕹️ <b style="color:#88bbff">▼ ボタン</b> で高速落下<br>⌨ ←→ で移動 ／ ↑ or Z で回転 ／ Space で落下<br>同色4個以上でまとめて消える！';
+  } else {
+    vpad.classList.remove('active');
+    hint.textContent='📱タップ:回転 ←→スワイプ:移動 ↓スワイプ:落下 ⌨ ←→:移動 ↑/Z:回転 Space:落下';
+    const ovHow=document.getElementById('ov-how');
+    if(ovHow)ovHow.innerHTML='📱 <b style="color:#88bbff">左右スワイプ</b> で移動（指に追従）<br>📱 <b style="color:#88bbff">タップ</b> で回転<br>📱 <b style="color:#88bbff">下スワイプ</b> で高速落下<br>⌨ ←→ で移動 ／ ↑ or Z で回転 ／ Space で落下<br>同色4個以上でまとめて消える！';
+  }
+  resize();
+}
+
+/* ── バーチャルパッドボタン ── */
+(function setupVPad(){
+  let repTimer=null,repInterval=null;
+  function startRep(fn){fn();repTimer=setTimeout(()=>{repInterval=setInterval(fn,95);},220);}
+  function stopRep(){if(repTimer){clearTimeout(repTimer);repTimer=null;}if(repInterval){clearInterval(repInterval);repInterval=null;}}
+
+  function bindBtn(id,onDown,onUp){
+    const btn=document.getElementById(id);
+    if(!btn)return;
+    btn.addEventListener('touchstart',e=>{e.preventDefault();btn.classList.add('pressed');if(onDown)onDown();},{passive:false});
+    btn.addEventListener('touchend',e=>{e.preventDefault();btn.classList.remove('pressed');if(onUp)onUp();},{passive:false});
+    btn.addEventListener('touchcancel',e=>{btn.classList.remove('pressed');if(onUp)onUp();},{passive:false});
+    btn.addEventListener('mousedown',e=>{e.preventDefault();btn.classList.add('pressed');if(onDown)onDown();},{passive:false});
+    btn.addEventListener('mouseup',e=>{e.preventDefault();btn.classList.remove('pressed');if(onUp)onUp();},{passive:false});
+    btn.addEventListener('mouseleave',e=>{btn.classList.remove('pressed');if(onUp)onUp();},{passive:false});
+  }
+
+  bindBtn('vbtn-left',
+    ()=>startRep(()=>tryMove(0,-1)),
+    ()=>stopRep()
+  );
+  bindBtn('vbtn-right',
+    ()=>startRep(()=>tryMove(0,1)),
+    ()=>stopRep()
+  );
+  bindBtn('vbtn-rotate',
+    ()=>tryRotate(true),
+    null
+  );
+  bindBtn('vbtn-drop',
+    ()=>hardDrop(),
+    null
+  );
+})();
+
+/* ── 初期化：保存済みモードを反映 ── */
+selectCtrl(ctrlMode);
+applyCtrlMode();
 
 resize();
 

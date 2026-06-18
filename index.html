@@ -1568,6 +1568,8 @@ body.modal-open{overflow:hidden;}
 
       <div class="news-tab active" id="news-tab-wc" onclick="showNewsTab('wc')">⚽ ワールドカップ</div>
 
+      <div class="news-tab" id="news-tab-toto" onclick="showNewsTab('toto')">🎟️ TOTO</div>
+
     </div>
 
     <div id="news-tab-panel-wc" class="news-tab-panel active">
@@ -1593,6 +1595,18 @@ body.modal-open{overflow:hidden;}
         <div id="wc-scorers-panel" class="wc-panel" style="display:none;"></div>
 
       </div>
+
+    </div>
+
+    <div id="news-tab-panel-toto" class="news-tab-panel">
+
+      <div id="toto-admin-bar" style="display:none;padding:8px 16px;border-bottom:1px solid var(--border);">
+
+        <button onclick="adminSettleTotoChampion()" style="font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;">🏆 優勝チームを確定する（管理者）</button>
+
+      </div>
+
+      <iframe id="toto-frame" sandbox="allow-scripts allow-forms" style="height:calc(100vh - 116px);min-height:520px;width:100%;border:none;display:block;"></iframe>
 
     </div>
 
@@ -10599,6 +10613,126 @@ window.addEventListener('message',async e=>{
 
 });
 
+// ══ TOTO（ワールドカップ予想）: #toto-frame は #game-frame とは別の、News内に常設されたiframeのため専用リスナーを使う ══
+function sendToTotoFrame(message){
+  const frame=document.getElementById('toto-frame');
+  if(frame&&frame.contentWindow) frame.contentWindow.postMessage(message,'*');
+}
+function sendTotoResponse(reqId,payload){
+  sendToTotoFrame(Object.assign({type:'wcbet:response',reqId},payload||{}));
+}
+
+function postTotoResultTweet(home,away,hs,as,stage){
+  if(!currentUser){ openProfileModal(); return false; }
+  const winner = hs===as ? '引き分け' : (hs>as ? home+'の勝利' : away+'の勝利');
+  const stageText = stage ? ('【'+stage+'】') : '';
+  const text = '⚽SicoWC予想結果\n'+stageText+home+' '+hs+' - '+as+' '+away+'\n'+winner+'！ #ワールドカップ #SicoWC';
+  const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:null,quoteOf:null,isRepost:false,repostBy:null,poll:null,badgeUrl:activeBadgeUrl||null};
+  tweets.unshift(t);
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+  showToast('SicoWCの結果をポストしました！');
+  dbPostTweet(t);
+  return true;
+}
+
+function shapeTotoMatchBets(rows){
+  const out={};
+  (rows||[]).forEach(r=>{
+    out[String(r.match_id)]={pick:r.pick, amount:r.amount, odds:Number(r.odds), status:r.status, payout:r.payout||0, home:r.home_team, away:r.away_team};
+  });
+  return out;
+}
+function shapeTotoChampBet(row){
+  if(!row) return null;
+  return {team:row.team, odds:Number(row.odds), amount:row.amount, status:row.status, payout:row.payout||0};
+}
+
+window.addEventListener('message',async e=>{
+  const frame=document.getElementById('toto-frame');
+  if(!frame||e.source!==frame.contentWindow) return;
+  const msg=e.data||{};
+
+  if(msg.type==='wcbet:state:init'){
+    if(!currentUser){ sendTotoResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
+    try{
+      const balance=await dbFetchAvailablePoints(currentUser.handle);
+      const {data:matchRows}=await sb.from('toto_match_bets').select('*').eq('user_handle',currentUser.handle);
+      const {data:champRow}=await sb.from('toto_champion_bets').select('*').eq('user_handle',currentUser.handle).maybeSingle();
+      sendTotoResponse(msg.reqId,{ok:true,balance,matchBets:shapeTotoMatchBets(matchRows),championBet:shapeTotoChampBet(champRow)});
+    }catch(err){
+      sendTotoResponse(msg.reqId,{ok:false,balance:0,error:'TOTOの状態取得に失敗しました'});
+    }
+  }
+
+  if(msg.type==='wcbet:bet:match'){
+    if(!currentUser){ sendTotoResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+    try{
+      const {data,error}=await sb.rpc('toto_place_match_bet',{
+        p_handle:currentUser.handle, p_match_id:String(msg.matchId), p_home_team:msg.homeTeam,
+        p_away_team:msg.awayTeam, p_stage:msg.stage||null, p_pick:msg.pick, p_odds:msg.odds, p_amount:msg.amount
+      });
+      if(error){ sendTotoResponse(msg.reqId,{ok:false,error:'予想の登録に失敗しました'}); return; }
+      const result=data&&data.ok!==undefined?data:{ok:false,error:'予想の登録に失敗しました'};
+      if(result.ok&&result.bet){
+        result.bet={pick:result.bet.pick,amount:result.bet.amount,odds:Number(result.bet.odds),status:result.bet.status,payout:result.bet.payout||0};
+      }
+      sendTotoResponse(msg.reqId,result);
+    }catch(err){
+      sendTotoResponse(msg.reqId,{ok:false,error:'予想の登録に失敗しました'});
+    }
+  }
+
+  if(msg.type==='wcbet:bet:champion'){
+    if(!currentUser){ sendTotoResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+    try{
+      const {data,error}=await sb.rpc('toto_place_champion_bet',{
+        p_handle:currentUser.handle, p_team:msg.team, p_odds:msg.odds, p_amount:msg.amount
+      });
+      if(error){ sendTotoResponse(msg.reqId,{ok:false,error:'優勝予想の登録に失敗しました'}); return; }
+      const result=data&&data.ok!==undefined?data:{ok:false,error:'優勝予想の登録に失敗しました'};
+      if(result.ok&&result.bet){
+        result.bet={team:result.bet.team,amount:result.bet.amount,odds:Number(result.bet.odds),status:result.bet.status,payout:result.bet.payout||0};
+      }
+      sendTotoResponse(msg.reqId,result);
+    }catch(err){
+      sendTotoResponse(msg.reqId,{ok:false,error:'優勝予想の登録に失敗しました'});
+    }
+  }
+
+  if(msg.type==='wcbet:sync:matches'){
+    if(!currentUser){ sendTotoResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+    try{
+      await sb.rpc('toto_sync_matches',{p_matches:msg.matches||[]});
+      const balance=await dbFetchAvailablePoints(currentUser.handle);
+      const {data:matchRows}=await sb.from('toto_match_bets').select('*').eq('user_handle',currentUser.handle);
+      const {data:champRow}=await sb.from('toto_champion_bets').select('*').eq('user_handle',currentUser.handle).maybeSingle();
+      sendTotoResponse(msg.reqId,{ok:true,balance,matchBets:shapeTotoMatchBets(matchRows),championBet:shapeTotoChampBet(champRow)});
+    }catch(err){
+      sendTotoResponse(msg.reqId,{ok:false,error:'試合データの同期に失敗しました'});
+    }
+  }
+
+  if(msg.type==='wcbet:tweet'){
+    const ok=postTotoResultTweet(msg.home,msg.away,msg.hs,msg.as,msg.stage);
+    sendTotoResponse(msg.reqId,{ok});
+  }
+});
+
+async function adminSettleTotoChampion(){
+  if(!isAdminUser()){ showToast('管理者のみ実行できます'); return; }
+  const team=prompt('優勝チーム名を入力してください（football-data.org表記のチーム名）');
+  if(!team) return;
+  if(!confirm('「'+team+'」を優勝チームとして確定し、優勝予想を一括決済します。よろしいですか？')) return;
+  try{
+    const {data,error}=await sb.rpc('toto_settle_champion',{p_winner_team:team});
+    if(error){ showToast('優勝確定の処理に失敗しました'); return; }
+    showToast('優勝チームを確定しました（'+((data&&data.settled)?data.settled.length:0)+'件決済）');
+  }catch(err){
+    showToast('優勝確定の処理に失敗しました');
+  }
+}
+window.adminSettleTotoChampion=adminSettleTotoChampion;
+
 
 
 function openGame(gameId){
@@ -11128,6 +11262,12 @@ function showNewsTab(tab){
   document.querySelectorAll('.news-tab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('news-tab-'+tab).classList.add('active');
   document.getElementById('news-tab-panel-'+tab).classList.add('active');
+  if(tab==='toto'){
+    const frame=document.getElementById('toto-frame');
+    if(frame && !frame.getAttribute('src')) frame.setAttribute('src','sicowc.html');
+    const adminBar=document.getElementById('toto-admin-bar');
+    if(adminBar) adminBar.style.display = isAdminUser() ? 'block' : 'none';
+  }
 }
 
 function showWcSubtab(tab){

@@ -166,6 +166,11 @@ button{font-family:inherit;}
 
 /* ── champion picks ── */
 .champ-intro{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px;}
+.champ-closed-notice{
+  text-align:center;font-size:12.5px;font-weight:700;color:var(--lose);
+  background:rgba(224,86,106,.08);border:1px solid rgba(224,86,106,.25);
+  border-radius:10px;padding:10px 12px;margin-bottom:12px;letter-spacing:.02em;
+}
 .champ-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .champ-card{
   position:relative;background:var(--pitch2);border:1px solid var(--line);border-radius:12px;
@@ -311,7 +316,7 @@ button{font-family:inherit;}
 
     <!-- ===== CHAMPION TAB ===== -->
     <div class="wc-panel" id="panel-champion" style="display:none;">
-      <div class="champ-intro">優勝すると思う1チームに賭けます。オッズはFIFA世界ランキング（大会開幕時点）を基準に算出した固定倍率で、大会中の試合結果が出ても変動しません。大会終了まで予想の変更はできません。的中すれば賭けptがオッズ倍になって戻ってきます。</div>
+      <div class="champ-intro">優勝すると思う1チームに賭けます。オッズはFIFA世界ランキング（大会開幕時点）を基準に算出した固定倍率で、大会中の試合結果が出ても変動しません。<b style="color:var(--gold);">優勝予想の受付は6/28(日) 23:59まで。</b>受付後は大会終了まで予想の変更はできません。的中すれば賭けptがオッズ倍になって戻ってきます。</div>
       <div class="wc-loading" id="champLoading">読み込み中…</div>
       <div id="champGrid"></div>
       <div id="champSlipWrap"></div>
@@ -448,6 +453,13 @@ function fifaChampOdds(teamName){
   const diff = Math.max(0, FIFA_RATING_BASE - rating);
   const odds = FIFA_ODDS_MIN * Math.exp(diff / FIFA_ODDS_SCALE);
   return Math.min(Math.round(Math.min(odds, FIFA_ODDS_MAX) * 10) / 10, FIFA_ODDS_MAX);
+}
+
+// ══ 優勝予想の受付締め切り ══
+// 2026-06-28 23:59:59 (JST, UTC+9) = 2026-06-28T14:59:59Z
+const CHAMP_PICK_DEADLINE = new Date('2026-06-28T14:59:59Z').getTime();
+function isChampPickClosed(){
+  return Date.now() > CHAMP_PICK_DEADLINE;
 }
 
 // ══ アプリ状態 ══
@@ -925,26 +937,31 @@ function renderChampionPicks(){
   const loadingEl=document.getElementById('champLoading');
   let teams=getEntrantTeams();
   loadingEl.style.display='none';
+  const closed = isChampPickClosed();
+  const closedNotice = closed
+    ? '<div class="champ-closed-notice">⏱ 優勝予想の受付は締め切りました</div>'
+    : '';
   if(!teams.length){
-    document.getElementById('champGrid').innerHTML='<div class="wc-empty">出場チーム情報がまだありません。<br>大会が始まると表示されます。</div>';
+    document.getElementById('champGrid').innerHTML=closedNotice+'<div class="wc-empty">出場チーム情報がまだありません。<br>大会が始まると表示されます。</div>';
     return;
   }
   const html = teams.slice(0,48).map((t)=>{
     const odds = fifaChampOdds(t.name);
-    const disabled = G.myChampPick && G.myChampPick.team!==t.name;
     const sel = G.myChampPick && G.myChampPick.team===t.name;
+    const disabled = (G.myChampPick && G.myChampPick.team!==t.name) || (!G.myChampPick && closed);
     return '<div class="champ-card'+(sel?' sel':'')+(disabled?' disabled':'')+'" data-team="'+esc(t.name)+'" data-odds="'+odds+'" onclick="selectChampPick(this)">'+
       (t.crest?'<img class="champ-flag" src="'+esc(t.crest)+'" alt="">':'<div class="champ-flag"></div>')+
       '<span class="champ-name">'+esc(teamJa(t.name))+'</span>'+
       '<span class="champ-odds">×'+odds+'</span>'+
     '</div>';
   }).join('');
-  document.getElementById('champGrid').innerHTML = '<div class="champ-grid">'+html+'</div>';
+  document.getElementById('champGrid').innerHTML = closedNotice+'<div class="champ-grid">'+html+'</div>';
   renderChampSlip();
 }
 
 function selectChampPick(el){
   if(G.myChampPick) return; // 既に確定済みなら変更不可
+  if(isChampPickClosed()){ addToast('優勝予想の受付は締め切りました','lose'); return; }
   document.querySelectorAll('.champ-card').forEach(c=>c.classList.remove('sel'));
   el.classList.add('sel');
   G.selectedChamp={team:el.dataset.team, odds:parseFloat(el.dataset.odds)};
@@ -965,6 +982,7 @@ function renderChampSlip(){
     return;
   }
   if(!G.selectedChamp){ wrap.innerHTML=''; return; }
+  if(isChampPickClosed()){ wrap.innerHTML=''; return; }
   const t=G.selectedChamp;
   wrap.innerHTML = '<div class="champ-slip"><div class="champ-slip-inner">'+
     '<div class="champ-slip-pick">優勝予想: <b>'+esc(teamJa(t.team))+'</b>（オッズ ×'+t.odds+'）</div>'+
@@ -1056,6 +1074,7 @@ function updateChampPotential(displayAmtOverride){
 
 function openChampBetModal(){
   if(!G.selectedChamp || champSelectedAmt<=0) return;
+  if(isChampPickClosed()){ addToast('優勝予想の受付は締め切りました','lose'); renderChampionPicks(); return; }
   if(champSelectedAmt>G.balance){ addToast('残高が不足しています','lose'); return; }
   const t=G.selectedChamp;
   const potential=Math.round(champSelectedAmt*t.odds);

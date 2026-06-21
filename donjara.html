@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBER DONJARA - サイバー・ドンジャラ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* 現代スマホゲーム風のカスタムアニメーションとベーススタイル */
+        html, body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #05060b;
+            color: #e2e8f0;
+            overflow: hidden;
+            user-select: none;
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            /* スマホでのタップ時のハイライト・ズームを抑制 */
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        /* スマートフォン縦画面(9:16基準)を想定した仮想ビューポート */
+        .game-viewport {
+            width: 100%;
+            height: 100%;
+            max-width: 520px;
+            max-height: 100dvh;
+            margin: 0 auto;
+            position: relative;
+            background: radial-gradient(circle at center, #111424 0%, #06070c 100%);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            border: none;
+            border-radius: 0;
+            overflow: hidden;
+        }
+
+        @media (min-width: 521px) {
+            .game-viewport {
+                border: 2px solid #1a1e36;
+                border-radius: 20px;
+                height: min(100dvh, 950px);
+            }
+        }
+
+        /* 虹色・ネオンのグロー効果 */
+        .neon-border-cyan {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            border-color: rgba(0, 240, 255, 0.8);
+        }
+        .neon-border-magenta {
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+            border-color: rgba(255, 0, 127, 0.8);
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
+        }
+        .neon-text-magenta {
+            text-shadow: 0 0 8px rgba(255, 0, 127, 0.8);
+        }
+
+        /* グラスモフィズム */
+        .glass-panel {
+            background: rgba(13, 16, 32, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* 麻雀牌（ドンジャラ牌）の立体的な3D風デザイン */
+        .tile-3d {
+            perspective: 300px;
+            transform-style: preserve-3d;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .tile-inner {
+            background: linear-gradient(145deg, #1f2544 0%, #0d1020 100%);
+            border: 1px solid #2e3768;
+            box-shadow: 
+                0 4px 0 0 #070914, 
+                0 8px 16px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        .tile-3d:hover .tile-inner {
+            transform: translateY(-8px);
+            background: linear-gradient(145deg, #272f57 0%, #11142b 100%);
+            box-shadow: 
+                0 12px 0 0 #070914, 
+                0 16px 24px rgba(0, 0, 0, 0.8),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            border-color: #3b4787;
+        }
+        .tile-3d.selected .tile-inner {
+            transform: translateY(-16px);
+            border-color: #00f0ff;
+            box-shadow: 
+                0 16px 0 0 #005a60, 
+                0 0 20px rgba(0, 240, 255, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        /* 画面シェイクアニメーション（アガリやリーチ時に使用） */
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            10%, 30%, 50%, 70%, 90% { transform: translate(-5px, -3px); }
+            20%, 40%, 60%, 80% { transform: translate(5px, 3px); }
+        }
+        .animate-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        /* チャット吹き出しのアニメーション */
+        @keyframes popBubble {
+            0% { transform: scale(0) translateY(10px); opacity: 0; }
+            15% { transform: scale(1.1) translateY(0); opacity: 1; }
+            85% { transform: scale(1) translateY(0); opacity: 1; }
+            100% { transform: scale(0.9) translateY(-10px); opacity: 0; }
+        }
+        .chat-bubble {
+            animation: popBubble 4s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* 背景に動くサイバーマトリクスグリッドを配置するためのキャンバス */
+        #grid-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.25;
+        }
+
+        /* 捨て牌エリア：バーなしで自動的に縮小して全部見せる(⑤) */
+        .discard-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            width: 100%;
+            align-content: start;
+        }
+        .discard-tile {
+            aspect-ratio: 3/4;
+            width: 100%;
+            background: #111424;
+            border: 1px solid #2e3768;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55rem;
+        }
+
+        /* スクロールバーを視覚的に完全に隠す（保険。基本はoverflow:visibleにして使わない） */
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* モーダル共通 */
+        .modal-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 60;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        /* Tailwindのhiddenユーティリティと詳細度が同じため、確実に上書きされるようにする */
+        .modal-overlay.hidden {
+            display: none !important;
+        }
+        .modal-card {
+            width: 100%;
+            max-width: 440px;
+            max-height: 88%;
+            overflow-y: auto;
+            background: rgba(13, 16, 32, 0.96);
+            border: 1px solid #2e3768;
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);
+        }
+
+        /* タッチ操作向けのボタン最低サイズ確保 */
+        button {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div id="game-container" class="game-viewport flex flex-col justify-between relative">
+        <canvas id="grid-canvas"></canvas>
+
+        <div id="scene-lobby" class="absolute inset-0 z-10 flex flex-col items-center justify-between p-4 sm:p-6 overflow-y-auto no-scrollbar">
+            <div class="text-center mt-4 sm:mt-6 animate-pulse">
+                <div class="text-[10px] sm:text-xs tracking-[0.4em] text-[#00f0ff] font-bold mb-1">NEON MULTIPLAYER BOARD GAME</div>
+                <h1 class="text-3xl sm:text-4xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-[#00f0ff] via-[#bc34fa] to-[#ff007f]" style="font-family: 'Comfortaa';">
+                    CYBER DONJARA
+                </h1>
+            </div>
+
+            <!-- ①ルール説明はボタン化してモーダルで表示する仕様に変更 -->
+            <button onclick="openRulesModal()" class="w-full max-w-[360px] glass-panel rounded-xl px-4 py-3 border border-[#2e3768] shadow-2xl relative z-20 mt-3 flex items-center justify-between hover:border-cyan-400/60 transition-all active:scale-95">
+                <span class="text-cyan-400 font-black text-sm flex items-center gap-2">
+                    <i class="fas fa-book-open"></i> ゲームルール・役一覧を見る
+                </span>
+                <i class="fas fa-chevron-right text-cyan-400 text-xs"></i>
+            </button>
+
+            <div class="glass-panel rounded-xl p-4 w-full max-w-[360px] border border-[#2e3768] shadow-2xl relative z-20 mt-3">
+                <h3 class="text-center text-xs font-bold text-gray-300 mb-3 tracking-widest uppercase">PLAYER PROFILE</h3>
+                
+                <div class="flex justify-around mb-4">
+                    <div class="relative group cursor-pointer avatar-select-option" data-idx="0">
+                        <img src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 border-transparent group-hover:border-[#00f0ff] transition-all p-0.5 object-cover">
+                    </div>
+                    <div class="relative group cursor-pointer avatar-select-option" data-idx="1">
+                        <img src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 border-transparent group-hover:border-[#00f0ff] transition-all p-0.5 object-cover">
+                    </div>
+                    <div class="relative group cursor-pointer avatar-select-option" data-idx="2">
+                        <img src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 border-transparent group-hover:border-[#00f0ff] transition-all p-0.5 object-cover">
+                    </div>
+                    <div class="relative group cursor-pointer avatar-select-option" data-idx="3">
+                        <img src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 border-transparent group-hover:border-[#00f0ff] transition-all p-0.5 object-cover">
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 bg-[#0a0c18] p-2 rounded-lg border border-[#1b2144]">
+                    <img id="lobby-selected-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0" class="w-10 h-10 rounded-full border-2 border-[#00f0ff] p-0.5 object-cover">
+                    <div class="flex-grow min-w-0">
+                        <label class="text-[10px] text-gray-400 font-bold tracking-wider">PILOT NAME</label>
+                        <input type="text" id="player-name-input" value="ネオ・プレイヤー" class="w-full bg-transparent text-white font-bold border-b border-[#2e3768] focus:border-[#00f0ff] outline-none text-sm py-1">
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl p-3 w-full max-w-[360px] border border-[#2e3768] shadow-2xl relative z-20 mt-2 flex items-center justify-between">
+                <span class="text-[11px] text-gray-400 font-bold tracking-wider">sicoX 手持ちポイント</span>
+                <span id="lobby-balance-display" class="text-sm font-mono font-bold text-cyan-400">読込中...</span>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 mb-4 mt-3 relative z-20 w-full max-w-[360px]">
+                <button onclick="startMatchmaking('cpu')" class="w-full h-14 bg-gradient-to-r from-cyan-600 to-blue-700 active:from-cyan-500 active:to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-cyan-900/40 border border-cyan-400/30 transition-all transform active:scale-95 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-microchip text-lg"></i>
+                    <div>
+                        <div class="text-sm font-black">CPU対戦を開始</div>
+                        <div class="text-[10px] opacity-75">1人プレイ＆CPU3人</div>
+                    </div>
+                </button>
+                <button onclick="startMatchmaking('online')" class="w-full h-14 bg-gradient-to-r from-purple-600 to-pink-600 active:from-purple-500 active:to-pink-500 text-white font-bold rounded-xl shadow-lg shadow-pink-900/40 border border-pink-400/30 transition-all transform active:scale-95 flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-users text-lg"></i>
+                    <div>
+                        <div class="text-sm font-black">マルチ対戦ロビー</div>
+                        <div class="text-[10px] opacity-75">1ルーム固定・待機あり</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- ①②ルール・役一覧モーダル -->
+        <div id="modal-rules" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="flex items-center justify-between px-5 py-4 sticky top-0 bg-[#0d1020] border-b border-slate-800 z-10 rounded-t-2xl">
+                    <h3 class="text-cyan-400 font-black text-base flex items-center gap-2">
+                        <i class="fas fa-book-open"></i> サイバードンジャラ ルール
+                    </h3>
+                    <button onclick="closeRulesModal()" class="text-gray-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/60 active:scale-90">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <div class="p-5 pt-3">
+                <h4 class="text-xs font-black text-emerald-400 mb-2 tracking-widest uppercase">基本ルール</h4>
+                <ul class="text-xs text-gray-300 space-y-1.5 list-none font-medium mb-4">
+                    <li class="flex items-start">
+                        <span class="text-cyan-400 mr-2">◆</span>
+                        <span>手牌は全部で<span class="text-yellow-400 font-bold">9枚</span>。3枚のセットを<span class="text-yellow-400 font-bold">3グループ</span>作ればアガリ（勝利）です。</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-cyan-400 mr-2">◆</span>
+                        <span>自分の番になったら山から1枚引き、いらないパイを1枚捨てます。</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-cyan-400 mr-2">◆</span>
+                        <span>原則、<span class="text-emerald-400 font-bold">まったく同じ種類のパイを3枚</span>集めることで1セットになります。</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-cyan-400 mr-2">◆</span>
+                        <span>あと1枚で完成のとき、自分で引く（<span class="text-pink-400 font-bold">ツモ</span>）か、他人の捨て牌を貰う（<span class="text-pink-400 font-bold">ロン</span>）とゲーム終了です。</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-cyan-400 mr-2">◆</span>
+                        <span>テンパイ（あと1枚で完成の状態）になると<span class="text-amber-400 font-bold">リーチ</span>を宣言できます（1,000点支払い、成立時+1,000点）。</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-cyan-400 mr-2">◆</span>
+                        <span>親（最初の手番）がアガると獲得点数が<span class="text-yellow-400 font-bold">1.5倍</span>になります。</span>
+                    </li>
+                    <li class="flex items-start">
+                        <span class="text-cyan-400 mr-2">◆</span>
+                        <span>山牌がなくなると<span class="text-gray-300 font-bold">流局（引き分け）</span>となり、誰も得点を得られません。</span>
+                    </li>
+                </ul>
+
+                <h4 class="text-xs font-black text-pink-400 mb-2 tracking-widest uppercase">アガリ役一覧（②④特殊役）</h4>
+                <div id="rules-hand-list" class="space-y-2 mb-2"></div>
+
+                <p class="text-[10px] text-gray-500 mt-3 leading-relaxed">
+                    ※役が複数の条件を満たす場合は、最も点数の高い役が自動的に採用されます。
+                </p>
+                </div>
+            </div>
+        </div>
+
+        <div id="scene-matching" class="absolute inset-0 z-10 hidden flex-col items-center justify-between p-4 sm:p-6 overflow-y-auto no-scrollbar">
+            <div class="text-center mt-6 sm:mt-10">
+                <h2 class="text-xl sm:text-2xl font-black italic text-cyan-400 tracking-wider" id="matching-title">MATCHMAKING LOBBY</h2>
+                <div class="text-xs sm:text-sm text-gray-400" id="matching-subtitle">対戦プレイヤーを検索中...</div>
+            </div>
+
+            <div class="flex flex-col items-center justify-center gap-3 relative w-full my-4">
+                <div class="text-center">
+                    <div class="relative w-20 h-20 rounded-full border-4 border-[#00f0ff] p-1 shadow-[0_0_15px_rgba(0,240,255,0.4)]">
+                        <img id="match-player-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0" class="w-full h-full rounded-full object-cover">
+                    </div>
+                    <div id="match-player-name" class="mt-2 text-sm font-bold text-white">あなた</div>
+                    <div class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest mt-1">HOST READY</div>
+                </div>
+
+                <div class="text-xl font-black text-[#bc34fa] animate-ping">VS</div>
+
+                <div class="flex gap-4 sm:gap-6 flex-wrap justify-center">
+                    <div class="text-center opacity-40 transition-opacity duration-500" id="match-cpu1">
+                        <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-gray-600 p-1 bg-slate-900">
+                            <img id="match-cpu1-img" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1" class="w-full h-full rounded-full object-cover opacity-20">
+                            <div class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-400" id="match-cpu1-status">SEARCHING</div>
+                        </div>
+                        <div id="match-cpu1-name" class="mt-1 text-[10px] font-bold text-gray-400 max-w-[70px] truncate">CONNECTING...</div>
+                    </div>
+                    <div class="text-center opacity-40 transition-opacity duration-500" id="match-cpu2">
+                        <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-gray-600 p-1 bg-slate-900">
+                            <img id="match-cpu2-img" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2" class="w-full h-full rounded-full object-cover opacity-20">
+                            <div class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-400" id="match-cpu2-status">SEARCHING</div>
+                        </div>
+                        <div id="match-cpu2-name" class="mt-1 text-[10px] font-bold text-gray-400 max-w-[70px] truncate">CONNECTING...</div>
+                    </div>
+                    <div class="text-center opacity-40 transition-opacity duration-500" id="match-cpu3">
+                        <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-gray-600 p-1 bg-slate-900">
+                            <img id="match-cpu3-img" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3" class="w-full h-full rounded-full object-cover opacity-20">
+                            <div class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-400" id="match-cpu3-status">SEARCHING</div>
+                        </div>
+                        <div id="match-cpu3-name" class="mt-1 text-[10px] font-bold text-gray-400 max-w-[70px] truncate">CONNECTING...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="w-full max-w-[360px] text-center mb-4" id="matching-bottom-ui">
+                
+                <div id="matching-progress-container" class="w-full hidden">
+                    <div class="w-full bg-[#1b2144] h-2 rounded-full overflow-hidden mb-2 border border-gray-700">
+                        <div id="matching-progress" class="bg-gradient-to-r from-[#00f0ff] to-[#bc34fa] h-full w-[20%] transition-all duration-300"></div>
+                    </div>
+                </div>
+
+                <div id="multiplayer-waiting-ui" class="hidden flex-col items-center">
+                    <div class="font-mono text-3xl sm:text-4xl font-black text-yellow-400 bg-slate-950/80 inline-block px-6 py-2 rounded-xl border border-yellow-500/30 tracking-widest shadow-inner mb-3">
+                        <span id="lobby-countdown">03:00</span>
+                    </div>
+                    <p class="text-gray-400 text-[11px] leading-relaxed mb-4">
+                        あなたは最初の入室者（親）です。<br>
+                        全員の準備が整うか、3分経過すると強制的にゲームがスタートします。
+                    </p>
+                    <button id="btn-force-start" onclick="triggerGameStart()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 active:from-emerald-600 active:to-teal-700 text-white font-bold py-3 px-6 rounded-full shadow-lg shadow-emerald-500/20 transition-all transform active:scale-95 text-sm tracking-wide">
+                        <i class="fas fa-play mr-2"></i>【親】OK（今すぐスタート）
+                    </button>
+                </div>
+
+                <div id="matching-timer" class="text-xs text-gray-400 tracking-wider mt-2">セッションを接続中...</div>
+            </div>
+        </div>
+
+        <div id="scene-game" class="absolute inset-0 z-10 hidden flex-col justify-between p-2 sm:p-3 gap-2">
+            
+            <div class="flex justify-between items-center bg-slate-900/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-700/50 shrink-0">
+                <div class="flex items-center gap-2">
+                    <span id="current-round-text" class="text-base sm:text-lg font-black text-cyan-400 tracking-widest font-mono">東1局</span>
+                    <span class="hidden sm:inline text-xs bg-slate-800 text-gray-300 px-2 py-0.5 rounded border border-slate-700">3ゲーム・1セット</span>
+                </div>
+                <div class="flex items-center gap-4 font-mono">
+                    <div class="flex items-center gap-1.5">
+                        <i class="fa-solid fa-layer-group text-pink-500 text-sm"></i>
+                        <span class="text-[10px] text-gray-400 hidden sm:inline">残り山牌:</span>
+                        <span id="deck-count" class="text-sm sm:text-base font-bold text-pink-400">81</span>
+                    </div>
+                </div>
+                <button onclick="openRulesModal()" class="text-[10px] text-gray-400 active:text-cyan-400 transition-colors border border-slate-800 px-2 py-1 rounded mr-1">
+                    <i class="fas fa-book"></i>
+                </button>
+                <button onclick="quitGame()" class="text-[10px] text-gray-400 active:text-red-400 transition-colors border border-slate-800 px-2 py-1 rounded">
+                    退出
+                </button>
+            </div>
+
+            <!-- 対戦相手バー：CPU3人を横並びの省スペース表示に -->
+            <div class="flex justify-between items-center gap-1 shrink-0 px-1">
+                <div class="flex flex-col items-center justify-center gap-0.5 relative flex-1" id="p1-container">
+                    <div class="relative">
+                        <img id="p1-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
+                        <span id="p1-dealer-badge" class="absolute -top-1 -left-1 text-[8px] bg-amber-500 text-black px-1 rounded font-black hidden">親</span>
+                        <span id="p1-reach-badge" class="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[7px] bg-red-600 text-white px-1 rounded font-bold hidden">REACH</span>
+                    </div>
+                    <div class="text-center">
+                        <div id="p1-name" class="text-[10px] font-bold text-gray-300 max-w-[70px] truncate">CPU 1</div>
+                        <div id="p1-score" class="text-[10px] font-mono font-bold text-gray-400">20,000</div>
+                    </div>
+                    <div id="p1-chat" class="absolute left-1/2 -translate-x-1/2 -top-9 hidden z-30 bg-[#0d1020]/90 border border-cyan-500 text-[10px] px-2 py-1 rounded-lg max-w-[110px] shadow-lg text-white whitespace-normal"></div>
+                </div>
+
+                <div class="flex flex-col items-center justify-center gap-0.5 relative flex-1" id="p2-container">
+                    <div class="relative">
+                        <img id="p2-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
+                        <span id="p2-dealer-badge" class="absolute -top-1 -left-1 text-[8px] bg-amber-500 text-black px-1 rounded font-black hidden">親</span>
+                        <span id="p2-reach-badge" class="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[7px] bg-red-600 text-white px-1 rounded font-bold hidden">REACH</span>
+                    </div>
+                    <div class="text-center">
+                        <span id="p2-name" class="text-[10px] font-bold text-gray-300 max-w-[70px] truncate block">CPU 2</span>
+                        <span id="p2-score" class="text-[10px] font-mono font-bold text-gray-400">20,000</span>
+                    </div>
+                    <div id="p2-chat" class="absolute left-1/2 -translate-x-1/2 -top-9 hidden z-30 bg-[#0d1020]/90 border border-cyan-500 text-[10px] px-2 py-1 rounded-lg max-w-[110px] shadow-lg text-white whitespace-normal"></div>
+                </div>
+
+                <div class="flex flex-col items-center justify-center gap-0.5 relative flex-1" id="p3-container">
+                    <div class="relative">
+                        <img id="p3-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
+                        <span id="p3-dealer-badge" class="absolute -top-1 -left-1 text-[8px] bg-amber-500 text-black px-1 rounded font-black hidden">親</span>
+                        <span id="p3-reach-badge" class="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[7px] bg-red-600 text-white px-1 rounded font-bold hidden">REACH</span>
+                    </div>
+                    <div class="text-center">
+                        <div id="p3-name" class="text-[10px] font-bold text-gray-300 max-w-[70px] truncate">CPU 3</div>
+                        <div id="p3-score" class="text-[10px] font-mono font-bold text-gray-400">20,000</div>
+                    </div>
+                    <div id="p3-chat" class="absolute left-1/2 -translate-x-1/2 -top-9 hidden z-30 bg-[#0d1020]/90 border border-cyan-500 text-[10px] px-2 py-1 rounded-lg max-w-[110px] shadow-lg text-white whitespace-normal"></div>
+                </div>
+            </div>
+
+            <!-- 卓：4人分の捨て牌（⑤バーなしで自動縮小グリッド表示） -->
+            <div class="flex-grow min-h-0 rounded-2xl border border-slate-800 bg-[#090b14]/90 relative flex flex-col p-2 overflow-hidden shadow-[inset_0_0_30px_rgba(11,20,44,0.8)]">
+                <div id="table-hologram-bg" class="absolute inset-0 bg-contain bg-center opacity-10 pointer-events-none" style="background-image: url('http://googleusercontent.com/image_collection/image_retrieval/6288818671601718544_0');"></div>
+                
+                <div class="grid grid-cols-4 gap-1.5 sm:gap-2 flex-grow relative z-10 w-full min-h-0">
+                    <div class="flex flex-col items-center justify-start border-r border-slate-800/50 pr-1 min-h-0">
+                        <span class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">P1 川</span>
+                        <div id="p1-discards" class="discard-grid"></div>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-start border-r border-slate-800/50 px-0.5 min-h-0">
+                        <span class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">P2 川</span>
+                        <div id="p2-discards" class="discard-grid"></div>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-start border-r border-slate-800/50 px-0.5 min-h-0">
+                        <span class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">P3 川</span>
+                        <div id="p3-discards" class="discard-grid"></div>
+                    </div>
+
+                    <div class="flex flex-col items-center justify-start pl-1 min-h-0">
+                        <span class="text-[8px] text-gray-500 uppercase tracking-widest mb-1">あなた 川</span>
+                        <div id="p0-discards" class="discard-grid"></div>
+                    </div>
+                </div>
+
+                <div class="border-t border-slate-800 pt-1 flex justify-between items-center text-[8px] sm:text-[9px] text-gray-500 z-10 font-mono shrink-0">
+                    <span class="truncate">役: 同種3枚×3組</span>
+                    <span class="text-cyan-400 truncate">タップで選択→再タップで捨て牌</span>
+                </div>
+            </div>
+
+            <!-- ロン宣言パネル：卓ではなくゲーム画面全体を覆うオーバーレイ(見切れ防止) -->
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 z-30 hidden p-4 text-center overflow-y-auto no-scrollbar" id="ron-claim-panel">
+                <div class="text-sm sm:text-base font-bold text-pink-400 tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation animate-bounce"></i>
+                    <span>牌が捨てられました</span>
+                </div>
+                <div id="ron-tile-display" class="w-14 h-16 rounded-lg bg-gradient-to-b from-pink-900 to-pink-950 flex items-center justify-center text-2xl text-white border border-pink-400 shadow-lg shadow-pink-500/30"></div>
+                <div class="flex gap-3">
+                    <button onclick="claimRon()" class="bg-pink-600 active:bg-pink-500 active:scale-95 text-white font-bold px-5 py-2.5 rounded-xl text-sm border border-pink-400 shadow-md shadow-pink-900/40 animate-pulse">
+                        ドンジャラ！ (ロン)
+                    </button>
+                    <button onclick="skipRon()" class="bg-slate-800 active:bg-slate-700 text-gray-400 px-5 py-2.5 rounded-xl text-sm">
+                        スルー
+                    </button>
+                </div>
+                <div class="text-[10px] text-gray-500">タイムアウトまで: <span id="ron-timer">3.0</span>s</div>
+            </div>
+
+            <!-- 自分の情報・手牌・操作パネル -->
+            <div class="flex flex-col gap-2 relative bg-slate-950/70 p-2 sm:p-3 rounded-2xl border border-slate-800/80 shrink-0">
+                <div class="flex items-center gap-2">
+                    <div class="relative shrink-0">
+                        <img id="p0-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-4 border-cyan-400 p-0.5 object-cover">
+                        <span id="p0-dealer-badge" class="absolute -top-1 -left-1 text-[8px] bg-amber-500 text-black px-1 rounded font-black hidden">親</span>
+                        <span id="p0-reach-badge" class="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[7px] bg-red-600 text-white px-1 rounded font-bold hidden">REACH</span>
+                    </div>
+                    <div class="min-w-0">
+                        <div id="p0-name" class="text-xs sm:text-sm font-bold text-white truncate">あなた</div>
+                        <div id="p0-score" class="text-base sm:text-lg font-mono font-black text-[#00f0ff]">20,000</div>
+                    </div>
+                    <div id="p0-chat" class="absolute left-14 -top-9 hidden z-30 bg-[#0d1020]/90 border border-cyan-500 text-xs px-3 py-1.5 rounded-lg max-w-[140px] shadow-lg text-white"></div>
+
+                    <!-- アクションボタン：手牌の右に横並び、スマホでも押しやすい大きさ -->
+                    <div class="flex gap-1.5 ml-auto">
+                        <button id="btn-tsumo" onclick="claimTsumo()" class="bg-gradient-to-r from-pink-600 to-[#ff007f] active:from-pink-500 active:to-pink-600 text-white text-[10px] sm:text-xs font-black py-2 px-3 rounded-xl border border-pink-400 shadow-md shadow-pink-900/30 hidden animate-pulse whitespace-nowrap">
+                            ツモ！
+                        </button>
+                        <button id="btn-reach" onclick="declareReach()" class="bg-gradient-to-r from-amber-500 to-orange-600 active:from-amber-400 active:to-orange-500 text-white text-[10px] sm:text-xs font-black py-2 px-3 rounded-xl border border-amber-400 shadow-md shadow-amber-900/30 hidden whitespace-nowrap">
+                            リーチ
+                        </button>
+                        <button id="btn-discard" onclick="manualDiscard()" class="bg-gradient-to-r from-cyan-600 to-blue-700 active:from-cyan-500 active:to-blue-600 text-white text-[10px] sm:text-xs font-black py-2 px-3 rounded-xl border border-cyan-400/40 shadow-md shadow-blue-900/30 whitespace-nowrap">
+                            打牌
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1 justify-center w-full overflow-x-auto no-scrollbar py-1">
+                    <div id="hand-normal-tiles" class="flex gap-1 shrink-0">
+                        </div>
+                    <div class="w-1.5 shrink-0"></div>
+                    <div id="hand-draw-tile" class="w-9 h-[3.4rem] sm:w-10 sm:h-16 shrink-0">
+                        </div>
+                </div>
+            </div>
+
+            <div id="chat-sidebar" class="absolute top-12 right-0 bottom-2 w-[78%] max-w-[280px] glass-panel border-l border-slate-700 rounded-l-2xl shadow-2xl transition-transform duration-300 translate-x-full z-40 flex flex-col justify-between">
+                <div class="p-3 border-b border-slate-800 flex justify-between items-center bg-slate-950/50 rounded-tl-2xl shrink-0">
+                    <span class="text-xs font-bold text-[#00f0ff] tracking-widest"><i class="fa-solid fa-comments"></i> CHAT</span>
+                    <button onclick="toggleChat(false)" class="text-gray-400 active:text-white w-7 h-7 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="chat-history" class="flex-grow overflow-y-auto p-3 flex flex-col gap-2 font-sans text-xs">
+                    <div class="text-gray-500 text-center text-[10px]">システム: チャットルームへ接続中...</div>
+                </div>
+                <div class="p-2 border-t border-slate-800 bg-slate-950/30 grid grid-cols-1 gap-1.5 rounded-bl-2xl shrink-0">
+                    <button onclick="sendQuickChat('よろしくお願いします！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        👋 よろしくお願いします
+                    </button>
+                    <button onclick="sendQuickChat('ドンジャラ！勝利を掴む！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        🔥 勝利を掴む！
+                    </button>
+                    <button onclick="sendQuickChat('お見事です！悔しい〜')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        👏 お見事です！
+                    </button>
+                    <button onclick="sendQuickChat('リーチ！勝負だ！！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        💥 勝負だ！！
+                    </button>
+                </div>
+            </div>
+
+            <button onclick="toggleChat(true)" class="absolute bottom-32 right-2 w-10 h-10 bg-slate-900/90 border border-cyan-500 rounded-full flex items-center justify-center text-cyan-400 active:text-white active:scale-95 transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] z-30">
+                <i class="fa-solid fa-comment-dots text-sm"></i>
+            </button>
+        </div>
+
+        <div id="modal-round-result" class="modal-overlay hidden">
+            <div class="modal-card p-5 text-center">
+                <h2 id="result-status-title" class="text-2xl sm:text-3xl font-black italic tracking-widest text-[#00f0ff] mb-2 neon-text-cyan">ROUND CLEARED</h2>
+                <div id="result-winner-detail" class="text-sm text-gray-300 mb-4"></div>
+
+                <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800 mb-4">
+                    <div class="text-[10px] text-gray-500 font-bold mb-2 uppercase tracking-widest">Winning Hand</div>
+                    <div id="result-hand-display" class="flex flex-wrap justify-center gap-1"></div>
+                </div>
+
+                <div class="text-left bg-[#0a0c18] p-3 rounded-xl border border-[#1b2144] mb-4 flex flex-col gap-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-gray-400">アガリ役</span>
+                        <span id="result-hand-rank" class="font-bold text-pink-400 text-right">通常アガリ</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs border-t border-slate-800 pt-2">
+                        <span class="text-gray-400">基本点数</span>
+                        <span id="result-hand-score" class="font-mono font-bold text-white">+4,000 pts</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs border-t border-slate-800 pt-2">
+                        <span class="text-gray-400">獲得チップ支払い元</span>
+                        <span id="result-payer" class="font-bold text-gray-300 text-right">放銃者: CPU 1</span>
+                    </div>
+                </div>
+
+                <button onclick="nextRound()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-700 active:from-cyan-500 active:to-blue-600 text-white font-bold py-3 rounded-xl border border-cyan-400 shadow-md active:scale-95 transition-transform">
+                    次の局に進む (次へ)
+                </button>
+            </div>
+        </div>
+
+        <div id="scene-final-result" class="absolute inset-0 z-20 hidden flex-col items-center justify-between p-4 sm:p-6 overflow-y-auto no-scrollbar">
+            <div class="text-center mt-4 sm:mt-6">
+                <div class="text-[10px] sm:text-xs tracking-[0.4em] text-[#ff007f] font-bold mb-1">SET COMPLETE</div>
+                <h2 class="text-2xl sm:text-3xl font-black italic tracking-wider text-white">FINAL RESULTS</h2>
+                <div class="text-[10px] sm:text-xs text-gray-400 mt-1">3ゲームセット全順位と獲得チップの最終評価</div>
+            </div>
+
+            <div class="flex items-end justify-center gap-2 sm:gap-4 w-full max-w-[420px] h-[260px] sm:h-[300px] my-4 px-2">
+                
+                <div class="flex flex-col items-center w-1/4 gap-1">
+                    <img id="podium-2-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-400 p-0.5 object-cover">
+                    <div id="podium-2-name" class="text-[10px] text-slate-300 font-bold truncate max-w-full">CPU 1</div>
+                    <div id="podium-2-score" class="text-[10px] font-mono font-bold text-slate-400">21,000</div>
+                    <div class="w-full bg-slate-500/20 border border-slate-400/30 rounded-t-lg h-[90px] sm:h-[110px] flex items-center justify-center font-bold text-lg sm:text-xl text-slate-400">
+                        2nd
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center w-1/4 gap-1 relative">
+                    <i class="fa-solid fa-crown text-amber-400 text-xl sm:text-2xl absolute -top-6 animate-bounce"></i>
+                    <img id="podium-1-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0" class="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-4 border-amber-400 p-1 object-cover shadow-[0_0_20px_rgba(251,191,36,0.5)]">
+                    <div id="podium-1-name" class="text-xs text-amber-300 font-black truncate max-w-full">あなた</div>
+                    <div id="podium-1-score" class="text-xs font-mono font-black text-amber-400">26,000</div>
+                    <div class="w-full bg-amber-500/20 border border-amber-400/50 rounded-t-lg h-[130px] sm:h-[150px] flex items-center justify-center font-bold text-2xl sm:text-3xl text-amber-400">
+                        1st
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center w-1/4 gap-1">
+                    <img id="podium-3-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-amber-900 p-0.5 object-cover">
+                    <div id="podium-3-name" class="text-[10px] text-amber-700 font-bold truncate max-w-full">CPU 2</div>
+                    <div id="podium-3-score" class="text-[10px] font-mono font-bold text-amber-800">17,000</div>
+                    <div class="w-full bg-amber-900/20 border border-amber-900/30 rounded-t-lg h-[55px] sm:h-[65px] flex items-center justify-center font-bold text-base sm:text-lg text-amber-800">
+                        3rd
+                    </div>
+                </div>
+
+                <div class="flex flex-col items-center w-1/4 gap-1">
+                    <img id="podium-4-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-red-950 p-0.5 object-cover">
+                    <div id="podium-4-name" class="text-[10px] text-red-900 font-bold truncate max-w-full">CPU 3</div>
+                    <div id="podium-4-score" class="text-[10px] font-mono font-bold text-red-950">16,000</div>
+                    <div class="w-full bg-red-950/20 border border-red-950/30 rounded-t-lg h-[30px] sm:h-[40px] flex items-center justify-center font-bold text-xs sm:text-sm text-red-950">
+                        4th
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-3 w-full max-w-[360px] mb-2">
+                <button id="final-post-btn" style="display:none;" class="w-full bg-gradient-to-r from-pink-600 to-purple-700 active:from-pink-500 active:to-purple-600 text-white font-bold py-3 rounded-xl border border-pink-400 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-share"></i> sicoXに結果をポスト
+                </button>
+                <button onclick="resetToLobby()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-700 active:from-cyan-500 active:to-blue-600 text-white font-bold py-3 rounded-xl border border-cyan-400 active:scale-95 transition-transform">
+                    ロビーに戻る
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- SE（音響効果）合成生成機 ---
+        const AudioEngine = {
+            ctx: null,
+            init() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            },
+            play(type) {
+                if (!this.ctx) this.init();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const now = this.ctx.currentTime;
+                
+                if (type === 'click') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(400, now + 0.08);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.08);
+                    osc.start();
+                    osc.stop(now + 0.08);
+                } 
+                else if (type === 'discard') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(120, now + 0.12);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+                    osc.start();
+                    osc.stop(now + 0.12);
+                }
+                else if (type === 'draw') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(500, now);
+                    osc.frequency.exponentialRampToValueAtTime(700, now + 0.1);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+                    osc.start();
+                    osc.stop(now + 0.1);
+                }
+                else if (type === 'reach') {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(40, now + 0.5);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.5);
+                    osc.start();
+                    osc.stop(now + 0.5);
+                }
+                else if (type === 'win') {
+                    const scale = [261.63, 329.63, 392.00, 523.25]; // C E G C
+                    scale.forEach((freq, i) => {
+                        const o = this.ctx.createOscillator();
+                        const g = this.ctx.createGain();
+                        o.connect(g);
+                        g.connect(this.ctx.destination);
+                        o.type = 'square';
+                        o.frequency.setValueAtTime(freq, now + i * 0.12);
+                        g.gain.setValueAtTime(0.05, now + i * 0.12);
+                        g.gain.linearRampToValueAtTime(0.001, now + i * 0.12 + 0.25);
+                        o.start(now + i * 0.12);
+                        o.stop(now + i * 0.12 + 0.25);
+                    });
+                }
+            }
+        };
+
+        // --- ドンジャラ牌定義 ---
+        // 3系統 (Cyber=Cyan系, Bio=Pink系, Astro=Gold系) 各3種 = 計9種類
+        const TILE_DEFINITIONS = [
+            // Cyber
+            { id: 0, class: 'cyber', name: 'Cyber Volt', icon: 'fa-bolt', colorClass: 'from-cyan-400 to-cyan-600 text-cyan-100 border-cyan-300' },
+            { id: 1, class: 'cyber', name: 'Quantum Core', icon: 'fa-brain', colorClass: 'from-cyan-500 to-blue-600 text-cyan-100 border-cyan-400' },
+            { id: 2, class: 'cyber', name: 'Holo Shield', icon: 'fa-shield-halved', colorClass: 'from-sky-500 to-cyan-700 text-sky-100 border-sky-400' },
+            // Bio
+            { id: 3, class: 'bio', name: 'Bio Heart', icon: 'fa-heart', colorClass: 'from-pink-400 to-pink-600 text-pink-100 border-pink-300' },
+            { id: 4, class: 'bio', name: 'DNA Helix', icon: 'fa-dna', colorClass: 'from-fuchsia-500 to-pink-700 text-fuchsia-100 border-fuchsia-400' },
+            { id: 5, class: 'bio', name: 'Sakura Petal', icon: 'fa-leaf', colorClass: 'from-rose-400 to-pink-600 text-rose-100 border-rose-300' },
+            // Astro
+            { id: 6, class: 'astro', name: 'Dragon Core', icon: 'fa-dragon', colorClass: 'from-amber-400 to-amber-600 text-amber-100 border-amber-300' },
+            { id: 7, class: 'astro', name: 'Neon Crown', icon: 'fa-crown', colorClass: 'from-yellow-500 to-amber-700 text-yellow-100 border-yellow-400' },
+            { id: 8, class: 'astro', name: 'Cosmic Rocket', icon: 'fa-rocket', colorClass: 'from-orange-400 to-amber-600 text-orange-100 border-orange-300' }
+        ];
+
+        // --- アガリ役の一覧データ（②④：ルール説明モーダルと役判定ロジックの両方で使用） ---
+        const HAND_RANKS = [
+            {
+                key: 'daisharin',
+                name: '大車輪 (デカトリオ)',
+                desc: '9枚すべてが完全に同じ絵柄(1種類を9枚)で揃った、最高ランクのアガリ。',
+                score: 24000,
+                color: 'text-red-400'
+            },
+            {
+                key: 'allmighty',
+                name: 'オールマイティ (一色アガリ)',
+                desc: '9枚すべてが同じ系統(Cyber/Bio/Astroのいずれか)の絵柄で揃ったアガリ。',
+                score: 12000,
+                color: 'text-fuchsia-400'
+            },
+            {
+                key: 'sanshoku',
+                name: '三色同刻 (全色コーツ)',
+                desc: '3つの系統(Cyber・Bio・Astro)それぞれから1組ずつコーツ(3枚組)を作ったアガリ。',
+                score: 8000,
+                color: 'text-amber-400'
+            },
+            {
+                key: 'triple_pairs',
+                name: 'トリプルペアーズ (3ペア+1トリオ特殊形)',
+                desc: '同じ絵柄2枚のペアを3組と、3枚組(コーツ)を1組作る特殊なアガリ形（2・2・2・3枚）。',
+                score: 6000,
+                color: 'text-emerald-400'
+            },
+            {
+                key: 'normal',
+                name: '通常ドンジャラアガリ',
+                desc: '同じ絵柄3枚のセットを3組(3×3=9枚)作る、最も基本的なアガリ。',
+                score: 4000,
+                color: 'text-cyan-300'
+            },
+            {
+                key: 'double_reach',
+                name: 'ダブルリーチ',
+                desc: '配牌(最初の手番)で即座にリーチを宣言し、そのままアガると追加点。',
+                score: 4000,
+                color: 'text-pink-400'
+            },
+            {
+                key: 'ippatsu',
+                name: '一発',
+                desc: 'リーチ宣言した直後、誰も鳴かずに1巡以内にアガると追加点。',
+                score: 2000,
+                color: 'text-pink-300'
+            },
+            {
+                key: 'haitei',
+                name: '海底撈月・河底撈魚',
+                desc: '山牌の最後の1枚でツモ、または最後の捨て牌でロンしたときの追加点。',
+                score: 2000,
+                color: 'text-sky-300'
+            }
+        ];
+
+        // 各アバターポートレートのプリセット
+        const AVATARS = [
+            "http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0",
+            "http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1",
+            "http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2",
+            "http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3"
+        ];
+
+        // --- ゲームステート変数 ---
+        let deck = [];
+        let players = [
+            { id: 0, name: "あなた", avatar: AVATARS[0], score: 20000, hand: [], discards: [], isReach: false, isCPU: false, ippatsuChance: false, isDoubleReach: false, reachTurnCount: -1 },
+            { id: 1, name: "Cyber-Jack", avatar: AVATARS[1], score: 20000, hand: [], discards: [], isReach: false, isCPU: true, ippatsuChance: false, isDoubleReach: false, reachTurnCount: -1 },
+            { id: 2, name: "Lumina-01", avatar: AVATARS[2], score: 20000, hand: [], discards: [], isReach: false, isCPU: true, ippatsuChance: false, isDoubleReach: false, reachTurnCount: -1 },
+            { id: 3, name: "Giga-Samurai", avatar: AVATARS[3], score: 20000, hand: [], discards: [], isReach: false, isCPU: true, ippatsuChance: false, isDoubleReach: false, reachTurnCount: -1 }
+        ];
+
+        let currentDealer = 0; // 親 (Round 1: 0, Round 2: 1, Round 3: 2)
+        let currentTurn = 0;   // ターン番
+        let currentRound = 1;  // 東1局〜東3局
+        let activeSelectedTileIdx = -1; // あなたがクリック選択中の手牌インデックス
+        let gameActive = false;
+        let lastDiscardedTile = null;   // 直前に捨てられた牌 ID
+        let lastDiscarderId = null;     // 直前に捨てたプレイヤー ID
+        let ronTimerInterval = null;
+        let hasJustDrawn = false;       // ツモ番直後か
+        let turnCountInRound = 0;       // 局内の総ターン数（ダブルリーチ・海底判定用）
+
+        // 待機ルーム用タイマー変数
+        let lobbyTimerInterval = null;
+        let lobbyTimeLeft = 180; // 3分（180秒）
+
+        // チャット応答シミュレータ用プリセット
+        const AI_CHAT_RESPONSES = {
+            intro: ["よろしく！手加減は無しだ。", "サイバーテーブルへようこそ。", "今日はチップを全部もらうよ。"],
+            reach: ["リーチか！やるな...", "その待ち、見切った！", "勝負に出たか...！"],
+            lose: ["うわ、やられた！強いな...", "ドンジャラか...ツキがないな。", "くそ、あと1枚だったのに！"],
+            win: ["ドンジャラ！私の勝ちだ！", "よし、セット完成！完璧だね。", "思った通りのツモだ！"]
+        };
+
+        // --- Canvasマトリクス背景アニメーション ---
+        function initGridBackground() {
+            const canvas = document.getElementById('grid-canvas');
+            const ctx = canvas.getContext('2d');
+            let w = canvas.width = canvas.offsetWidth;
+            let h = canvas.height = canvas.offsetHeight;
+
+            window.addEventListener('resize', () => {
+                w = canvas.width = canvas.offsetWidth;
+                h = canvas.height = canvas.offsetHeight;
+            });
+
+            const cols = 20;
+            const rows = 12;
+            const size = 80;
+
+            function draw() {
+                ctx.clearRect(0,0,w,h);
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
+                ctx.lineWidth = 1;
+
+                // 縦格子
+                for (let i = 0; i < w; i += size) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, h);
+                    ctx.stroke();
+                }
+                // 横格子
+                for (let j = 0; j < h; j += size) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, j);
+                    ctx.lineTo(w, j);
+                    ctx.stroke();
+                }
+
+                // スキャン光脈
+                const time = Date.now() * 0.001;
+                ctx.fillStyle = 'rgba(188, 52, 250, 0.1)';
+                ctx.fillRect(0, (time * 50) % h, w, 2);
+
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+
+        // ====================================================
+        // sicoX ポイント通信ブリッジ (postMessage API)
+        // ====================================================
+        const DJ_EMBEDDED = window.parent && window.parent !== window;
+        const DJ_REQS = new Map();
+
+        function djReq(type, payload = {}, timeout = 7000) {
+            if (!DJ_EMBEDDED) return Promise.resolve({ ok: false, error: 'sicoX内から起動してください' });
+            const reqId = 'dj' + Date.now() + Math.random().toString(36).slice(2, 8);
+            return new Promise(resolve => {
+                const timer = setTimeout(() => {
+                    DJ_REQS.delete(reqId);
+                    resolve({ ok: false, error: 'sicoXとの通信がタイムアウトしました' });
+                }, timeout);
+                DJ_REQS.set(reqId, { resolve, timer });
+                parent.postMessage(Object.assign({ type, reqId }, payload), '*');
+            });
+        }
+
+        window.addEventListener('message', e => {
+            const msg = e.data || {};
+            if (msg.type === 'donjara:response' && DJ_REQS.has(msg.reqId)) {
+                const req = DJ_REQS.get(msg.reqId);
+                clearTimeout(req.timer);
+                DJ_REQS.delete(msg.reqId);
+                req.resolve(msg);
+            }
+        });
+
+        // sicoXからプロフィール情報取得して反映
+        async function loadParentProfile() {
+            if (!DJ_EMBEDDED) return;
+            const res = await djReq('donjara:points:init:request', {}, 7000);
+            if (res.ok) {
+                if (res.name) {
+                    players[0].name = res.name;
+                    const nameEl = document.getElementById('player-name-input');
+                    if (nameEl) nameEl.value = res.name;
+                    document.getElementById('p0-name').textContent = res.name;
+                }
+                if (res.avatar) {
+                    players[0].avatar = res.avatar;
+                    const avatarEls = [
+                        document.getElementById('lobby-selected-avatar'),
+                        document.getElementById('match-player-avatar'),
+                        document.getElementById('p0-avatar')
+                    ];
+                    avatarEls.forEach(el => { if (el) el.src = res.avatar; });
+                }
+                if (res.balance !== undefined) {
+                    // 残高表示をロビーに反映
+                    const balEl = document.getElementById('lobby-balance-display');
+                    if (balEl) balEl.textContent = Math.round(res.balance).toLocaleString() + ' pt';
+                }
+            }
+        }
+
+        // ゲーム終了時にポイントをsicoXへ反映（差分を送信）
+        async function syncFinalScore(playerFinalScore, playerInitialScore) {
+            if (!DJ_EMBEDDED) return;
+            const delta = Math.round(playerFinalScore - playerInitialScore);
+            if (delta === 0) return;
+            const refId = 'donjara-' + Date.now();
+            const reason = delta > 0
+                ? 'ドンジャラ 勝利 +' + delta + 'pt'
+                : 'ドンジャラ 敗北 ' + delta + 'pt';
+            await djReq('donjara:points:update', { delta, reason, refId }, 9000);
+        }
+
+        // sicoXにポスト投稿
+        async function postResultToSicoX(resultText) {
+            if (!DJ_EMBEDDED) return;
+            const reqId = 'dj-tweet-' + Date.now();
+            await djReq('donjara:tweet', { reqId, text: resultText }, 7000);
+        }
+
+        // ====================================================
+        // Supabase リアルタイム通信（オンライン対戦ロビー用）
+        // 無料枠: donjara_rooms のみ Subscribe, ルーム人数は3秒ポーリング
+        // ====================================================
+        const SUPABASE_URL = 'https://lbulatinwtsqgudgdhpe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxidWxhdGlud3RzcWd1ZGdkaHBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTc3NDgsImV4cCI6MjA5NDgzMzc0OH0.4pNE5vxC2Z3OdXcj6MDUuMZpHhUZMRdyxhSipsZyEUU';
+        const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        let onlinePlayerHandle = null;    // sicoXログイン中のhandle
+        let roomChannel = null;           // Realtime チャンネル
+        let roomPollInterval = null;      // ルーム人数ポーリング用タイマー
+        const ROOM_ID = 'room001';        // 固定1ルーム
+
+        // ルームに参加登録
+        async function joinRoom(handle, name, avatar) {
+            if (!handle) return;
+            onlinePlayerHandle = handle;
+            try {
+                // 古いデータをクリーンアップ（任意）
+                await sb.rpc('cleanup_donjara_room').catch(() => {});
+
+                // 空いている席番号を取得
+                const { data: existingPlayers } = await sb
+                    .from('donjara_room_players')
+                    .select('seat_index')
+                    .eq('room_id', ROOM_ID);
+
+                const usedSeats = (existingPlayers || []).map(p => p.seat_index);
+                let seat = 0;
+                while (usedSeats.includes(seat)) seat++;
+                if (seat >= 4) { showDonjaraToast('ルームが満員です（4/4）'); return; }
+
+                // upsert で参加登録
+                await sb.from('donjara_room_players').upsert({
+                    room_id: ROOM_ID,
+                    user_handle: handle,
+                    user_name: name,
+                    user_avatar: avatar,
+                    seat_index: seat,
+                    is_ready: false,
+                    joined_at: new Date().toISOString()
+                }, { onConflict: 'room_id,user_handle' });
+
+                // ルーム人数更新
+                await updateRoomCount();
+
+            } catch(e) { console.error('joinRoom error:', e); }
+        }
+
+        // ルームから退出
+        async function leaveRoom() {
+            if (!onlinePlayerHandle) return;
+            try {
+                await sb.from('donjara_room_players')
+                    .delete()
+                    .eq('room_id', ROOM_ID)
+                    .eq('user_handle', onlinePlayerHandle);
+                await updateRoomCount();
+            } catch(e) {}
+            onlinePlayerHandle = null;
+        }
+
+        // ルーム人数をDBに反映
+        async function updateRoomCount() {
+            const { count } = await sb
+                .from('donjara_room_players')
+                .select('*', { count: 'exact', head: true })
+                .eq('room_id', ROOM_ID);
+
+            await sb.from('donjara_rooms').upsert({
+                id: ROOM_ID,
+                player_count: count || 0,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+        }
+
+        // ルーム人数ポーリング（3秒間隔 - Realtime負荷削減）
+        async function pollRoomPlayers() {
+            try {
+                const { data } = await sb
+                    .from('donjara_room_players')
+                    .select('user_handle, user_name, user_avatar, seat_index')
+                    .eq('room_id', ROOM_ID)
+                    .order('seat_index');
+
+                if (!data) return;
+                updateOnlineLobbyUI(data);
+
+                // 4人揃ったらゲーム開始
+                if (data.length >= 4) {
+                    clearInterval(roomPollInterval);
+                    roomPollInterval = null;
+                    // オンライン対戦メンバーを players[] に反映
+                    data.forEach((p, i) => {
+                        players[i].name = p.user_name || ('Player ' + (i+1));
+                        players[i].avatar = p.user_avatar || AVATARS[i % 4];
+                        players[i].isCPU = (i !== 0); // 0番は自分
+                    });
+                    setTimeout(() => initGame(), 1500);
+                }
+            } catch(e) { console.error('pollRoomPlayers error:', e); }
+        }
+
+        // オンラインロビーUIの更新
+        function updateOnlineLobbyUI(players_in_room) {
+            for (let i = 1; i <= 3; i++) {
+                const p = players_in_room.find(p => p.seat_index === i);
+                const cpuEl = document.getElementById(`match-cpu${i}`);
+                if (!cpuEl) continue;
+                if (p) {
+                    cpuEl.classList.remove('opacity-40');
+                    cpuEl.querySelector('img').classList.remove('opacity-20');
+                    cpuEl.querySelector('img').src = p.user_avatar || AVATARS[i];
+                    const statusEl = document.getElementById(`match-cpu${i}-status`);
+                    const nameEl = document.getElementById(`match-cpu${i}-name`);
+                    if (statusEl) { statusEl.textContent = 'READY'; statusEl.classList.add('text-green-400'); }
+                    if (nameEl) nameEl.textContent = p.user_name || ('Player ' + (i+1));
+                } else {
+                    cpuEl.classList.add('opacity-40');
+                    cpuEl.querySelector('img').classList.add('opacity-20');
+                    const statusEl = document.getElementById(`match-cpu${i}-status`);
+                    if (statusEl) { statusEl.textContent = 'WAITING'; statusEl.classList.remove('text-green-400'); }
+                }
+            }
+            // 参加人数表示
+            const countEl = document.getElementById('online-room-count');
+            if (countEl) countEl.textContent = `${players_in_room.length}/4`;
+        }
+
+        // Realtime: donjara_rooms だけを購読（最小負荷）
+        function subscribeToRoom() {
+            if (roomChannel) { sb.removeChannel(roomChannel); roomChannel = null; }
+            roomChannel = sb.channel('donjara-room-status')
+                .on('postgres_changes', {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'donjara_rooms',
+                    filter: `id=eq.${ROOM_ID}`
+                }, payload => {
+                    const newStatus = payload.new.status;
+                    const count = payload.new.player_count;
+                    const countEl = document.getElementById('online-room-count');
+                    if (countEl) countEl.textContent = `${count}/4`;
+                    // ステータスがplayingになったらゲーム開始合図
+                    if (newStatus === 'playing') {
+                        clearInterval(roomPollInterval);
+                    }
+                })
+                .subscribe();
+        }
+
+        function showDonjaraToast(msg) {
+            // ロビー画面用の簡易トースト
+            const el = document.createElement('div');
+            el.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1d9bf0;color:#fff;padding:10px 20px;border-radius:8px;z-index:9999;font-size:13px;font-weight:bold;';
+            el.textContent = msg;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 3000);
+        }
+
+        // ────────────────────────────────────────────────────
+        // --- 初期設定・イベント登録 ---
+        window.onload = () => {
+            initGridBackground();
+            loadParentProfile();
+
+            // アバター選択アクション
+            const avatarsOpt = document.querySelectorAll('.avatar-select-option');
+            avatarsOpt.forEach(opt => {
+                opt.addEventListener('click', () => {
+                    AudioEngine.play('click');
+                    const idx = opt.dataset.idx;
+                    players[0].avatar = AVATARS[idx];
+                    document.getElementById('lobby-selected-avatar').src = AVATARS[idx];
+                    document.getElementById('match-player-avatar').src = AVATARS[idx];
+                    document.getElementById('p0-avatar').src = AVATARS[idx];
+                    
+                    // アバター周囲のグローを移動
+                    avatarsOpt.forEach(o => o.querySelector('img').classList.remove('border-[#00f0ff]'));
+                    opt.querySelector('img').classList.add('border-[#00f0ff]');
+                });
+            });
+        };
+
+        // --- シーン切り替え ---
+        function showScene(sceneId) {
+            document.getElementById('scene-lobby').classList.add('hidden');
+            document.getElementById('scene-matching').classList.add('hidden');
+            document.getElementById('scene-game').classList.add('hidden');
+            document.getElementById('scene-final-result').classList.add('hidden');
+
+            document.getElementById(sceneId).classList.remove('hidden');
+        }
+
+        // --- ①②ルール・役一覧モーダルの開閉 ---
+        function openRulesModal() {
+            AudioEngine.play('click');
+            renderHandRanksList();
+            document.getElementById('modal-rules').classList.remove('hidden');
+        }
+
+        function closeRulesModal() {
+            AudioEngine.play('click');
+            document.getElementById('modal-rules').classList.add('hidden');
+        }
+
+        // --- 役一覧をHAND_RANKSデータから動的に描画 ---
+        function renderHandRanksList() {
+            const container = document.getElementById('rules-hand-list');
+            container.innerHTML = HAND_RANKS.map(rank => `
+                <div class="bg-[#0a0c18] border border-[#1b2144] rounded-lg p-2.5">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-black ${rank.color}">${rank.name}</span>
+                        <span class="text-[11px] font-mono font-bold text-gray-300">+${rank.score.toLocaleString()}</span>
+                    </div>
+                    <p class="text-[10px] text-gray-400 leading-relaxed">${rank.desc}</p>
+                </div>
+            `).join('');
+        }
+
+        // --- マッチング演出 ---
+        async function startMatchmaking(mode) {
+            AudioEngine.play('click');
+            showScene('scene-matching');
+
+            // ユーザー名を適用
+            const nameInput = document.getElementById('player-name-input').value.trim();
+            if (nameInput) {
+                players[0].name = nameInput;
+                document.getElementById('match-player-name').textContent = nameInput;
+                document.getElementById('p0-name').textContent = nameInput;
+            }
+
+            const multiWaitingUI = document.getElementById('multiplayer-waiting-ui');
+            const progressUI = document.getElementById('matching-progress-container');
+
+            if (mode === 'online') {
+                // ▼ オンライン（マルチ対戦ロビー）の動作: Supabase Realtime + 3秒ポーリング
+                document.getElementById('matching-title').textContent = "ROOM #001 WAITING";
+                document.getElementById('matching-subtitle').textContent = "1ルーム固定: 対戦メンバーを待機中";
+                document.getElementById('matching-timer').textContent = "他のプレイヤーが参加するのを待っています...";
+
+                // プログレスバーを隠し、タイマーUIを表示
+                progressUI.classList.add('hidden');
+                multiWaitingUI.classList.remove('hidden');
+                multiWaitingUI.classList.add('flex');
+
+                // Supabase: ルームに参加 & Realtimeチャンネル購読
+                const myHandle = players[0].name; // sicoXから取得したnameをhandleとして代用
+                await joinRoom(myHandle, players[0].name, players[0].avatar);
+                subscribeToRoom();
+
+                // 3秒ポーリングでルーム人数確認（Realtime節約）
+                if (roomPollInterval) clearInterval(roomPollInterval);
+                roomPollInterval = setInterval(pollRoomPlayers, 3000);
+                pollRoomPlayers(); // 即時実行
+
+                // 3分タイムアウトで強制スタート（CPU補完）
+                lobbyTimeLeft = 180;
+                updateLobbyTimerDisplay();
+                if (lobbyTimerInterval) clearInterval(lobbyTimerInterval);
+                
+                lobbyTimerInterval = setInterval(() => {
+                    lobbyTimeLeft--;
+                    updateLobbyTimerDisplay();
+                    
+                    if (lobbyTimeLeft <= 0) {
+                        clearInterval(lobbyTimerInterval);
+                        clearInterval(roomPollInterval);
+                        // 不足分をCPUで補完してゲーム開始
+                        showDonjaraToast("3分経過。CPU補完でゲームを開始します。");
+                        setTimeout(() => triggerGameStart(), 1000);
+                    }
+                }, 1000);
+
+                // ロビーに部屋参加数表示追加
+                const timerEl = document.getElementById('matching-timer');
+                if (timerEl) {
+                    const countDisplay = document.createElement('div');
+                    countDisplay.id = 'online-room-count-wrap';
+                    countDisplay.className = 'text-cyan-400 font-bold mt-1';
+                    countDisplay.innerHTML = '参加中: <span id="online-room-count">1</span>/4';
+                    timerEl.parentNode.insertBefore(countDisplay, timerEl.nextSibling);
+                }
+
+            } else {
+                // ▼ CPU対戦の動作: プログレスバー進行（旧来のシミュレーション）
+                players[1].name = "CPU_1(Jack)";
+                players[2].name = "CPU_2(Rei)";
+                players[3].name = "CPU_3(Ken)";
+
+                document.getElementById('matching-title').textContent = "MATCHMAKING LOBBY";
+                document.getElementById('matching-subtitle').textContent = "対戦プレイヤーを検索中...";
+                document.getElementById('matching-timer').textContent = "セッションを接続中...";
+
+                // タイマーUIを隠し、プログレスバーを表示
+                multiWaitingUI.classList.add('hidden');
+                multiWaitingUI.classList.remove('flex');
+                progressUI.classList.remove('hidden');
+
+                // アバター状態リセット
+                for(let i=1; i<=3; i++) {
+                    const cpuEl = document.getElementById(`match-cpu${i}`);
+                    cpuEl.classList.add('opacity-40');
+                    cpuEl.querySelector('img').classList.add('opacity-20');
+                    document.getElementById(`match-cpu${i}-status`).textContent = "SEARCHING";
+                    document.getElementById(`match-cpu${i}-status`).classList.remove('text-green-400');
+                    document.getElementById(`match-cpu${i}-name`).textContent = "CONNECTING...";
+                }
+
+                // マッチングシミュレーション進行
+                let progress = 20;
+                const interval = setInterval(() => {
+                    progress += Math.floor(Math.random() * 20) + 10;
+                    if (progress >= 100) progress = 100;
+
+                    document.getElementById('matching-progress').style.width = progress + '%';
+
+                    if (progress >= 40) {
+                        const cpu1El = document.getElementById('match-cpu1');
+                        cpu1El.classList.remove('opacity-40');
+                        cpu1El.querySelector('img').classList.remove('opacity-20');
+                        cpu1El.querySelector('img').src = players[1].avatar;
+                        document.getElementById('match-cpu1-status').textContent = "READY";
+                        document.getElementById('match-cpu1-status').classList.add('text-green-400');
+                        document.getElementById('match-cpu1-name').textContent = players[1].name;
+                    }
+                    if (progress >= 70) {
+                        const cpu2El = document.getElementById('match-cpu2');
+                        cpu2El.classList.remove('opacity-40');
+                        cpu2El.querySelector('img').classList.remove('opacity-20');
+                        cpu2El.querySelector('img').src = players[2].avatar;
+                        document.getElementById('match-cpu2-status').textContent = "READY";
+                        document.getElementById('match-cpu2-status').classList.add('text-green-400');
+                        document.getElementById('match-cpu2-name').textContent = players[2].name;
+                    }
+                    if (progress >= 100) {
+                        const cpu3El = document.getElementById('match-cpu3');
+                        cpu3El.classList.remove('opacity-40');
+                        cpu3El.querySelector('img').classList.remove('opacity-20');
+                        cpu3El.querySelector('img').src = players[3].avatar;
+                        document.getElementById('match-cpu3-status').textContent = "READY";
+                        document.getElementById('match-cpu3-status').classList.add('text-green-400');
+                        document.getElementById('match-cpu3-name').textContent = players[3].name;
+
+                        document.getElementById('matching-timer').textContent = "対戦決定！ ゲームを開始します...";
+                        clearInterval(interval);
+
+                        setTimeout(() => {
+                            initGame();
+                        }, 1500);
+                    }
+                }, 600);
+            }
+            
+            // 盤面のアバター名更新
+            document.getElementById('p1-name').textContent = players[1].name;
+            document.getElementById('p2-name').textContent = players[2].name;
+            document.getElementById('p3-name').textContent = players[3].name;
+        }
+
+        /**
+         * 待機タイマーの画面表示を更新
+         */
+        function updateLobbyTimerDisplay() {
+            const minutes = Math.floor(lobbyTimeLeft / 60);
+            const seconds = lobbyTimeLeft % 60;
+            const timerEl = document.getElementById('lobby-countdown');
+            if (timerEl) {
+                timerEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
+        }
+
+        /**
+         * 親のOKクリック時、または3分時間切れでの強制スタート処理
+         */
+        function triggerGameStart() {
+            if (lobbyTimerInterval) {
+                clearInterval(lobbyTimerInterval);
+                lobbyTimerInterval = null;
+            }
+            AudioEngine.play('click');
+            document.getElementById('matching-timer').textContent = "ゲームを開始します...";
+            
+            setTimeout(() => {
+                initGame();
+            }, 500);
+        }
+
+        // --- ゲーム開始初期化 ---
+        function initGame() {
+            // スコアをリセット
+            players.forEach(p => {
+                p.score = 20000;
+                p.discards = [];
+                p.isReach = false;
+            });
+            currentRound = 1;
+            currentDealer = 0; // 最初はあなたが親
+
+            startRound();
+        }
+
+        // --- 局単位の開始設定 ---
+        function startRound() {
+            // ラウンド表示更新
+            document.getElementById('current-round-text').textContent = `東${currentRound}局`;
+            document.getElementById('deck-count').textContent = "81";
+
+            // 山牌(デッキ)を構築・シャッフル (9種類の牌を各9枚 = 81枚)
+            deck = [];
+            for (let styleId = 0; styleId < 9; styleId++) {
+                for (let copy = 0; copy < 9; copy++) {
+                    deck.push(styleId);
+                }
+            }
+            shuffle(deck);
+
+            // 手牌リセット、捨て牌リセット
+            players.forEach(p => {
+                p.hand = [];
+                p.discards = [];
+                p.isReach = false;
+                p.ippatsuChance = false;
+                p.isDoubleReach = false;
+                p.reachTurnCount = -1;
+                
+                // 親インジケータリセット
+                document.getElementById(`p${p.id}-dealer-badge`).classList.add('hidden');
+                document.getElementById(`p${p.id}-reach-badge`).classList.add('hidden');
+            });
+            turnCountInRound = 0;
+
+            // 親を設定
+            document.getElementById(`p${currentDealer}-dealer-badge`).classList.remove('hidden');
+
+            // 牌を配る (通常は8枚。親だけ最初から9枚でスタート)
+            players.forEach(p => {
+                const drawCount = (p.id === currentDealer) ? 9 : 8;
+                for (let i = 0; i < drawCount; i++) {
+                    p.hand.push(deck.pop());
+                }
+                // 手牌をソート
+                p.hand.sort((a, b) => a - b);
+            });
+
+            // 捨て牌ビジュアルの全消去
+            for (let i = 0; i < 4; i++) {
+                document.getElementById(`p${i}-discards`).innerHTML = "";
+            }
+
+            // あなたのUI更新
+            updatePlayerHandUI();
+            updateScoresUI();
+
+            showScene('scene-game');
+            gameActive = true;
+            activeSelectedTileIdx = -1;
+
+            // 最初はチャットログ初期化
+            const chatLog = document.getElementById('chat-history');
+            chatLog.innerHTML = `<div class="text-gray-500 text-center text-[10px]">システム: 東${currentRound}局が開始されました。</div>`;
+
+            // 誰からスタートするか判定 (親からスタート)
+            currentTurn = currentDealer;
+            setTimeout(() => {
+                triggerTurnStart();
+            }, 1000);
+        }
+
+        // --- シャッフルアルゴリズム ---
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+        }
+
+        // --- 各ターン進行開始 ---
+        function triggerTurnStart() {
+            if (!gameActive) return;
+
+            // デッキ切れチェック
+            if (deck.length === 0) {
+                endRoundByDraw();
+                return;
+            }
+
+            turnCountInRound++;
+
+            // 全員の親/リーチ状態を更新
+            updateScoresUI();
+
+            // ターンインジケータ（アバターにハイライト）
+            for (let i = 0; i < 4; i++) {
+                const avatar = document.getElementById(`p${i}-avatar`);
+                if (i === currentTurn) {
+                    avatar.classList.add('neon-border-cyan', 'border-cyan-400');
+                    avatar.classList.remove('border-slate-700');
+                } else {
+                    avatar.classList.remove('neon-border-cyan', 'border-cyan-400');
+                    avatar.classList.add('border-slate-700');
+                }
+            }
+
+            // ターンオーナーのアクション
+            if (currentTurn === 0) {
+                // あなたのターン
+                // 手牌が8枚なら山から1枚ツモる
+                if (players[0].hand.length === 8) {
+                    const drawn = deck.pop();
+                    players[0].hand.push(drawn);
+                    AudioEngine.play('draw');
+                    hasJustDrawn = true;
+                    updatePlayerHandUI();
+                } else {
+                    hasJustDrawn = false;
+                }
+                
+                document.getElementById('deck-count').textContent = deck.length;
+
+                // アガリ判定
+                const isWinning = checkWinningHand(players[0].hand);
+                const btnTsumo = document.getElementById('btn-tsumo');
+                if (isWinning) {
+                    btnTsumo.classList.remove('hidden');
+                } else {
+                    btnTsumo.classList.add('hidden');
+                }
+
+                // リーチ判定 (テンパイチェック：1枚切ると3×3コーツが作れるか)
+                const btnReach = document.getElementById('btn-reach');
+                if (!players[0].isReach && players[0].score >= 1000 && checkTenpai(players[0].hand)) {
+                    btnReach.classList.remove('hidden');
+                } else {
+                    btnReach.classList.add('hidden');
+                }
+
+            } else {
+                // CPUのターン
+                executeCPUTurn(currentTurn);
+            }
+        }
+
+        // --- 手牌アガリ判定 (Donjara 3x3セット、または特殊形2-2-2-3) ---
+        function checkWinningHand(hand) {
+            if (hand.length !== 9) return false;
+            // 9枚の牌の出現数をカウント
+            const counts = {};
+            hand.forEach(tileId => {
+                counts[tileId] = (counts[tileId] || 0) + 1;
+            });
+            const counts_values = Object.values(counts);
+
+            // 【通常形】同じ絵柄3枚のセットを3組(3-3-3)。
+            // 各絵柄の枚数がすべて3の倍数(3,6,9)であれば、3枚組の集合として完全に分割できる。
+            const isNormalForm = counts_values.every(c => c % 3 === 0);
+
+            // 【特殊形】3ペア(2枚組)+1トリオ(3枚組)の2-2-2-3形。
+            // 4種類の絵柄が手牌にあり、そのうち3種が2枚、1種が3枚であること。
+            const isTriplePairsForm = counts_values.length === 4 &&
+                counts_values.filter(c => c === 2).length === 3 &&
+                counts_values.filter(c => c === 3).length === 1;
+
+            return isNormalForm || isTriplePairsForm;
+        }
+
+        // --- テンパイ(1枚待ち)判定 ---
+        function checkTenpai(hand) {
+            // 手牌9枚の中から、どれか1枚を切った後にテンパイ(残り1枚同じものを引けば上がれる状態)になるか？
+            // 【通常形】1枚切った8枚の中に「ペアが1つと、コーツ(3枚)が2つ」があれば1枚待ち(テンパイ)
+            // 【特殊形】1枚切った8枚が「2-2-2-2」、または「1-2-2-3」であれば2-2-2-3形のテンパイ
+            for (let i = 0; i < hand.length; i++) {
+                const tempHand = [...hand];
+                tempHand.splice(i, 1); // 1枚捨てるシミュレーション
+
+                const counts = {};
+                tempHand.forEach(t => counts[t] = (counts[t] || 0) + 1);
+                const values = Object.values(counts);
+
+                // --- 通常形のテンパイチェック：2枚組が1セット、3枚組が2セット ---
+                let pairCount = 0;
+                let tripletCount = 0;
+                let isValidNormal = true;
+
+                for (let count of values) {
+                    if (count === 2) pairCount++;
+                    else if (count === 3) tripletCount++;
+                    else if (count === 5) { tripletCount++; pairCount++; } // 5枚同じ（ありえないが安全策）
+                    else if (count === 6) { tripletCount += 2; }
+                    else if (count !== 0) {
+                        isValidNormal = false;
+                    }
+                }
+                if (isValidNormal && pairCount === 1 && tripletCount === 2) {
+                    return true;
+                }
+
+                // --- 特殊形(2-2-2-3)のテンパイチェック ---
+                // パターンA: 4種類すべてが2枚(2-2-2-2) → どれか1種の3枚目を引けば完成
+                const isFourPairs = values.length === 4 && values.every(c => c === 2);
+                // パターンB: 1枚単体+ペア2組+トリオ1組(1-2-2-3) → 単体と同じ牌を引けば完成
+                const isSingleTwoTwoThree = values.length === 4 &&
+                    values.filter(c => c === 1).length === 1 &&
+                    values.filter(c => c === 2).length === 2 &&
+                    values.filter(c => c === 3).length === 1;
+
+                if (isFourPairs || isSingleTwoTwoThree) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- あなたの手牌 UI 描画 ---
+        function updatePlayerHandUI() {
+            const normalTilesContainer = document.getElementById('hand-normal-tiles');
+            const drawTileContainer = document.getElementById('hand-draw-tile');
+
+            normalTilesContainer.innerHTML = "";
+            drawTileContainer.innerHTML = "";
+
+            // もしアガリ判定等で9枚になっている場合、最後の1枚をツモ牌扱いで隙間を空けて右に配置
+            const len = players[0].hand.length;
+            const displayHand = [...players[0].hand];
+
+            let normalHand = displayHand;
+            let drawTile = null;
+
+            if (len === 9) {
+                // 最後の1枚を右側に分ける
+                drawTile = displayHand[8];
+                normalHand = displayHand.slice(0, 8);
+            }
+
+            // 通常手牌 8枚描画
+            normalHand.forEach((tileId, idx) => {
+                const def = TILE_DEFINITIONS[tileId];
+                const tileHtml = `
+                    <div class="w-9 h-[3.4rem] sm:w-10 sm:h-16 tile-3d cursor-pointer ${idx === activeSelectedTileIdx ? 'selected' : ''}" onclick="selectTile(${idx})">
+                        <div class="tile-inner h-full flex flex-col justify-between p-1">
+                            <span class="text-[6px] opacity-70 tracking-tighter truncate">${def.name}</span>
+                            <div class="text-base sm:text-lg text-center my-0.5 bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent">
+                                <i class="fa-solid ${def.icon}"></i>
+                            </div>
+                            <div class="text-[6px] text-right font-bold text-slate-500">${def.class.toUpperCase()}</div>
+                        </div>
+                    </div>
+                `;
+                normalTilesContainer.innerHTML += tileHtml;
+            });
+
+            // ツモ牌 1枚描画
+            if (drawTile !== null) {
+                const def = TILE_DEFINITIONS[drawTile];
+                const tileHtml = `
+                    <div class="w-9 h-[3.4rem] sm:w-10 sm:h-16 tile-3d cursor-pointer ${8 === activeSelectedTileIdx ? 'selected' : ''}" onclick="selectTile(8)">
+                        <div class="tile-inner h-full flex flex-col justify-between p-1 border-cyan-400">
+                            <span class="text-[6px] text-cyan-400 font-bold truncate">TSUMO</span>
+                            <div class="text-base sm:text-lg text-center my-0.5 bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent">
+                                <i class="fa-solid ${def.icon}"></i>
+                            </div>
+                            <div class="text-[6px] text-right font-bold text-slate-500">${def.class.toUpperCase()}</div>
+                        </div>
+                    </div>
+                `;
+                drawTileContainer.innerHTML = tileHtml;
+            }
+        }
+
+        // --- 手牌タイル選択処理 ---
+        function selectTile(idx) {
+            AudioEngine.play('click');
+            if (activeSelectedTileIdx === idx) {
+                // すでに選択されているものをもう一度タップしたら打牌
+                discardSelectedTile();
+            } else {
+                activeSelectedTileIdx = idx;
+                updatePlayerHandUI();
+            }
+        }
+
+        // --- あなたの手牌を切る（打牌） ---
+        function manualDiscard() {
+            if (currentTurn !== 0) return;
+            if (activeSelectedTileIdx === -1) {
+                // 未選択なら一番右を自動選択して切る
+                activeSelectedTileIdx = players[0].hand.length - 1;
+            }
+            discardSelectedTile();
+        }
+
+        // --- 選択中の牌を実際に川へ捨てる ---
+        function discardSelectedTile() {
+            if (currentTurn !== 0 || activeSelectedTileIdx === -1) return;
+
+            const discardedTile = players[0].hand.splice(activeSelectedTileIdx, 1)[0];
+            players[0].hand.sort((a, b) => a - b); // 切ったあとソート
+
+            activeSelectedTileIdx = -1;
+            updatePlayerHandUI();
+
+            executePlayerDiscard(0, discardedTile);
+        }
+
+        // --- 共通捨て牌処理（ビジュアル反映、ロンチェック、ターン送り） ---
+        function executePlayerDiscard(playerId, tileId) {
+            AudioEngine.play('discard');
+            players[playerId].discards.push(tileId);
+
+            // 川UIの更新
+            const discardsContainer = document.getElementById(`p${playerId}-discards`);
+            const def = TILE_DEFINITIONS[tileId];
+            
+            // リーチ宣言時は横向きにする
+            const isReachTile = (players[playerId].isReach && players[playerId].discards.length === 1);
+            const reachStyle = isReachTile ? 'transform: rotate(90deg) scale(0.9); border-color: #ef4444;' : '';
+
+            const tileMarkup = `
+                <div class="discard-tile" style="${reachStyle}" title="${def.name}">
+                    <i class="fa-solid ${def.icon} bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent scale-90"></i>
+                </div>
+            `;
+            discardsContainer.innerHTML += tileMarkup;
+
+            // 直前の捨て牌情報
+            lastDiscardedTile = tileId;
+            lastDiscarderId = playerId;
+
+            // 一発判定: リーチ宣言者本人以外が打牌したら、その宣言者の一発チャンスは消える
+            // (本人のリーチ宣言直後の打牌そのものでは消費しない)
+            players.forEach(p => {
+                if (p.id !== playerId && p.isReach && p.ippatsuChance) {
+                    p.ippatsuChance = false;
+                }
+            });
+
+            // 他プレイヤーのロン判定チェックへ移行
+            checkRonPossibility();
+        }
+
+        // --- ロン(他人の牌でアガる)発生チェック ---
+        function checkRonPossibility() {
+            let ronClaimed = false;
+
+            // 1. 人間プレイヤーへのチェック
+            if (lastDiscarderId !== 0) {
+                const hypotheticalHand = [...players[0].hand, lastDiscardedTile];
+                if (checkWinningHand(hypotheticalHand)) {
+                    // ロン宣言パネルを表示！
+                    showRonClaimPanel();
+                    return; // ターンの進行をストップ
+                }
+            }
+
+            // 2. CPUプレイヤーへのチェック
+            for (let i = 1; i < 4; i++) {
+                if (i !== lastDiscarderId) {
+                    const hypotheticalHand = [...players[i].hand, lastDiscardedTile];
+                    if (checkWinningHand(hypotheticalHand)) {
+                        // CPUは85%の確率でロン(ドンジャラ)を宣言
+                        if (Math.random() < 0.85) {
+                            setTimeout(() => {
+                                executeRon(i, lastDiscardedTile, lastDiscarderId);
+                            }, 1000);
+                            return; // ターンストップ
+                        }
+                    }
+                }
+            }
+
+            // 誰もロンしなければターン終了、次の人へ
+            advanceTurn();
+        }
+
+        // --- あなたのロン確認パネル表示 ---
+        function showRonClaimPanel() {
+            const panel = document.getElementById('ron-claim-panel');
+            const tileDisp = document.getElementById('ron-tile-display');
+            const def = TILE_DEFINITIONS[lastDiscardedTile];
+
+            tileDisp.innerHTML = `<i class="fa-solid ${def.icon} bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent"></i>`;
+            panel.classList.remove('hidden');
+
+            let timeLeft = 3.0;
+            document.getElementById('ron-timer').textContent = timeLeft.toFixed(1);
+
+            ronTimerInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                document.getElementById('ron-timer').textContent = Math.max(0, timeLeft).toFixed(1);
+                
+                if (timeLeft <= 0) {
+                    skipRon();
+                }
+            }, 100);
+        }
+
+        // --- あなたがロンをキャンセルしてスルーする ---
+        function skipRon() {
+            clearInterval(ronTimerInterval);
+            document.getElementById('ron-claim-panel').classList.add('hidden');
+            advanceTurn();
+        }
+
+        // --- あなたがロンを宣言する ---
+        function claimRon() {
+            clearInterval(ronTimerInterval);
+            document.getElementById('ron-claim-panel').classList.add('hidden');
+            executeRon(0, lastDiscardedTile, lastDiscarderId);
+        }
+
+        // --- ツモ（自分で引いて上がる）を宣言する ---
+        function claimTsumo() {
+            if (currentTurn !== 0) return;
+            // あなたの勝利
+            executeTsumo(0);
+        }
+
+        // --- ロン実行 ---
+        function executeRon(winnerId, tileId, loserId) {
+            AudioEngine.play('win');
+            gameActive = false;
+
+            // アガったプレイヤーの手牌に捨て牌を追加して完成させる
+            players[winnerId].hand.push(tileId);
+            // ③バグ修正: 追加した牌をソートし、結果画面で3枚セットが正しく並んで見えるようにする
+            players[winnerId].hand.sort((a, b) => a - b);
+
+            // 画面を派手に揺らす
+            document.getElementById('game-container').classList.add('animate-shake');
+            setTimeout(() => {
+                document.getElementById('game-container').classList.remove('animate-shake');
+            }, 600);
+
+            // チャット、セリフ表示
+            triggerAIChat(winnerId, 'win');
+
+            // 状況役の判定: 河底撈魚(山が0枚の状態での捨て牌をロン)、一発(リーチ直後の1巡以内)
+            const isHaitei = deck.length === 0;
+            const winner = players[winnerId];
+            const isIppatsu = winner.isReach && winner.ippatsuChance;
+
+            // 得点移動計算
+            const rankInfo = getHandRank(winner.hand, {
+                isDoubleReach: winner.isDoubleReach,
+                isIppatsu: isIppatsu,
+                isHaitei: isHaitei,
+                isTsumo: false
+            });
+            let payment = rankInfo.score;
+
+            // リーチ時は＋1,000点
+            if (winner.isReach) payment += 1000;
+
+            // 親が上がると1.5倍
+            if (winnerId === currentDealer) {
+                payment = Math.floor(payment * 1.5);
+            }
+
+            // ロンは振り込んだ人(loser)の一人払い
+            players[winnerId].score += payment;
+            players[loserId].score -= payment;
+
+            showRoundResultModal(winnerId, loserId, false, payment, rankInfo);
+        }
+
+        // --- ツモ実行 ---
+        function executeTsumo(winnerId) {
+            AudioEngine.play('win');
+            gameActive = false;
+
+            document.getElementById('game-container').classList.add('animate-shake');
+            setTimeout(() => {
+                document.getElementById('game-container').classList.remove('animate-shake');
+            }, 600);
+
+            triggerAIChat(winnerId, 'win');
+
+            // ③バグ修正: ツモ牌追加後の手牌をソートし、結果画面の表示順を正しくする
+            players[winnerId].hand.sort((a, b) => a - b);
+
+            // 状況役の判定: 海底撈月(山の最後の1枚でツモ)、一発、ダブルリーチ
+            const isHaitei = deck.length === 0;
+            const winner = players[winnerId];
+            const isIppatsu = winner.isReach && winner.ippatsuChance;
+
+            const rankInfo = getHandRank(winner.hand, {
+                isDoubleReach: winner.isDoubleReach,
+                isIppatsu: isIppatsu,
+                isHaitei: isHaitei,
+                isTsumo: true
+            });
+            let payment = rankInfo.score;
+
+            if (winner.isReach) payment += 1000;
+
+            if (winnerId === currentDealer) {
+                payment = Math.floor(payment * 1.5);
+            }
+
+            // ツモは全員で均等に割り振って支払う
+            const payerCount = 3;
+            const perPlayerPay = Math.floor(payment / payerCount);
+
+            players.forEach(p => {
+                if (p.id === winnerId) {
+                    p.score += perPlayerPay * payerCount;
+                } else {
+                    p.score -= perPlayerPay;
+                }
+            });
+
+            showRoundResultModal(winnerId, -1, true, payment, rankInfo);
+        }
+
+        // --- リーチ宣言処理 ---
+        function declareReach() {
+            if (currentTurn !== 0 || players[0].isReach) return;
+
+            AudioEngine.play('reach');
+            players[0].isReach = true;
+            players[0].score -= 1000; // 1,000点支払
+            players[0].ippatsuChance = true; // 宣言直後の1巡は一発のチャンスあり
+            players[0].reachTurnCount = turnCountInRound;
+            // 配牌(最初のツモ)でそのままリーチした場合はダブルリーチ
+            players[0].isDoubleReach = (turnCountInRound <= 1);
+
+            document.getElementById('p0-reach-badge').classList.remove('hidden');
+            document.getElementById('btn-reach').classList.add('hidden');
+            updateScoresUI();
+
+            // システムログ
+            appendChatMessage("システム", `${players[0].name} がリーチを宣言！`, "#ffb700");
+
+            // CPUの反応
+            setTimeout(() => {
+                triggerAIChat(1, 'reach');
+            }, 800);
+        }
+
+        // --- 役・点数の算出 ---
+        // options: { isDoubleReach, isIppatsu, isHaitei } の状況役フラグを渡せる
+        function getHandRank(hand, options = {}) {
+            // handには9枚が入っている前提
+            const counts = {};
+            hand.forEach(t => counts[t] = (counts[t] || 0) + 1);
+            const countValues = Object.values(counts);
+            const uniqueTileCount = Object.keys(counts).length;
+
+            // 全て同色(同クラス)判定
+            const classesInHand = hand.map(tid => TILE_DEFINITIONS[tid].class);
+            const isAllSameClass = classesInHand.every(cls => cls === classesInHand[0]);
+
+            // 三色同刻判定（各クラスから最低1つのコーツがある）
+            let classesSet = new Set(classesInHand);
+
+            // 特殊形(2-2-2-3 トリプルペアーズ)判定
+            const isTriplePairsForm = countValues.length === 4 &&
+                countValues.filter(c => c === 2).length === 3 &&
+                countValues.filter(c => c === 3).length === 1;
+
+            let baseRank;
+
+            if (uniqueTileCount === 1) {
+                // 大車輪: 1種類の絵柄だけで9枚すべて構成
+                baseRank = { key: 'daisharin', name: "大車輪 (デカトリオ)", score: 24000 };
+            } else if (isAllSameClass) {
+                // オールマイティ: 同系統(Cyber/Bio/Astro)のみで構成
+                baseRank = { key: 'allmighty', name: "オールマイティ (一色アガリ)", score: 12000 };
+            } else if (classesSet.size === 3 && !isTriplePairsForm) {
+                // 三色同刻: 3系統すべてからコーツを作る（通常形のみ対象）
+                baseRank = { key: 'sanshoku', name: "三色同刻 (全色コーツ)", score: 8000 };
+            } else if (isTriplePairsForm) {
+                // ④追加の特殊役: 2-2-2-3形（3ペア+1トリオ）
+                baseRank = { key: 'triple_pairs', name: "トリプルペアーズ (3ペア+1トリオ)", score: 6000 };
+            } else {
+                baseRank = { key: 'normal', name: "通常ドンジャラアガリ", score: 4000 };
+            }
+
+            // --- 状況役の加算（複合可能） ---
+            let bonusScore = 0;
+            let bonusNames = [];
+
+            if (options.isDoubleReach) {
+                bonusScore += 4000;
+                bonusNames.push("ダブルリーチ");
+            }
+            if (options.isIppatsu) {
+                bonusScore += 2000;
+                bonusNames.push("一発");
+            }
+            if (options.isHaitei) {
+                bonusScore += 2000;
+                bonusNames.push(options.isTsumo ? "海底撈月" : "河底撈魚");
+            }
+
+            const finalName = bonusNames.length > 0
+                ? `${baseRank.name} + ${bonusNames.join('・')}`
+                : baseRank.name;
+
+            return {
+                key: baseRank.key,
+                name: finalName,
+                score: baseRank.score + bonusScore
+            };
+        }
+
+        // --- ラウンド勝利モーダル展開 ---
+        function showRoundResultModal(winnerId, loserId, isTsumo, payment, rankInfo) {
+            const modal = document.getElementById('modal-round-result');
+            const title = document.getElementById('result-status-title');
+            const detail = document.getElementById('result-winner-detail');
+            const handDisp = document.getElementById('result-hand-display');
+            const rankText = document.getElementById('result-hand-rank');
+            const scoreText = document.getElementById('result-hand-score');
+            const payerText = document.getElementById('result-payer');
+
+            // タイトル
+            if (winnerId === 0) {
+                title.textContent = "VICTORY";
+                title.className = "text-2xl sm:text-3xl font-black italic tracking-widest text-cyan-400 mb-2 neon-text-cyan";
+            } else {
+                title.textContent = "DEFEAT";
+                title.className = "text-2xl sm:text-3xl font-black italic tracking-widest text-pink-500 mb-2 neon-text-magenta";
+            }
+
+            // 勝者詳細
+            detail.textContent = `${players[winnerId].name} のドンジャラ！`;
+
+            // ③手牌描画: 同じ絵柄ごとにグループ化し、グループ間に隙間を空けて
+            // 「3枚(または2枚)セットがきちんと揃っている」ことが見た目で明確にわかるようにする
+            handDisp.innerHTML = "";
+            const groupedCounts = {};
+            players[winnerId].hand.forEach(t => {
+                groupedCounts[t] = (groupedCounts[t] || 0) + 1;
+            });
+            Object.keys(groupedCounts).sort((a, b) => a - b).forEach(tileIdStr => {
+                const tileId = parseInt(tileIdStr, 10);
+                const def = TILE_DEFINITIONS[tileId];
+                const groupWrapper = document.createElement('div');
+                groupWrapper.className = "flex gap-0.5 bg-slate-900/40 rounded-lg p-1 border border-slate-700/50";
+                for (let i = 0; i < groupedCounts[tileId]; i++) {
+                    groupWrapper.innerHTML += `
+                        <div class="w-8 h-11 sm:w-10 sm:h-14 bg-[#111424] border border-slate-700 rounded flex flex-col justify-between p-1 text-center">
+                            <div class="text-[10px] sm:text-xs bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent">
+                                <i class="fa-solid ${def.icon}"></i>
+                            </div>
+                            <span class="text-[5px] sm:text-[6px] text-gray-500 truncate">${def.name}</span>
+                        </div>
+                    `;
+                }
+                handDisp.appendChild(groupWrapper);
+            });
+
+            // 役とスコア
+            rankText.textContent = rankInfo.name;
+            scoreText.textContent = `+${payment.toLocaleString()} pts`;
+
+            // 支払い種別
+            if (isTsumo) {
+                payerText.textContent = "自摸 (ツモ): 全員均等払い";
+            } else {
+                payerText.textContent = `放銃 (ロン): ${players[loserId].name} からの直撃`;
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        // --- 局流れ（引き分け）時の処理 ---
+        function endRoundByDraw() {
+            gameActive = false;
+            
+            const modal = document.getElementById('modal-round-result');
+            const title = document.getElementById('result-status-title');
+            const detail = document.getElementById('result-winner-detail');
+            const handDisp = document.getElementById('result-hand-display');
+            const rankText = document.getElementById('result-hand-rank');
+            const scoreText = document.getElementById('result-hand-score');
+            const payerText = document.getElementById('result-payer');
+
+            title.textContent = "DRAW GAME";
+            title.className = "text-2xl sm:text-3xl font-black italic tracking-widest text-yellow-500 mb-2";
+            detail.textContent = "山牌がなくなりました (荒牌平局)";
+            handDisp.innerHTML = `<span class="text-xs text-gray-400">誰も上がれませんでした</span>`;
+            
+            rankText.textContent = "全員ノーテン";
+            scoreText.textContent = "0 pts";
+            payerText.textContent = "チップ移動なし";
+
+            modal.classList.remove('hidden');
+        }
+
+        // --- 局終了、次の局への進行設定 ---
+        function nextRound() {
+            document.getElementById('modal-round-result').classList.add('hidden');
+
+            currentRound++;
+            currentDealer = (currentDealer + 1) % 4; // 親番交代
+
+            if (currentRound > 3) {
+                // 3ゲーム（東3局）終了でゲームセット、最終結果画面へ
+                endWholeMatch();
+            } else {
+                startRound();
+            }
+        }
+
+        // --- ゲームセット、総合勝敗計算 ---
+        function endWholeMatch() {
+            showScene('scene-final-result');
+
+            // プレイヤーをスコア順にソートしてポディウムに反映
+            const sorted = [...players].sort((a, b) => b.score - a.score);
+
+            // ポディウム 1st
+            document.getElementById('podium-1-avatar').src = sorted[0].avatar;
+            document.getElementById('podium-1-name').textContent = sorted[0].name;
+            document.getElementById('podium-1-score').textContent = `${sorted[0].score.toLocaleString()} pts`;
+
+            // 2nd
+            document.getElementById('podium-2-avatar').src = sorted[1].avatar;
+            document.getElementById('podium-2-name').textContent = sorted[1].name;
+            document.getElementById('podium-2-score').textContent = `${sorted[1].score.toLocaleString()} pts`;
+
+            // 3rd
+            document.getElementById('podium-3-avatar').src = sorted[2].avatar;
+            document.getElementById('podium-3-name').textContent = sorted[2].name;
+            document.getElementById('podium-3-score').textContent = `${sorted[2].score.toLocaleString()} pts`;
+
+            // 4th
+            document.getElementById('podium-4-avatar').src = sorted[3].avatar;
+            document.getElementById('podium-4-name').textContent = sorted[3].name;
+            document.getElementById('podium-4-score').textContent = `${sorted[3].score.toLocaleString()} pts`;
+
+            // sicoXポイント同期: 初期20000を基準とした差分を送信
+            const playerFinalScore = players[0].score;
+            const playerInitialScore = 20000;
+            const djDeltaPt = playerFinalScore - playerInitialScore;
+            syncFinalScore(playerFinalScore, playerInitialScore);
+
+            // DB に結果を記録（ランキング用）
+            const rankForDB = sorted.findIndex(p => p.id === 0) + 1;
+            if (onlinePlayerHandle) {
+                sb.from('donjara_results').insert({
+                    user_handle: onlinePlayerHandle,
+                    game_mode: 'online',
+                    rank: rankForDB,
+                    final_score: playerFinalScore,
+                    pt_delta: djDeltaPt
+                }).then(() => {}).catch(() => {});
+            }
+
+            // 結果をsicoXへポスト
+            const rank = sorted.findIndex(p => p.id === 0) + 1;
+            const rankLabel = ['1位🏆', '2位🥈', '3位🥉', '4位'][rank-1] || rank + '位';
+            const resultText = `【サイバードンジャラ】\n${players[0].name}は${rankLabel}でした！\n最終スコア: ${playerFinalScore.toLocaleString()}pts`;
+            const postBtn = document.getElementById('final-post-btn');
+            if (postBtn) {
+                postBtn.onclick = () => postResultToSicoX(resultText);
+                postBtn.style.display = DJ_EMBEDDED ? 'block' : 'none';
+            }
+        }
+
+        // --- スコアボードUI同期 ---
+        function updateScoresUI() {
+            players.forEach(p => {
+                document.getElementById(`p${p.id}-score`).textContent = p.score.toLocaleString();
+            });
+        }
+
+        // --- ターンプレイヤーの進行 ---
+        function advanceTurn() {
+            currentTurn = (currentTurn + 1) % 4;
+            setTimeout(() => {
+                triggerTurnStart();
+            }, 1000);
+        }
+
+        // --- CPU AIの思考・打牌実行 ---
+        function executeCPUTurn(cpuId) {
+            // CPUが山から1枚ツモる
+            const drawn = deck.pop();
+            players[cpuId].hand.push(drawn);
+            document.getElementById('deck-count').textContent = deck.length;
+
+            // 1秒待機してからアクション
+            setTimeout(() => {
+                // 1. ツモあがり判定
+                if (checkWinningHand(players[cpuId].hand)) {
+                    executeTsumo(cpuId);
+                    return;
+                }
+
+                // 2. リーチ判定 (AIはテンパイしたら即リーチ)
+                if (!players[cpuId].isReach && players[cpuId].score >= 1000 && checkTenpai(players[cpuId].hand)) {
+                    players[cpuId].isReach = true;
+                    players[cpuId].score -= 1000;
+                    players[cpuId].ippatsuChance = true;
+                    players[cpuId].reachTurnCount = turnCountInRound;
+                    players[cpuId].isDoubleReach = (turnCountInRound <= 1);
+                    document.getElementById(`p${cpuId}-reach-badge`).classList.remove('hidden');
+                    appendChatMessage(players[cpuId].name, "リーチ！勝負にいこう！", "#bc34fa");
+                    triggerAIChat(cpuId, 'reach');
+                }
+
+                // 3. AIの不要牌選別ロジック (少しだけかしこいAI)
+                // 各牌のカウントを取り、3枚組(コーツ)や2枚組(ペア)を大切にして、1枚きりの浮いている牌(孤立牌)から優先して捨てる
+                const counts = {};
+                players[cpuId].hand.forEach(t => counts[t] = (counts[t] || 0) + 1);
+
+                let selectedDiscard = -1;
+
+                // 浮き牌 (1枚だけ持っている) を優先
+                const singletons = players[cpuId].hand.filter(t => counts[t] === 1);
+                if (singletons.length > 0) {
+                    selectedDiscard = singletons[Math.floor(Math.random() * singletons.length)];
+                } else {
+                    // なければペア(2枚所持)から崩す
+                    const doubletons = players[cpuId].hand.filter(t => counts[t] === 2);
+                    if (doubletons.length > 0) {
+                        selectedDiscard = doubletons[0];
+                    } else {
+                        // それもなければランダム
+                        selectedDiscard = players[cpuId].hand[0];
+                    }
+                }
+
+                // 手牌から削除して川へ
+                const discardIdx = players[cpuId].hand.indexOf(selectedDiscard);
+                players[cpuId].hand.splice(discardIdx, 1);
+                players[cpuId].hand.sort((a, b) => a - b);
+
+                executePlayerDiscard(cpuId, selectedDiscard);
+
+            }, 1200);
+        }
+
+        // --- チャット・エモート演出部 ---
+        function toggleChat(show) {
+            const sidebar = document.getElementById('chat-sidebar');
+            if (show) {
+                sidebar.classList.remove('translate-x-full');
+            } else {
+                sidebar.classList.add('translate-x-full');
+            }
+        }
+
+        function sendQuickChat(message) {
+            AudioEngine.play('click');
+            appendChatMessage(players[0].name, message, "#00f0ff");
+            showChatBubbleOnBoard(0, message);
+            toggleChat(false); // 送信したら自動で閉じる
+
+            // CPUの反応返答
+            setTimeout(() => {
+                const responsePlayerId = Math.floor(Math.random() * 3) + 1; // CPU1〜3
+                const randomResponse = ["お、熱いメッセージだ！", "こちらも負けませんよ！", "ドンジャラ最高！", "楽しい卓ですね。"][Math.floor(Math.random() * 4)];
+                appendChatMessage(players[responsePlayerId].name, randomResponse, "#bc34fa");
+                showChatBubbleOnBoard(responsePlayerId, randomResponse);
+            }, 1500);
+        }
+
+        function triggerAIChat(cpuId, situation) {
+            const responses = AI_CHAT_RESPONSES[situation];
+            if (!responses) return;
+            const msg = responses[Math.floor(Math.random() * responses.length)];
+            
+            appendChatMessage(players[cpuId].name, msg, "#bc34fa");
+            showChatBubbleOnBoard(cpuId, msg);
+        }
+
+        function appendChatMessage(sender, text, color) {
+            const chatLog = document.getElementById('chat-history');
+            const item = document.createElement('div');
+            item.className = 'bg-slate-950/40 p-2 rounded border-l-2 border-slate-700/50';
+            item.innerHTML = `
+                <span class="font-bold" style="color: ${color}">${sender}:</span>
+                <span class="text-gray-300 ml-1">${text}</span>
+            `;
+            chatLog.appendChild(item);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        function showChatBubbleOnBoard(playerId, text) {
+            const bubble = document.getElementById(`p${playerId}-chat`);
+            bubble.textContent = text;
+            bubble.classList.remove('hidden');
+
+            // 4秒後に自動消去
+            setTimeout(() => {
+                bubble.classList.add('hidden');
+            }, 4000);
+        }
+
+        // --- メニュー操作 ---
+        function quitGame() {
+            if (confirm("本当に卓から退出しますか？（現在のセットは無効になります）")) {
+                resetToLobby();
+            }
+        }
+
+        function resetToLobby() {
+            // 待機タイマーが動いていれば停止
+            if (lobbyTimerInterval) {
+                clearInterval(lobbyTimerInterval);
+                lobbyTimerInterval = null;
+            }
+            // ポーリング停止
+            if (roomPollInterval) {
+                clearInterval(roomPollInterval);
+                roomPollInterval = null;
+            }
+            // Realtimeチャンネル解除
+            if (roomChannel) {
+                sb.removeChannel(roomChannel);
+                roomChannel = null;
+            }
+            // ルームから退出
+            leaveRoom();
+            showScene('scene-lobby');
+            gameActive = false;
+        }
+    </script>
+</body>
+</html>

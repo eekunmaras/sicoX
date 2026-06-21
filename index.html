@@ -10348,6 +10348,16 @@ setTimeout(fitWrap,120);
 
   },
 
+  donjara:{
+
+    title:'サイバードンジャラ',
+
+    icon:'ron.png',
+
+    src:'donjara.html'
+
+  },
+
   sicofx:{
 
     title:'SicoFX',
@@ -10429,6 +10439,30 @@ function postCraneDexTweet(count,total){
 function sendCraneResponse(reqId,payload){
 
   sendToGameFrame(Object.assign({type:'crane:response',reqId},payload||{}));
+
+}
+
+function sendDonjaraResponse(reqId,payload){
+
+  sendToGameFrame(Object.assign({type:'donjara:response',reqId},payload||{}));
+
+}
+
+function postDonjaraResultTweet(text){
+
+  if(!currentUser){ openProfileModal(); return false; }
+
+  const t={id:uid(),user:{...currentUser},text:text||'【サイバードンジャラ】ゲーム終了！',imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:null,quoteOf:null,isRepost:false,repostBy:null,poll:null,badgeUrl:activeBadgeUrl||null};
+
+  tweets.unshift(t);
+
+  renderFeed(document.getElementById('search-input').value.toLowerCase());
+
+  showToast('ドンジャラの結果をポストしました！');
+
+  dbPostTweet(t);
+
+  return true;
 
 }
 
@@ -10701,6 +10735,43 @@ window.addEventListener('message',async e=>{
 
   }
 
+  // ── ドンジャラ postMessage ブリッジ ──
+
+  if(msg.type==='donjara:points:init:request'){
+
+    if(!currentUser){ sendDonjaraResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
+
+    const balance=await dbFetchAvailablePoints(currentUser.handle);
+
+    sendDonjaraResponse(msg.reqId,{ok:true,balance,name:currentUser.name,avatar:currentUser.avatarUrl||null});
+
+  }
+
+  if(msg.type==='donjara:points:update'){
+
+    if(!currentUser){ sendDonjaraResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
+
+    // ドンジャラ専用: 負け額が手持ち以上の場合は手持ちを0にする（マイナスにしない）
+    const djDelta=Math.round(Number(msg.delta)||0);
+
+    const djBefore=await dbFetchAvailablePoints(currentUser.handle);
+
+    const djActualDelta=(djDelta<0 && djBefore+djDelta<0) ? -djBefore : djDelta;
+
+    const djResult=await dbApplyPointTransaction(currentUser.handle,djActualDelta,msg.reason||'ドンジャラ',msg.refId);
+
+    sendDonjaraResponse(msg.reqId,djResult);
+
+  }
+
+  if(msg.type==='donjara:tweet'){
+
+    const ok=postDonjaraResultTweet(msg.text);
+
+    sendDonjaraResponse(msg.reqId,{ok});
+
+  }
+
 });
 
 // ══ TOTO（ワールドカップ予想）: #toto-frame は #game-frame とは別の、News内に常設されたiframeのため専用リスナーを使う ══
@@ -10827,7 +10898,7 @@ window.adminSettleTotoChampion=adminSettleTotoChampion;
 
 function openGame(gameId){
 
-  if((gameId==='sicofx'||gameId==='crane')&&!currentUser){showToast((gameId==='crane'?'クレーンゲーム':'SicoFX')+'はプロフィール設定後に遊べます');openProfileModal();return;}
+  if((gameId==='sicofx'||gameId==='crane'||gameId==='donjara')&&!currentUser){showToast((gameId==='crane'?'クレーンゲーム':gameId==='donjara'?'ドンジャラ':'SicoFX')+'はプロフィール設定後に遊べます');openProfileModal();return;}
 
   closeGameSelect();
 
@@ -11694,6 +11765,13 @@ function tweetWcMatchFromBtn(btn){
 
         <img src="crane.png" alt="クレーンゲーム" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>🎰</span>')">
         <span class="game-tile-label">クレーンゲーム</span>
+
+      </div>
+
+      <div class="game-icon-btn game-icon-btn-img" onclick="openGame('donjara')">
+
+        <img src="ron.png" alt="サイバードンジャラ" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>🀄</span>')">
+        <span class="game-tile-label">ドンジャラ</span>
 
       </div>
 

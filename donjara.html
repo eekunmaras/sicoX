@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
     <style>
         /* 現代スマホゲーム風のカスタムアニメーションとベーススタイル */
         html, body {
@@ -551,14 +551,14 @@
                     <button onclick="sendQuickChat('よろしくお願いします！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
                         👋 よろしくお願いします
                     </button>
-                    <button onclick="sendQuickChat('ふざけんなクソ野郎！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        🔥 ふざけんなクソ野郎！
+                    <button onclick="sendQuickChat('ドンジャラ！勝利を掴む！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        🔥 勝利を掴む！
                     </button>
-                    <button onclick="sendQuickChat('クソ雑魚が。')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        👏 クソ雑魚が。
+                    <button onclick="sendQuickChat('お見事です！悔しい〜')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        👏 お見事です！
                     </button>
-                    <button onclick="sendQuickChat('駒井')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        💥 駒井
+                    <button onclick="sendQuickChat('リーチ！勝負だ！！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        💥 勝負だ！！
                     </button>
                 </div>
             </div>
@@ -1010,8 +1010,12 @@
             if (!handle) return;
             onlinePlayerHandle = handle;
             try {
-                // 古いデータをクリーンアップ（任意）
-                await sb.rpc('cleanup_donjara_room').catch(() => {});
+                // 古いデータをクリーンアップ（任意・失敗してもジョイン処理は継続する）
+                try {
+                    await sb.rpc('cleanup_donjara_room');
+                } catch (cleanupErr) {
+                    console.warn('cleanup_donjara_room failed (続行します):', cleanupErr);
+                }
 
                 // 空いている席番号を取得（自分が既に着席済みなら、その席を再利用する）
                 const { data: existingPlayers } = await sb

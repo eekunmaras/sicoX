@@ -997,18 +997,20 @@
         // ====================================================
         const SUPABASE_URL = 'https://lbulatinwtsqgudgdhpe.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxidWxhdGlud3RzcWd1ZGdkaHBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTc3NDgsImV4cCI6MjA5NDgzMzc0OH0.4pNE5vxC2Z3OdXcj6MDUuMZpHhUZMRdyxhSipsZyEUU';
+        // ログイン機能を使わないため、Supabase Authのロック機構(navigator.locks)を
+        // 完全に迂回するno-opロックを渡す。persistSession:falseだけでは
+        // GoTrueClientの初期化処理(initialize())がnavigator.locks.request()を
+        // 呼び出してしまい、sandbox="allow-scripts"のiframe内ではLocks APIへの
+        // アクセスがブロックされて「SecurityError: Access to the Locks API is
+        // denied」が発生するため、ロック取得自体を行わないようにする。
+        const noOpLock = async (name, acquireTimeout, fn) => { return await fn(); };
+
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
             auth: {
-                // このゲームはSupabase Authでのログインを使わず、anonキーでのテーブル
-                // アクセスのみを行う。persistSession/autoRefreshTokenを有効にすると
-                // 内部でnavigator.locks（Web Locks API）を使おうとするが、このiframeは
-                // sandbox="allow-scripts" のみ（allow-same-originなし）のため、
-                // Locks APIへのアクセスがブラウザにブロックされ
-                // 「SecurityError: Access to the Locks API is denied」が発生する。
-                // ログイン機能自体を使わないため、これらは無効化して問題ない。
                 persistSession: false,
                 autoRefreshToken: false,
-                detectSessionInUrl: false
+                detectSessionInUrl: false,
+                lock: noOpLock
             }
         });
 

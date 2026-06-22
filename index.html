@@ -10743,7 +10743,7 @@ window.addEventListener('message',async e=>{
 
     const balance=await dbFetchAvailablePoints(currentUser.handle);
 
-    sendDonjaraResponse(msg.reqId,{ok:true,balance,name:currentUser.name,avatar:currentUser.avatarUrl||null});
+    sendDonjaraResponse(msg.reqId,{ok:true,balance,handle:currentUser.handle,name:currentUser.name,avatar:currentUser.avatarUrl||null});
 
   }
 

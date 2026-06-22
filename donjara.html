@@ -232,30 +232,16 @@
 
             <div class="glass-panel rounded-xl p-4 w-full max-w-[360px] border border-[#2e3768] shadow-2xl relative z-20 mt-3">
                 <h3 class="text-center text-xs font-bold text-gray-300 mb-3 tracking-widest uppercase">PLAYER PROFILE</h3>
-                
-                <div class="flex justify-around mb-4">
-                    <div class="relative group cursor-pointer avatar-select-option" data-idx="0">
-                        <img src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 border-transparent group-hover:border-[#00f0ff] transition-all p-0.5 object-cover">
-                    </div>
-                    <div class="relative group cursor-pointer avatar-select-option" data-idx="1">
-                        <img src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 border-transparent group-hover:border-[#00f0ff] transition-all p-0.5 object-cover">
-                    </div>
-                    <div class="relative group cursor-pointer avatar-select-option" data-idx="2">
-                        <img src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 border-transparent group-hover:border-[#00f0ff] transition-all p-0.5 object-cover">
-                    </div>
-                    <div class="relative group cursor-pointer avatar-select-option" data-idx="3">
-                        <img src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full border-2 border-transparent group-hover:border-[#00f0ff] transition-all p-0.5 object-cover">
-                    </div>
-                </div>
 
                 <div class="flex items-center gap-3 bg-[#0a0c18] p-2 rounded-lg border border-[#1b2144]">
-                    <img id="lobby-selected-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0" class="w-10 h-10 rounded-full border-2 border-[#00f0ff] p-0.5 object-cover">
+                    <img id="lobby-selected-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0" class="w-12 h-12 rounded-full border-2 border-[#00f0ff] p-0.5 object-cover">
                     <div class="flex-grow min-w-0">
                         <label class="text-[10px] text-gray-400 font-bold tracking-wider">PILOT NAME</label>
-                        <input type="text" id="player-name-input" value="ネオ・プレイヤー" class="w-full bg-transparent text-white font-bold border-b border-[#2e3768] focus:border-[#00f0ff] outline-none text-sm py-1">
+                        <div id="lobby-player-name-display" class="w-full text-white font-bold text-sm py-1 truncate">ネオ・プレイヤー</div>
                     </div>
                 </div>
             </div>
+
 
             <div class="glass-panel rounded-xl p-3 w-full max-w-[360px] border border-[#2e3768] shadow-2xl relative z-20 mt-2 flex items-center justify-between">
                 <span class="text-[11px] text-gray-400 font-bold tracking-wider">sicoX 手持ちポイント</span>
@@ -355,21 +341,21 @@
                 <div class="flex gap-4 sm:gap-6 flex-wrap justify-center">
                     <div class="text-center opacity-40 transition-opacity duration-500" id="match-cpu1">
                         <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-gray-600 p-1 bg-slate-900">
-                            <img id="match-cpu1-img" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1" class="w-full h-full rounded-full object-cover opacity-20">
+                            <img id="match-cpu1-img" src="roncpu1.png" class="w-full h-full rounded-full object-cover opacity-20">
                             <div class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-400" id="match-cpu1-status">SEARCHING</div>
                         </div>
                         <div id="match-cpu1-name" class="mt-1 text-[10px] font-bold text-gray-400 max-w-[70px] truncate">CONNECTING...</div>
                     </div>
                     <div class="text-center opacity-40 transition-opacity duration-500" id="match-cpu2">
                         <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-gray-600 p-1 bg-slate-900">
-                            <img id="match-cpu2-img" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2" class="w-full h-full rounded-full object-cover opacity-20">
+                            <img id="match-cpu2-img" src="roncpu2.png" class="w-full h-full rounded-full object-cover opacity-20">
                             <div class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-400" id="match-cpu2-status">SEARCHING</div>
                         </div>
                         <div id="match-cpu2-name" class="mt-1 text-[10px] font-bold text-gray-400 max-w-[70px] truncate">CONNECTING...</div>
                     </div>
                     <div class="text-center opacity-40 transition-opacity duration-500" id="match-cpu3">
                         <div class="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-gray-600 p-1 bg-slate-900">
-                            <img id="match-cpu3-img" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3" class="w-full h-full rounded-full object-cover opacity-20">
+                            <img id="match-cpu3-img" src="roncpu3.png" class="w-full h-full rounded-full object-cover opacity-20">
                             <div class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-400" id="match-cpu3-status">SEARCHING</div>
                         </div>
                         <div id="match-cpu3-name" class="mt-1 text-[10px] font-bold text-gray-400 max-w-[70px] truncate">CONNECTING...</div>
@@ -428,7 +414,7 @@
             <div class="flex justify-between items-center gap-1 shrink-0 px-1">
                 <div class="flex flex-col items-center justify-center gap-0.5 relative flex-1" id="p1-container">
                     <div class="relative">
-                        <img id="p1-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
+                        <img id="p1-avatar" src="roncpu1.png" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
                         <span id="p1-dealer-badge" class="absolute -top-1 -left-1 text-[8px] bg-amber-500 text-black px-1 rounded font-black hidden">親</span>
                         <span id="p1-reach-badge" class="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[7px] bg-red-600 text-white px-1 rounded font-bold hidden">REACH</span>
                     </div>
@@ -441,7 +427,7 @@
 
                 <div class="flex flex-col items-center justify-center gap-0.5 relative flex-1" id="p2-container">
                     <div class="relative">
-                        <img id="p2-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
+                        <img id="p2-avatar" src="roncpu2.png" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
                         <span id="p2-dealer-badge" class="absolute -top-1 -left-1 text-[8px] bg-amber-500 text-black px-1 rounded font-black hidden">親</span>
                         <span id="p2-reach-badge" class="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[7px] bg-red-600 text-white px-1 rounded font-bold hidden">REACH</span>
                     </div>
@@ -454,7 +440,7 @@
 
                 <div class="flex flex-col items-center justify-center gap-0.5 relative flex-1" id="p3-container">
                     <div class="relative">
-                        <img id="p3-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
+                        <img id="p3-avatar" src="roncpu3.png" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-700 p-0.5 object-cover player-avatar-frame">
                         <span id="p3-dealer-badge" class="absolute -top-1 -left-1 text-[8px] bg-amber-500 text-black px-1 rounded font-black hidden">親</span>
                         <span id="p3-reach-badge" class="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[7px] bg-red-600 text-white px-1 rounded font-bold hidden">REACH</span>
                     </div>
@@ -565,14 +551,14 @@
                     <button onclick="sendQuickChat('よろしくお願いします！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
                         👋 よろしくお願いします
                     </button>
-                    <button onclick="sendQuickChat('ドンジャラ！勝利を掴む！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        🔥 勝利を掴む！
+                    <button onclick="sendQuickChat('ふざけんなクソ野郎！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        🔥 ふざけんなクソ野郎！
                     </button>
-                    <button onclick="sendQuickChat('お見事です！悔しい〜')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        👏 お見事です！
+                    <button onclick="sendQuickChat('クソ雑魚が。')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        👏 クソ雑魚が。
                     </button>
-                    <button onclick="sendQuickChat('リーチ！勝負だ！！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        💥 勝負だ！！
+                    <button onclick="sendQuickChat('駒井')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        💥 駒井
                     </button>
                 </div>
             </div>
@@ -623,7 +609,7 @@
             <div class="flex items-end justify-center gap-2 sm:gap-4 w-full max-w-[420px] h-[260px] sm:h-[300px] my-4 px-2">
                 
                 <div class="flex flex-col items-center w-1/4 gap-1">
-                    <img id="podium-2-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-400 p-0.5 object-cover">
+                    <img id="podium-2-avatar" src="roncpu1.png" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-slate-400 p-0.5 object-cover">
                     <div id="podium-2-name" class="text-[10px] text-slate-300 font-bold truncate max-w-full">CPU 1</div>
                     <div id="podium-2-score" class="text-[10px] font-mono font-bold text-slate-400">21,000</div>
                     <div class="w-full bg-slate-500/20 border border-slate-400/30 rounded-t-lg h-[90px] sm:h-[110px] flex items-center justify-center font-bold text-lg sm:text-xl text-slate-400">
@@ -642,7 +628,7 @@
                 </div>
 
                 <div class="flex flex-col items-center w-1/4 gap-1">
-                    <img id="podium-3-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-amber-900 p-0.5 object-cover">
+                    <img id="podium-3-avatar" src="roncpu2.png" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-amber-900 p-0.5 object-cover">
                     <div id="podium-3-name" class="text-[10px] text-amber-700 font-bold truncate max-w-full">CPU 2</div>
                     <div id="podium-3-score" class="text-[10px] font-mono font-bold text-amber-800">17,000</div>
                     <div class="w-full bg-amber-900/20 border border-amber-900/30 rounded-t-lg h-[55px] sm:h-[65px] flex items-center justify-center font-bold text-base sm:text-lg text-amber-800">
@@ -651,7 +637,7 @@
                 </div>
 
                 <div class="flex flex-col items-center w-1/4 gap-1">
-                    <img id="podium-4-avatar" src="http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-red-950 p-0.5 object-cover">
+                    <img id="podium-4-avatar" src="roncpu3.png" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full border border-red-950 p-0.5 object-cover">
                     <div id="podium-4-name" class="text-[10px] text-red-900 font-bold truncate max-w-full">CPU 3</div>
                     <div id="podium-4-score" class="text-[10px] font-mono font-bold text-red-950">16,000</div>
                     <div class="w-full bg-red-950/20 border border-red-950/30 rounded-t-lg h-[30px] sm:h-[40px] flex items-center justify-center font-bold text-xs sm:text-sm text-red-950">
@@ -833,11 +819,13 @@
         ];
 
         // 各アバターポートレートのプリセット
+        // index 0: 自分用フォールバック（プロフィール読込前の仮画像）
+        // index 1-3: CPU専用画像（roncpu1.png〜roncpu3.png）
         const AVATARS = [
             "http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_0",
-            "http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_1",
-            "http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_2",
-            "http://googleusercontent.com/image_collection/image_retrieval/1658541722496293427_3"
+            "roncpu1.png",
+            "roncpu2.png",
+            "roncpu3.png"
         ];
 
         // --- ゲームステート変数 ---
@@ -953,10 +941,18 @@
             if (!DJ_EMBEDDED) return;
             const res = await djReq('donjara:points:init:request', {}, 7000);
             if (res.ok) {
+                // 一意なユーザーID（handle）を保持。名前は重複し得るため
+                // ルーム参加者の識別には絶対にnameではなくhandleを使う。
+                if (res.handle) {
+                    onlinePlayerHandle = res.handle;
+                } else if (res.name) {
+                    // 後方互換フォールバック（handle未対応の親環境向け）
+                    onlinePlayerHandle = res.name;
+                }
                 if (res.name) {
                     players[0].name = res.name;
-                    const nameEl = document.getElementById('player-name-input');
-                    if (nameEl) nameEl.value = res.name;
+                    const nameDisplayEl = document.getElementById('lobby-player-name-display');
+                    if (nameDisplayEl) nameDisplayEl.textContent = res.name;
                     document.getElementById('p0-name').textContent = res.name;
                 }
                 if (res.avatar) {
@@ -1017,16 +1013,25 @@
                 // 古いデータをクリーンアップ（任意）
                 await sb.rpc('cleanup_donjara_room').catch(() => {});
 
-                // 空いている席番号を取得
+                // 空いている席番号を取得（自分が既に着席済みなら、その席を再利用する）
                 const { data: existingPlayers } = await sb
                     .from('donjara_room_players')
-                    .select('seat_index')
+                    .select('user_handle, seat_index')
                     .eq('room_id', ROOM_ID);
 
-                const usedSeats = (existingPlayers || []).map(p => p.seat_index);
-                let seat = 0;
-                while (usedSeats.includes(seat)) seat++;
-                if (seat >= 4) { showDonjaraToast('ルームが満員です（4/4）'); return; }
+                const myExisting = (existingPlayers || []).find(p => p.user_handle === handle);
+                let seat;
+                if (myExisting) {
+                    // 既に入室済み（再入室・リロード等）→ 元の座席をそのまま使う
+                    seat = myExisting.seat_index;
+                } else {
+                    const usedSeats = (existingPlayers || [])
+                        .filter(p => p.user_handle !== handle)
+                        .map(p => p.seat_index);
+                    seat = 0;
+                    while (usedSeats.includes(seat)) seat++;
+                    if (seat >= 4) { showDonjaraToast('ルームが満員です（4/4）'); return; }
+                }
 
                 // 自分の座席番号を記憶（0番=最初の入室者=本来の親）
                 mySeatIndex = seat;
@@ -1099,6 +1104,21 @@
                 players[localIdx].avatar = p.user_avatar || AVATARS[localIdx % 4];
                 players[localIdx].isCPU = (p.user_handle !== onlinePlayerHandle); // 自分の座席だけ人間操作
             });
+            // 対局画面・結果画面のDOMにも即時反映（CPU席に人間が入った場合の表示乗っ取り対策）
+            syncOpponentUIFromPlayers();
+        }
+
+        // players[1]〜players[3] の最新情報（名前・アバター）を対局画面のDOM要素に反映する。
+        // CPU対戦時はCPUのまま、マルチ対戦で人間が着席した席は実際のプロフィール画像・名前に切り替わる。
+        function syncOpponentUIFromPlayers() {
+            for (let i = 1; i <= 3; i++) {
+                const p = players[i];
+                if (!p) continue;
+                const avatarEl = document.getElementById(`p${i}-avatar`);
+                if (avatarEl && avatarEl.src !== p.avatar) avatarEl.src = p.avatar;
+                const nameEl = document.getElementById(`p${i}-name`);
+                if (nameEl) nameEl.textContent = p.name;
+            }
         }
 
         // ルーム人数ポーリング（3秒間隔 - Realtime負荷削減）
@@ -1188,23 +1208,6 @@
         window.onload = () => {
             initGridBackground();
             loadParentProfile();
-
-            // アバター選択アクション
-            const avatarsOpt = document.querySelectorAll('.avatar-select-option');
-            avatarsOpt.forEach(opt => {
-                opt.addEventListener('click', () => {
-                    AudioEngine.play('click');
-                    const idx = opt.dataset.idx;
-                    players[0].avatar = AVATARS[idx];
-                    document.getElementById('lobby-selected-avatar').src = AVATARS[idx];
-                    document.getElementById('match-player-avatar').src = AVATARS[idx];
-                    document.getElementById('p0-avatar').src = AVATARS[idx];
-                    
-                    // アバター周囲のグローを移動
-                    avatarsOpt.forEach(o => o.querySelector('img').classList.remove('border-[#00f0ff]'));
-                    opt.querySelector('img').classList.add('border-[#00f0ff]');
-                });
-            });
         };
 
         // --- シーン切り替え ---
@@ -1248,13 +1251,9 @@
             AudioEngine.play('click');
             showScene('scene-matching');
 
-            // ユーザー名を適用
-            const nameInput = document.getElementById('player-name-input').value.trim();
-            if (nameInput) {
-                players[0].name = nameInput;
-                document.getElementById('match-player-name').textContent = nameInput;
-                document.getElementById('p0-name').textContent = nameInput;
-            }
+            // プロフィールの名前を反映（プロフィール画面で設定済みのものを使用）
+            document.getElementById('match-player-name').textContent = players[0].name;
+            document.getElementById('p0-name').textContent = players[0].name;
 
             const multiWaitingUI = document.getElementById('multiplayer-waiting-ui');
             const progressUI = document.getElementById('matching-progress-container');
@@ -1271,7 +1270,12 @@
                 multiWaitingUI.classList.add('flex');
 
                 // Supabase: ルームに参加 & Realtimeチャンネル購読
-                const myHandle = players[0].name; // sicoXから取得したnameをhandleとして代用
+                // 一意な識別子（handle）を使用。未取得の場合のみ、セッション固有のIDを
+                // 生成してフォールバックとする（name基準だと同名ユーザーが衝突するため厳禁）。
+                if (!onlinePlayerHandle) {
+                    onlinePlayerHandle = 'guest-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+                }
+                const myHandle = onlinePlayerHandle;
                 await joinRoom(myHandle, players[0].name, players[0].avatar);
                 subscribeToRoom();
 
@@ -1398,10 +1402,8 @@
                 }, 600);
             }
             
-            // 盤面のアバター名更新
-            document.getElementById('p1-name').textContent = players[1].name;
-            document.getElementById('p2-name').textContent = players[2].name;
-            document.getElementById('p3-name').textContent = players[3].name;
+            // 盤面の対戦相手表示（アバター・名前）を更新
+            syncOpponentUIFromPlayers();
         }
 
         /**
@@ -1442,6 +1444,9 @@
             });
             currentRound = 1;
             currentDealer = getDealerLocalIndex(); // 実際の最初の入室者（座席0）を親に設定
+
+            // 対局画面の対戦相手表示（アバター・名前）を最新のplayers[]情報に同期
+            syncOpponentUIFromPlayers();
 
             startRound();
         }

@@ -78,6 +78,14 @@
             transform-style: preserve-3d;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
+        /* 手牌タイルの幅：画面幅に応じて可変にし、小さめのスマホでも9枚(8枚+ツモ牌)が
+           画面内に収まりきるようにする（固定px幅による見切れ対策）。
+           78px は手牌パネルの左右パディング＋タイル間のgap・スペーサーの合計分の補正値。 */
+        .hand-tile {
+            width: clamp(26px, calc((100vw - 78px) / 9), 40px);
+            aspect-ratio: 36 / 54.4;
+            flex-shrink: 0;
+        }
         .tile-inner {
             background: linear-gradient(145deg, #1f2544 0%, #0d1020 100%);
             border: 1px solid #2e3768;
@@ -381,7 +389,7 @@
                     <div class="font-mono text-3xl sm:text-4xl font-black text-yellow-400 bg-slate-950/80 inline-block px-6 py-2 rounded-xl border border-yellow-500/30 tracking-widest shadow-inner mb-3">
                         <span id="lobby-countdown">03:00</span>
                     </div>
-                    <p class="text-gray-400 text-[11px] leading-relaxed mb-4">
+                    <p id="lobby-wait-text" class="text-gray-400 text-[11px] leading-relaxed mb-4">
                         あなたは最初の入室者（親）です。<br>
                         全員の準備が整うか、3分経過すると強制的にゲームがスタートします。
                     </p>
@@ -540,7 +548,7 @@
                     <div id="hand-normal-tiles" class="flex gap-1 shrink-0">
                         </div>
                     <div class="w-1.5 shrink-0"></div>
-                    <div id="hand-draw-tile" class="w-9 h-[3.4rem] sm:w-10 sm:h-16 shrink-0">
+                    <div id="hand-draw-tile" class="hand-tile shrink-0">
                         </div>
                 </div>
             </div>
@@ -996,6 +1004,7 @@
         const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let onlinePlayerHandle = null;    // sicoXログイン中のhandle
+        let mySeatIndex = null;           // 自分の座席番号（0番=部屋の最初の入室者=本来の親）
         let roomChannel = null;           // Realtime チャンネル
         let roomPollInterval = null;      // ルーム人数ポーリング用タイマー
         const ROOM_ID = 'room001';        // 固定1ルーム
@@ -1018,6 +1027,9 @@
                 let seat = 0;
                 while (usedSeats.includes(seat)) seat++;
                 if (seat >= 4) { showDonjaraToast('ルームが満員です（4/4）'); return; }
+
+                // 自分の座席番号を記憶（0番=最初の入室者=本来の親）
+                mySeatIndex = seat;
 
                 // upsert で参加登録
                 await sb.from('donjara_room_players').upsert({
@@ -1047,6 +1059,7 @@
                 await updateRoomCount();
             } catch(e) {}
             onlinePlayerHandle = null;
+            mySeatIndex = null;
         }
 
         // ルーム人数をDBに反映
@@ -1063,6 +1076,31 @@
             }, { onConflict: 'id' });
         }
 
+
+        // 実際の座席番号(0=部屋の最初の入室者=本来の親)を、自分視点のローカル配列インデックスに変換
+        // 自分が必ず players[0] になるよう、自分の座席を基準にオフセットする
+        function seatToLocalIndex(realSeat) {
+            const base = (mySeatIndex !== null) ? mySeatIndex : 0;
+            return ((realSeat - base) % 4 + 4) % 4;
+        }
+
+        // 部屋の本来の親（座席0の入室者）を、自分視点のローカルインデックスで取得
+        function getDealerLocalIndex() {
+            return seatToLocalIndex(0);
+        }
+
+        // ルーム参加者のデータを players[] に反映（人数に関わらず常に最新の座席情報を反映）
+        function applyRoomDataToPlayers(data) {
+            if (!data || mySeatIndex === null) return;
+            data.forEach(p => {
+                const localIdx = seatToLocalIndex(p.seat_index);
+                if (!players[localIdx]) return;
+                players[localIdx].name = p.user_name || ('Player ' + (localIdx + 1));
+                players[localIdx].avatar = p.user_avatar || AVATARS[localIdx % 4];
+                players[localIdx].isCPU = (p.user_handle !== onlinePlayerHandle); // 自分の座席だけ人間操作
+            });
+        }
+
         // ルーム人数ポーリング（3秒間隔 - Realtime負荷削減）
         async function pollRoomPlayers() {
             try {
@@ -1075,16 +1113,14 @@
                 if (!data) return;
                 updateOnlineLobbyUI(data);
 
+                // 参加人数に関わらず、座席情報を毎ポーリングごとに反映
+                // （これにより、自分が何番目に入室しても親(オヤ)判定が座席通りになる）
+                applyRoomDataToPlayers(data);
+
                 // 4人揃ったらゲーム開始
                 if (data.length >= 4) {
                     clearInterval(roomPollInterval);
                     roomPollInterval = null;
-                    // オンライン対戦メンバーを players[] に反映
-                    data.forEach((p, i) => {
-                        players[i].name = p.user_name || ('Player ' + (i+1));
-                        players[i].avatar = p.user_avatar || AVATARS[i % 4];
-                        players[i].isCPU = (i !== 0); // 0番は自分
-                    });
                     setTimeout(() => initGame(), 1500);
                 }
             } catch(e) { console.error('pollRoomPlayers error:', e); }
@@ -1239,6 +1275,26 @@
                 await joinRoom(myHandle, players[0].name, players[0].avatar);
                 subscribeToRoom();
 
+                // 実際の座席に応じて待機メッセージ・ボタン文言を切り替え
+                // （あとから入室した場合は「親」と表示しない）
+                const waitTextEl = document.getElementById('lobby-wait-text');
+                const forceStartBtn = document.getElementById('btn-force-start');
+                if (mySeatIndex === 0) {
+                    if (waitTextEl) {
+                        waitTextEl.innerHTML = 'あなたは最初の入室者（親）です。<br>全員の準備が整うか、3分経過すると強制的にゲームがスタートします。';
+                    }
+                    if (forceStartBtn) {
+                        forceStartBtn.innerHTML = '<i class="fas fa-play mr-2"></i>【親】OK（今すぐスタート）';
+                    }
+                } else {
+                    if (waitTextEl) {
+                        waitTextEl.innerHTML = '他のプレイヤーの参加を待っています。<br>全員の準備が整うか、3分経過すると自動的にゲームがスタートします。';
+                    }
+                    if (forceStartBtn) {
+                        forceStartBtn.innerHTML = '<i class="fas fa-play mr-2"></i>OK（今すぐスタート）';
+                    }
+                }
+
                 // 3秒ポーリングでルーム人数確認（Realtime節約）
                 if (roomPollInterval) clearInterval(roomPollInterval);
                 roomPollInterval = setInterval(pollRoomPlayers, 3000);
@@ -1385,7 +1441,7 @@
                 p.isReach = false;
             });
             currentRound = 1;
-            currentDealer = 0; // 最初はあなたが親
+            currentDealer = getDealerLocalIndex(); // 実際の最初の入室者（座席0）を親に設定
 
             startRound();
         }
@@ -1626,7 +1682,7 @@
             normalHand.forEach((tileId, idx) => {
                 const def = TILE_DEFINITIONS[tileId];
                 const tileHtml = `
-                    <div class="w-9 h-[3.4rem] sm:w-10 sm:h-16 tile-3d cursor-pointer ${idx === activeSelectedTileIdx ? 'selected' : ''}" onclick="selectTile(${idx})">
+                    <div class="hand-tile tile-3d cursor-pointer ${idx === activeSelectedTileIdx ? 'selected' : ''}" onclick="selectTile(${idx})">
                         <div class="tile-inner h-full flex flex-col justify-between p-1">
                             <span class="text-[6px] opacity-70 tracking-tighter truncate">${def.name}</span>
                             <div class="text-base sm:text-lg text-center my-0.5 bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent">
@@ -1643,7 +1699,7 @@
             if (drawTile !== null) {
                 const def = TILE_DEFINITIONS[drawTile];
                 const tileHtml = `
-                    <div class="w-9 h-[3.4rem] sm:w-10 sm:h-16 tile-3d cursor-pointer ${8 === activeSelectedTileIdx ? 'selected' : ''}" onclick="selectTile(8)">
+                    <div class="hand-tile tile-3d cursor-pointer ${8 === activeSelectedTileIdx ? 'selected' : ''}" onclick="selectTile(8)">
                         <div class="tile-inner h-full flex flex-col justify-between p-1 border-cyan-400">
                             <span class="text-[6px] text-cyan-400 font-bold truncate">TSUMO</span>
                             <div class="text-base sm:text-lg text-center my-0.5 bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent">

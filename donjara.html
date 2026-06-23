@@ -1290,23 +1290,54 @@
 
             switch (action.type) {
                 case 'DISCARD': {
-                    // 相手が打牌 → 相手のローカル手牌から1枚削除して川に追加
+                    // 打牌受信: sender_seat (実座席) → ローカルインデックスに変換
+                    const discardSenderLocal = (action.sender_seat !== undefined)
+                        ? seatToLocalIndex(action.sender_seat)
+                        : senderLocal;
                     const tileId = action.tile;
-                    const hand = players[senderLocal].hand;
-                    const idx = hand.indexOf(tileId);
-                    if (idx !== -1) hand.splice(idx, 1);
-                    else hand.pop(); // 手牌不明の場合は末尾を削除（フォールバック）
+                    const hand = players[discardSenderLocal].hand;
+
+                    if (action.isCPU) {
+                        // CPU打牌: 手牌にtileIdがあれば削除(CPU_DRAWで追加済み)
+                        const idx = hand.indexOf(tileId);
+                        if (idx !== -1) hand.splice(idx, 1);
+                        else if (hand.length > 0) hand.pop();
+                    } else {
+                        // 人間打牌: 手牌の-1(ダミー)を1枚削除
+                        const dummyIdx = hand.indexOf(-1);
+                        if (dummyIdx !== -1) hand.splice(dummyIdx, 1);
+                        else if (hand.length > 0) hand.pop();
+                    }
                     hand.sort((a, b) => a - b);
 
-                    // ターンをアクション送信者に合わせる
-                    currentTurn = senderLocal;
-                    executePlayerDiscard(senderLocal, tileId);
+                    currentTurn = discardSenderLocal;
+                    executePlayerDiscard(discardSenderLocal, tileId);
                     break;
                 }
                 case 'DRAW': {
-                    // 相手がツモ → ダミー牌を手牌に追加（実際の牌は非公開）
-                    players[senderLocal].hand.push(action.tile ?? -1);
-                    document.getElementById('deck-count').textContent = deck.length > 0 ? deck.length - 1 : 0;
+                    // 人間プレイヤーがツモ → 子のデッキからもpopして同期
+                    // (実際の牌IDは秘密なので-1のダミーを手牌に追加)
+                    const drawnForSync = deck.pop(); // デッキを消費して枚数を合わせる
+                    players[senderLocal].hand.push(-1); // 手牌は不明(非公開)
+                    document.getElementById('deck-count').textContent = deck.length;
+                    break;
+                }
+                case 'CPU_DRAW': {
+                    // CPUがツモ → 牌IDが公開されているのでそのまま適用
+                    const cpuLocalFromSeat = seatToLocalIndex(action.realSeat);
+                    // デッキを消費（ホストがpopした分と同じ牌をここでも消費）
+                    deck.pop();
+                    players[cpuLocalFromSeat].hand.push(action.tile);
+                    document.getElementById('deck-count').textContent = deck.length;
+                    break;
+                }
+                case 'CPU_REACH': {
+                    // CPUがリーチ
+                    const cpuLocalR = seatToLocalIndex(action.realSeat);
+                    players[cpuLocalR].isReach = true;
+                    players[cpuLocalR].score -= 1000;
+                    document.getElementById(`p${cpuLocalR}-reach-badge`).classList.remove('hidden');
+                    updateScoresUI();
                     break;
                 }
                 case 'REACH': {
@@ -1318,8 +1349,19 @@
                     break;
                 }
                 case 'TSUMO': {
-                    currentTurn = senderLocal;
-                    executeTsumo(senderLocal);
+                    if (action.isCPU && action.cpuLocalId !== undefined) {
+                        // CPUのツモ: ホストが送ったcpuLocalIdをそのままリモートでも使う
+                        // ただし子から見たローカルインデックスに変換する
+                        const cpuRealSeat = (action.sender_seat !== undefined)
+                            ? action.sender_seat
+                            : (mySeatIndex + action.cpuLocalId) % 4; // fallback
+                        const cpuLocal = seatToLocalIndex(cpuRealSeat);
+                        currentTurn = cpuLocal;
+                        executeTsumo(cpuLocal);
+                    } else {
+                        currentTurn = senderLocal;
+                        executeTsumo(senderLocal);
+                    }
                     break;
                 }
                 case 'RON': {
@@ -1381,10 +1423,13 @@
             }
         }
 
-        // ─── 【親】自分のアクションをDBに書き込んで全員に配信 ───
+        // ─── 自分またはCPUのアクションをDBに書き込んで全員に配信 ───
         async function broadcastAction(actionObj) {
             if (!onlinePlayerHandle || mySeatIndex === null) return;
-            actionObj.sender_seat = mySeatIndex;
+            // sender_seat が既にセットされている場合は上書きしない（CPU打牌など）
+            if (actionObj.sender_seat === undefined) {
+                actionObj.sender_seat = mySeatIndex;
+            }
             try {
                 const { data: current } = await sb
                     .from('donjara_rooms')
@@ -1434,9 +1479,10 @@
             currentRound  = state.round ?? 1;
 
             // 手牌を各プレイヤーに配布（state.hands[realSeat] → ローカルインデックスに変換）
+            // JSONキーは文字列になるので String() で統一
             players.forEach((p, localIdx) => {
                 const realSeat = (mySeatIndex + localIdx) % 4;
-                p.hand     = state.hands[realSeat] ? [...state.hands[realSeat]] : [];
+                p.hand     = state.hands[String(realSeat)] ? [...state.hands[String(realSeat)]] : [];
                 p.discards = [];
                 p.isReach  = false;
                 p.ippatsuChance  = false;
@@ -1836,7 +1882,7 @@
                 const handsForDB = {};
                 players.forEach((p, localIdx) => {
                     const realSeat = (mySeatIndex + localIdx) % 4;
-                    handsForDB[realSeat] = [...p.hand];
+                    handsForDB[String(realSeat)] = [...p.hand]; // JSONキーを文字列で統一
                 });
                 await broadcastInitialGameState(
                     [...deck],
@@ -1921,9 +1967,9 @@
                 document.getElementById('btn-reach').classList.toggle('hidden', !canReach);
 
             } else if (!turnPlayer.isCPU && isOnlineMulti) {
-                // ─── オンライン: 相手のターン → Realtime/ポーリングで待機 ───
-                // デッキカウントを見た目だけ更新（実際の消費は DRAW 受信時）
-                document.getElementById('deck-count').textContent = Math.max(0, deck.length - 1);
+                // ─── オンライン: 相手(人間)のターン → DRAW受信まで待機 ───
+                // deckはDRAW受信時にpopする。ここでは何もしない
+                document.getElementById('deck-count').textContent = deck.length;
             } else {
                 // ─── CPU のターン ───
                 executeCPUTurn(currentTurn);
@@ -2600,21 +2646,37 @@
         }
 
         // --- CPU AIの思考・打牌実行 ---
+        // ★オンライン時: CPU処理はホスト(seat=0)のみ実行し、結果をbroadcast。子はreceiveOnlineActionで受け取る
         function executeCPUTurn(cpuId) {
+            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
+
+            // オンライン時: ホスト以外はCPUターンを実行しない（broadcastを待つだけ）
+            if (isOnlineMulti && !isHost()) return;
+
             // CPUが山から1枚ツモる
             const drawn = deck.pop();
             players[cpuId].hand.push(drawn);
             document.getElementById('deck-count').textContent = deck.length;
 
+            // オンライン時: DRAWをbroadcast（牌IDも含めて送信 ─ CPUの手牌は全員共有）
+            if (isOnlineMulti) {
+                broadcastAction({ type: 'CPU_DRAW', cpuLocalId: cpuId, tile: drawn,
+                    realSeat: (mySeatIndex + cpuId) % 4 });
+            }
+
             // 1秒待機してからアクション
             setTimeout(() => {
                 // 1. ツモあがり判定
                 if (checkWinningHand(players[cpuId].hand)) {
+                    if (isOnlineMulti) {
+                        broadcastAction({ type: 'TSUMO', sender_seat: (mySeatIndex + cpuId) % 4,
+                            isCPU: true, cpuLocalId: cpuId });
+                    }
                     executeTsumo(cpuId);
                     return;
                 }
 
-                // 2. リーチ判定 (AIはテンパイしたら即リーチ)
+                // 2. リーチ判定
                 if (!players[cpuId].isReach && players[cpuId].score >= 1000 && checkTenpai(players[cpuId].hand)) {
                     players[cpuId].isReach = true;
                     players[cpuId].score -= 1000;
@@ -2622,35 +2684,36 @@
                     players[cpuId].reachTurnCount = turnCountInRound;
                     players[cpuId].isDoubleReach = (turnCountInRound <= 1);
                     document.getElementById(`p${cpuId}-reach-badge`).classList.remove('hidden');
+                    if (isOnlineMulti) {
+                        broadcastAction({ type: 'CPU_REACH', realSeat: (mySeatIndex + cpuId) % 4 });
+                    }
                 }
 
-                // 3. AIの不要牌選別ロジック (少しだけかしこいAI)
-                // 各牌のカウントを取り、3枚組(コーツ)や2枚組(ペア)を大切にして、1枚きりの浮いている牌(孤立牌)から優先して捨てる
+                // 3. 打牌選択
                 const counts = {};
                 players[cpuId].hand.forEach(t => counts[t] = (counts[t] || 0) + 1);
-
                 let selectedDiscard = -1;
-
-                // 浮き牌 (1枚だけ持っている) を優先
                 const singletons = players[cpuId].hand.filter(t => counts[t] === 1);
                 if (singletons.length > 0) {
                     selectedDiscard = singletons[Math.floor(Math.random() * singletons.length)];
                 } else {
-                    // なければペア(2枚所持)から崩す
                     const doubletons = players[cpuId].hand.filter(t => counts[t] === 2);
                     if (doubletons.length > 0) {
                         selectedDiscard = doubletons[0];
                     } else {
-                        // それもなければランダム
                         selectedDiscard = players[cpuId].hand[0];
                     }
                 }
 
-                // 手牌から削除して川へ
                 const discardIdx = players[cpuId].hand.indexOf(selectedDiscard);
                 players[cpuId].hand.splice(discardIdx, 1);
                 players[cpuId].hand.sort((a, b) => a - b);
 
+                // オンライン時: CPUの打牌もbroadcast
+                if (isOnlineMulti) {
+                    broadcastAction({ type: 'DISCARD', tile: selectedDiscard,
+                        sender_seat: (mySeatIndex + cpuId) % 4, isCPU: true });
+                }
                 executePlayerDiscard(cpuId, selectedDiscard);
 
             }, 1200);

@@ -1271,6 +1271,13 @@
                             });
                     }
 
+                    // ─── 非アクティブ時: game_state が更新されたら新局開始（子側） ───
+                    if (!gameActive && !isHost() && row.game_state &&
+                        row.game_state.round > currentRound) {
+                        applyInitialGameState(row.game_state);
+                        return;
+                    }
+
                     // ─── ゲーム中: last_action を受信して自分以外のアクションを反映 ───
                     if (gameActive && row.last_action && row.action_seq > lastProcessedSeq) {
                         lastProcessedSeq = row.action_seq;
@@ -1367,8 +1374,7 @@
                 case 'RON': {
                     const winnerLocal = seatToLocalIndex(action.winner_seat);
                     const loserLocal  = seatToLocalIndex(action.loser_seat);
-                    players[winnerLocal].hand.push(action.tile);
-                    players[winnerLocal].hand.sort((a, b) => a - b);
+                    // executeRon内でhand.pushするので、ここでは追加しない
                     executeRon(winnerLocal, action.tile, loserLocal);
                     break;
                 }
@@ -1399,7 +1405,16 @@
                     break;
                 }
                 case 'NEXT_ROUND': {
-                    nextRound();
+                    // 子: currentRound/currentDealer の更新は行わず game_state 待機のみ
+                    document.getElementById('modal-round-result').classList.add('hidden');
+                    document.getElementById('btn-tsumo').classList.add('hidden');
+                    document.getElementById('btn-reach').classList.add('hidden');
+                    gameActive = false;
+                    document.getElementById('deck-count').textContent = '...';
+                    showDonjaraToast('次の局の牌を受信中...');
+                    // ポーリングで新しい game_state を待つ
+                    // action_seq とは別に game_state の round 番号で判断する
+                    waitForNextGameState();
                     break;
                 }
                 case 'CHAT': {
@@ -1520,6 +1535,26 @@
             startGameTimeout();
 
             setTimeout(() => triggerTurnStart(), 1000);
+        }
+
+        // ─── 子専用: 次の局の game_state が届くまでポーリングして待機 ───
+        function waitForNextGameState() {
+            const waitPoll = setInterval(async () => {
+                try {
+                    const { data } = await sb
+                        .from('donjara_rooms')
+                        .select('game_state, action_seq')
+                        .eq('id', ROOM_ID)
+                        .single();
+                    if (!data || !data.game_state) return;
+                    // 新しい局の game_state かどうかを round で判断
+                    if (data.game_state.round > currentRound || data.game_state.round === undefined) {
+                        clearInterval(waitPoll);
+                        // currentRound/currentDealer は applyInitialGameState 内で上書きされる
+                        applyInitialGameState(data.game_state);
+                    }
+                } catch(e) {}
+            }, 1500);
         }
 
         // ─── ゲーム中ポーリング（Realtimeが届かない場合の補完 & 子の初期状態待機） ───
@@ -1978,10 +2013,11 @@
 
         // --- 手牌アガリ判定 (Donjara 3x3セット、または特殊形2-2-2-3) ---
         function checkWinningHand(hand) {
-            if (hand.length !== 9) return false;
-            // 9枚の牌の出現数をカウント
+            // ダミー牌(-1)を除外して実際の枚数で判定
+            const realHand = hand.filter(t => t >= 0);
+            if (realHand.length !== 9) return false;
             const counts = {};
-            hand.forEach(tileId => {
+            realHand.forEach(tileId => {
                 counts[tileId] = (counts[tileId] || 0) + 1;
             });
             const counts_values = Object.values(counts);
@@ -2001,6 +2037,7 @@
 
         // --- テンパイ(1枚待ち)判定 ---
         function checkTenpai(hand) {
+            hand = hand.filter(t => t >= 0); // ダミー牌除外
             // 手牌9枚の中から、どれか1枚を切った後にテンパイ(残り1枚同じものを引けば上がれる状態)になるか？
             // 【通常形】1枚切った8枚の中に「ペアが1つと、コーツ(3枚)が2つ」があれば1枚待ち(テンパイ)
             // 【特殊形】1枚切った8枚が「2-2-2-2」、または「1-2-2-3」であれば2-2-2-3形のテンパイ
@@ -2259,7 +2296,8 @@
 
         // --- ツモ（自分で引いて上がる）を宣言する ---
         function claimTsumo() {
-            if (currentTurn !== 0) return;
+            // ガード: 自分のターンかつアガリ形が確定している場合のみ
+            if (!checkWinningHand(players[0].hand)) return;
             if (onlinePlayerHandle && humanSeats.size > 1) {
                 broadcastAction({ type: 'TSUMO' });
             }
@@ -2384,7 +2422,8 @@
         // --- 役・点数の算出 ---
         // options: { isDoubleReach, isIppatsu, isHaitei } の状況役フラグを渡せる
         function getHandRank(hand, options = {}) {
-            // handには9枚が入っている前提
+            // ダミー牌(-1)を除外
+            hand = hand.filter(t => t >= 0);
             const counts = {};
             hand.forEach(t => counts[t] = (counts[t] || 0) + 1);
             const countValues = Object.values(counts);
@@ -2470,11 +2509,11 @@
             // 勝者詳細
             detail.textContent = `${players[winnerId].name} のドンジャラ！`;
 
-            // ③手牌描画: 同じ絵柄ごとにグループ化し、グループ間に隙間を空けて
-            // 「3枚(または2枚)セットがきちんと揃っている」ことが見た目で明確にわかるようにする
+            // ③手牌描画: 同じ絵柄ごとにグループ化
             handDisp.innerHTML = "";
             const groupedCounts = {};
-            players[winnerId].hand.forEach(t => {
+            // ダミー牌(-1)は除外して表示
+            players[winnerId].hand.filter(t => t >= 0).forEach(t => {
                 groupedCounts[t] = (groupedCounts[t] || 0) + 1;
             });
             Object.keys(groupedCounts).sort((a, b) => a - b).forEach(tileIdStr => {
@@ -2553,12 +2592,11 @@
                     broadcastAction({ type: 'NEXT_ROUND' });
                     startRoundAsHost(); // 新局の game_state をDBに書き込む
                 } else {
-                    // ⑤ 子: game_state が届くまで待機
+                    // 子: NEXT_ROUND broadcast を受け取った側は receiveOnlineAction で処理するため
+                    // ここには来ない設計。念のため待機処理を入れる
                     gameActive = false;
-                    document.getElementById('current-round-text').textContent = `東${currentRound}局`;
                     document.getElementById('deck-count').textContent = '...';
-                    showDonjaraToast('次の局の牌を受信中...');
-                    startGamePoll();
+                    waitForNextGameState();
                 }
             } else {
                 // CPU対戦

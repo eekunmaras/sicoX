@@ -7262,6 +7262,32 @@ function closeGameSelect(){
 
 }
 
+function openAppSelect(){
+
+  document.getElementById('app-select-overlay').classList.add('open');
+
+}
+
+function closeAppSelect(){
+
+  document.getElementById('app-select-overlay').classList.remove('open');
+
+}
+
+const APPS={
+  diktok:{
+    name:'DikTok',
+    url:'https://eloquent-sprite-e99ea9.netlify.app/'
+  }
+};
+
+function openApp(appId){
+  const app=APPS[appId];
+  if(!app) return;
+  closeAppSelect();
+  window.open(app.url,'_blank','noopener,noreferrer');
+}
+
 
 
 // ══════════════════════════════════════
@@ -11716,6 +11742,14 @@ function tweetWcMatchFromBtn(btn){
 
   </div>
 
+  <div class="pullup-item" onclick="closePullup();openAppSelect();">
+
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+
+    アプリ
+
+  </div>
+
   <div class="pullup-item" onclick="closePullup();openShop();">
 
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
@@ -11785,6 +11819,33 @@ function tweetWcMatchFromBtn(btn){
     </div>
 
     <button class="game-select-close" onclick="closeGameSelect()">閉じる</button>
+
+  </div>
+
+</div>
+
+
+
+<!-- ── App select modal ── -->
+
+<div class="game-select-overlay" id="app-select-overlay">
+
+  <div class="game-select-box">
+
+    <div class="game-select-title">📱 アプリを選ぶ</div>
+
+    <div class="game-grid">
+
+      <div class="game-icon-btn game-icon-btn-img" onclick="openApp('diktok')">
+
+        <img src="diktok.png" alt="DikTok" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>📱</span>')">
+        <span class="game-tile-label">DikTok</span>
+
+      </div>
+
+    </div>
+
+    <button class="game-select-close" onclick="closeAppSelect()">閉じる</button>
 
   </div>
 
@@ -12673,4 +12734,3 @@ function tweetWcMatchFromBtn(btn){
 </body>
 
 </html>
-

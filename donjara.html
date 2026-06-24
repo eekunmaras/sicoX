@@ -1590,7 +1590,15 @@
         let pushPending = false;
         async function pushGameState(extra = {}) {
             if (!onlinePlayerHandle || humanSeats.size <= 1) return;
-            if (pushPending) return;
+            // 【修正③】pushPendingが詰まらないよう、500ms後に強制リセットするフォールバックを設置
+            if (pushPending) {
+                // 既にpush中の場合は少し待ってリトライ
+                await new Promise(r => setTimeout(r, 600));
+                if (pushPending) {
+                    // それでも詰まっているなら強制リセット
+                    pushPending = false;
+                }
+            }
             pushPending = true;
             try {
                 const seq = Date.now();
@@ -1660,7 +1668,9 @@
                 if (!el) continue;
                 el.innerHTML = '';
                 (players[seat].discards || []).forEach(tid => {
-                    const def = TILE_DEFINITIONS[tid];
+                    // 【修正⑦】tidをNumberに統一
+                    const numTid = Number(tid);
+                    const def = TILE_DEFINITIONS[numTid];
                     if (!def) return;
                     el.innerHTML += `<div class="discard-tile" title="${def.name}">
                         <i class="fa-solid ${def.icon} bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent scale-90"></i>
@@ -1683,6 +1693,8 @@
             }
 
             document.getElementById('deck-count').textContent = state.deckLen ?? 0;
+
+            // 【修正⑦】まずボタンを非表示にリセット（前のターンのボタンが残らないよう）
             document.getElementById('btn-tsumo').classList.add('hidden');
             document.getElementById('btn-reach').classList.add('hidden');
 
@@ -1853,6 +1865,16 @@
                     // 子が自分のターンに打牌したことをホストに通知
                     const senderSeat = action.sender_seat;
                     if (senderSeat !== undefined && senderSeat !== (mySeatIndex ?? 0)) {
+                        // 【修正④】タイムアウトをクリア（子が正常に打牌した）
+                        if (window._childTurnTimeout) {
+                            clearTimeout(window._childTurnTimeout);
+                            window._childTurnTimeout = null;
+                        }
+                        // ターンが一致しているか確認（二重処理防止）
+                        if (currentTurn !== senderSeat) {
+                            console.warn(`[DISCARD] senderSeat=${senderSeat} but currentTurn=${currentTurn}, skip`);
+                            break;
+                        }
                         const tile = action.tile;
                         // 手牌から削除
                         const hand = players[senderSeat].hand;
@@ -2092,10 +2114,36 @@
 
             } else if (!turnPlayer.isCPU && isOnlineMulti) {
                 // ─── 人間の子プレイヤーのターン ───
-                // ホストは現在の状態をpushして子に「あなたのターン」を通知
-                if (isOnlineMulti) pushGameState();
+                // 【修正②】ホスト側でツモ牌を山から引いて子の手牌に追加してから push する
+                // こうしないと子には8枚しか届かず、打牌できない
+                if (turnPlayer.hand.length === 8) {
+                    const drawn = deck.pop();
+                    turnPlayer.hand.push(drawn);
+                    // ソートしない（ツモ牌を末尾に保持して子側でTSUMO表示させる）
+                }
                 document.getElementById('deck-count').textContent = deck.length;
+                // ホストは状態をpushして子に「あなたのターン、手牌9枚」を通知
+                pushGameState();
                 // ホスト側は子の打牌broadcastを待つ（processChildAction経由）
+                // タイムアウト保険: 30秒以内に打牌がなければ強制的にランダム打牌
+                if (window._childTurnTimeout) clearTimeout(window._childTurnTimeout);
+                window._childTurnTimeout = setTimeout(() => {
+                    if (!gameActive) return;
+                    if (currentTurn !== (mySeatIndex ?? 0) && !players[currentTurn].isCPU) {
+                        // まだ子のターンが続いている → 強制進行
+                        console.warn('[タイムアウト] 子プレイヤーの打牌待ちがタイムアウト、強制進行');
+                        const tp = players[currentTurn];
+                        if (tp.hand.length > 0) {
+                            const forceTile = tp.hand[tp.hand.length - 1];
+                            const idx = tp.hand.indexOf(forceTile);
+                            if (idx >= 0) tp.hand.splice(idx, 1);
+                            tp.hand.sort((a, b) => a - b);
+                            executePlayerDiscard(currentTurn, forceTile);
+                        } else {
+                            advanceTurn();
+                        }
+                    }
+                }, 30000); // 30秒タイムアウト
 
             } else {
                 // ─── CPUのターン ───
@@ -2233,6 +2281,16 @@
 
         // --- 手牌タイル選択処理 ---
         function selectTile(idx) {
+            // ─── 【修正①】自分のターンでなければ操作を一切受け付けない ───
+            const mySeat = mySeatIndex ?? 0;
+            if (currentTurn !== mySeat) return;
+            // オンラインマルチ時: ホストは自分のターンのみ操作可、子も自分のターンのみ操作可
+            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
+            if (isOnlineMulti && !isHost()) {
+                // 子プレイヤー: gameActiveかつ自分のターンのみ許可
+                if (!gameActive) return;
+            }
+
             AudioEngine.play('click');
             if (activeSelectedTileIdx === idx) {
                 // すでに選択されているものをもう一度タップしたら打牌
@@ -2268,21 +2326,35 @@
             const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
 
             if (isOnlineMulti && !isHost()) {
-                // 子: ホストに打牌を通知してローカルでも処理
+                // 【修正⑥】子: ホストに打牌を通知するのみ。ローカルでUIを二重更新しない。
+                // UI更新はホストからのgame_state push（applyGameState）で行われる。
                 broadcastAction({ type: 'DISCARD', tile: discardedTile, sender_seat: mySeat });
+                // ただし手牌からは削除済みなので、ローカルのdiscards配列には追加する
+                // （ロン判定のためにlastDiscardedTile/lastDiscarderId を更新）
+                lastDiscardedTile = discardedTile;
+                lastDiscarderId   = mySeat;
+                // 自分のロンチャンスは捨て牌者 = 自分なので発生しない。何もしない。
+                return;
             }
             executePlayerDiscard(mySeat, discardedTile);
         }
 
         // --- 共通捨て牌処理（実座席番号で受け取る） ---
         function executePlayerDiscard(realSeatId, tileId) {
+            // 【修正⑤】tileIdの型をNumberに統一（文字列として渡された場合の防御）
+            tileId = Number(tileId);
+            const def = TILE_DEFINITIONS[tileId];
+            if (!def) {
+                console.error(`[executePlayerDiscard] 無効なtileId=${tileId}`);
+                return;
+            }
+
             AudioEngine.play('discard');
             players[realSeatId].discards.push(tileId);
 
             // 川UI: displaySeatでUIインデックスに変換
             const dispIdx = displaySeat(realSeatId);
             const discardsContainer = document.getElementById(`p${dispIdx}-discards`);
-            const def = TILE_DEFINITIONS[tileId];
 
             const isReachTile = (players[realSeatId].isReach && players[realSeatId].discards.length === 1);
             const reachStyle = isReachTile ? 'transform: rotate(90deg) scale(0.9); border-color: #ef4444;' : '';
@@ -2791,6 +2863,11 @@
 
         // --- ターンプレイヤーの進行 ---
         function advanceTurn() {
+            // 【修正⑧】子のターンタイムアウトをクリア
+            if (window._childTurnTimeout) {
+                clearTimeout(window._childTurnTimeout);
+                window._childTurnTimeout = null;
+            }
             currentTurn = (currentTurn + 1) % 4;
             setTimeout(() => triggerTurnStart(), 1000);
         }
@@ -2976,6 +3053,8 @@
             if (gameTimeoutId)      { clearTimeout(gameTimeoutId);       gameTimeoutId      = null; }
             if (roomChannel)        { sb.removeChannel(roomChannel);     roomChannel        = null; }
             if (ronTimerInterval)   { clearInterval(ronTimerInterval);   ronTimerInterval   = null; }
+            // 【修正⑨】子ターンタイムアウトもクリア
+            if (window._childTurnTimeout) { clearTimeout(window._childTurnTimeout); window._childTurnTimeout = null; }
 
             document.getElementById('btn-tsumo').classList.add('hidden');
             document.getElementById('btn-reach').classList.add('hidden');

@@ -1712,6 +1712,12 @@
         function _enableMyTurnButtons() {
             const mySeat = mySeatIndex ?? 0;
             const myHand = players[mySeat].hand;
+            // 【不具合①】手牌が9枚のときだけ打牌を許可（ツモ牌が届いていない状態で操作させない）
+            if (myHand.length < 9) {
+                document.getElementById('btn-tsumo').classList.add('hidden');
+                document.getElementById('btn-reach').classList.add('hidden');
+                return;
+            }
             document.getElementById('btn-tsumo').classList.toggle('hidden', !checkWinningHand(myHand));
             const canReach = !players[mySeat].isReach && players[mySeat].score >= 1000 && checkTenpai(myHand);
             document.getElementById('btn-reach').classList.toggle('hidden', !canReach);
@@ -1743,11 +1749,9 @@
                     break;
                 }
                 case 'ROUND_END': {
-                    // ラウンド終了モーダル表示
+                    // 【不具合④】state.winner/loserは実座席番号。showRoundResultModalは実座席で受け取る
                     gameActive = false;
-                    const winnerId  = displaySeat(state.winner);
-                    const loserId   = state.loser >= 0 ? displaySeat(state.loser) : -1;
-                    showRoundResultModal(winnerId, loserId, state.isTsumo, state.payment, state.rankInfo);
+                    showRoundResultModal(state.winner, state.loser ?? -1, state.isTsumo, state.payment, state.rankInfo);
                     break;
                 }
                 case 'DRAW_END': {
@@ -1991,6 +1995,10 @@
 
         // --- 局単位の開始（ホスト専用） ---
         function startRound() {
+            // 【不具合③】2局目以降のためにpushPendingを強制リセット
+            pushPending = false;
+            if (window._childTurnTimeout) { clearTimeout(window._childTurnTimeout); window._childTurnTimeout = null; }
+
             deck = [];
             for (let s = 0; s < 9; s++)
                 for (let c = 0; c < 9; c++) deck.push(s);
@@ -2032,7 +2040,10 @@
             // オンラインマルチ時: pushGameState完了を待ってからターン開始
             const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
             if (isOnlineMulti) {
-                pushGameState().then(() => {
+                // 【不具合③】Promise.race でタイムアウト保険（push が詰まっても2秒後に強制開始）
+                const pushPromise = pushGameState();
+                const timeoutPromise = new Promise(r => setTimeout(r, 2000));
+                Promise.race([pushPromise, timeoutPromise]).then(() => {
                     startGameTimeout();
                     // 子がstate受信できるよう少し待ってからターン開始
                     setTimeout(() => triggerTurnStart(), 1500);
@@ -2317,6 +2328,13 @@
             if (currentTurn !== mySeat || activeSelectedTileIdx === -1) return;
 
             const me = players[mySeat];
+
+            // 【不具合①】手牌が9枚揃っていないときは打牌不可（ツモ牌待ち状態）
+            if (me.hand.length < 9) {
+                showDonjaraToast('ツモ牌を待っています...');
+                return;
+            }
+
             const discardedTile = me.hand.splice(activeSelectedTileIdx, 1)[0];
             me.hand.sort((a, b) => a - b);
 
@@ -2326,14 +2344,12 @@
             const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
 
             if (isOnlineMulti && !isHost()) {
-                // 【修正⑥】子: ホストに打牌を通知するのみ。ローカルでUIを二重更新しない。
+                // 子: ホストに打牌を通知するのみ。ローカルでUIを二重更新しない。
                 // UI更新はホストからのgame_state push（applyGameState）で行われる。
                 broadcastAction({ type: 'DISCARD', tile: discardedTile, sender_seat: mySeat });
-                // ただし手牌からは削除済みなので、ローカルのdiscards配列には追加する
-                // （ロン判定のためにlastDiscardedTile/lastDiscarderId を更新）
+                // ロン判定のためにlastDiscardedTile/lastDiscarderId を更新
                 lastDiscardedTile = discardedTile;
                 lastDiscarderId   = mySeat;
-                // 自分のロンチャンスは捨て牌者 = 自分なので発生しない。何もしない。
                 return;
             }
             executePlayerDiscard(mySeat, discardedTile);
@@ -2523,17 +2539,14 @@
             players[winnerSeat].score += payment;
             players[loserSeat].score -= payment;
 
-            // UIインデックスに変換してモーダル表示
-            const winnerDisp = displaySeat(winnerSeat);
-            const loserDisp  = displaySeat(loserSeat);
-
             // ホストならpushして全員に通知
             if (onlinePlayerHandle && humanSeats.size > 1 && isHost()) {
                 pushGameState({ event: 'ROUND_END', winner: winnerSeat, loser: loserSeat,
                     isTsumo: false, payment, rankInfo });
             }
 
-            showRoundResultModal(winnerDisp, loserDisp, false, payment, rankInfo);
+            // 【不具合④】実座席をそのまま渡す（showRoundResultModal内でdisplaySeat変換する）
+            showRoundResultModal(winnerSeat, loserSeat, false, payment, rankInfo);
         }
 
         // --- ツモ実行（実座席番号で受け取る） ---
@@ -2566,14 +2579,13 @@
                 else p.score -= perPlayerPay;
             });
 
-            const winnerDisp = displaySeat(winnerSeat);
-
             if (onlinePlayerHandle && humanSeats.size > 1 && isHost()) {
                 pushGameState({ event: 'ROUND_END', winner: winnerSeat, loser: -1,
                     isTsumo: true, payment, rankInfo });
             }
 
-            showRoundResultModal(winnerDisp, -1, true, payment, rankInfo);
+            // 【不具合④】実座席をそのまま渡す
+            showRoundResultModal(winnerSeat, -1, true, payment, rankInfo);
         }
 
         // --- リーチ宣言処理 ---
@@ -2672,8 +2684,8 @@
         }
 
         // --- ラウンド勝利モーダル展開 ---
-        // winnerId, loserId は displaySeat() 変換済みのUIインデックス(0=自分)
-        function showRoundResultModal(winnerId, loserId, isTsumo, payment, rankInfo) {
+        // winnerSeat, loserSeat は「実座席番号」で受け取る（UIインデックスではない）
+        function showRoundResultModal(winnerSeat, loserSeat, isTsumo, payment, rankInfo) {
             const modal = document.getElementById('modal-round-result');
             const title = document.getElementById('result-status-title');
             const detail = document.getElementById('result-winner-detail');
@@ -2682,11 +2694,12 @@
             const scoreText = document.getElementById('result-hand-score');
             const payerText = document.getElementById('result-payer');
 
-            // UIインデックス→実座席に変換してplayers[]を参照
-            const winnerRealSeat = realSeat(winnerId);
-            const loserRealSeat  = loserId >= 0 ? realSeat(loserId) : -1;
+            // 【不具合④】実座席 → UIインデックスの変換は表示判定のみに使用
+            // players[] への参照は常に実座席（winnerSeat）で行う
+            const winnerDispIdx = displaySeat(winnerSeat);
+            const mySeat = mySeatIndex ?? 0;
 
-            if (winnerId === 0) {
+            if (winnerSeat === mySeat) {
                 title.textContent = "VICTORY";
                 title.className = "text-2xl sm:text-3xl font-black italic tracking-widest text-cyan-400 mb-2 neon-text-cyan";
             } else {
@@ -2694,16 +2707,17 @@
                 title.className = "text-2xl sm:text-3xl font-black italic tracking-widest text-pink-500 mb-2 neon-text-magenta";
             }
 
-            detail.textContent = `${players[winnerRealSeat].name} のドンジャラ！`;
+            detail.textContent = `${players[winnerSeat].name} のドンジャラ！`;
 
             handDisp.innerHTML = "";
             const groupedCounts = {};
-            players[winnerRealSeat].hand.filter(t => t >= 0).forEach(t => {
+            players[winnerSeat].hand.filter(t => t >= 0).forEach(t => {
                 groupedCounts[t] = (groupedCounts[t] || 0) + 1;
             });
             Object.keys(groupedCounts).sort((a, b) => a - b).forEach(tileIdStr => {
                 const tileId = parseInt(tileIdStr, 10);
                 const def = TILE_DEFINITIONS[tileId];
+                if (!def) return;
                 const groupWrapper = document.createElement('div');
                 groupWrapper.className = "flex gap-0.5 bg-slate-900/40 rounded-lg p-1 border border-slate-700/50";
                 for (let i = 0; i < groupedCounts[tileId]; i++) {
@@ -2720,13 +2734,15 @@
             });
 
             // 役とスコア
-            rankText.textContent = rankInfo.name;
+            rankText.textContent = rankInfo ? rankInfo.name : '通常アガリ';
             scoreText.textContent = `+${payment.toLocaleString()} pts`;
 
             if (isTsumo) {
                 payerText.textContent = "自摸 (ツモ): 全員均等払い";
+            } else if (loserSeat >= 0 && players[loserSeat]) {
+                payerText.textContent = `放銃 (ロン): ${players[loserSeat].name} からの直撃`;
             } else {
-                payerText.textContent = `放銃 (ロン): ${players[loserRealSeat].name} からの直撃`;
+                payerText.textContent = '放銃';
             }
 
             modal.classList.remove('hidden');
@@ -2761,6 +2777,9 @@
             document.getElementById('modal-round-result').classList.add('hidden');
             document.getElementById('btn-tsumo').classList.add('hidden');
             document.getElementById('btn-reach').classList.add('hidden');
+            // 【不具合③】選択状態・pushフラグをリセットして次局を確実に動かす
+            activeSelectedTileIdx = -1;
+            pushPending = false;
 
             currentRound++;
             currentDealer = (currentDealer + 1) % 4;
@@ -2970,14 +2989,25 @@
             chatLog.scrollTop = chatLog.scrollHeight;
         }
 
+        // チャット吹き出しタイマーID管理（複数回呼ばれてもピカピカしないよう）
+        const _chatBubbleTimers = {};
         function showChatBubbleOnBoard(playerId, text) {
             const bubble = document.getElementById(`p${playerId}-chat`);
+            if (!bubble) return;
+
+            // 前のタイマーをキャンセル（二重タイマーによるhidden切り替えを防ぐ）
+            if (_chatBubbleTimers[playerId]) {
+                clearTimeout(_chatBubbleTimers[playerId]);
+                delete _chatBubbleTimers[playerId];
+            }
+
             bubble.textContent = text;
             bubble.classList.remove('hidden');
 
             // 4秒後に自動消去
-            setTimeout(() => {
+            _chatBubbleTimers[playerId] = setTimeout(() => {
                 bubble.classList.add('hidden');
+                delete _chatBubbleTimers[playerId];
             }, 4000);
         }
 

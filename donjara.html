@@ -1163,15 +1163,14 @@
             syncOpponentUIFromPlayers();
         }
 
-        // 全プレイヤー情報をDOMに反映（実座席→UIインデックス変換）
+        // players[1]〜[3] の情報を対局画面 DOM に反映
         function syncOpponentUIFromPlayers() {
-            for (let seat = 0; seat < 4; seat++) {
-                const p = players[seat];
+            for (let i = 1; i <= 3; i++) {
+                const p = players[i];
                 if (!p) continue;
-                const dispIdx = displaySeat(seat);
-                const avatarEl = document.getElementById(`p${dispIdx}-avatar`);
-                if (avatarEl) avatarEl.src = p.avatar;
-                const nameEl = document.getElementById(`p${dispIdx}-name`);
+                const avatarEl = document.getElementById(`p${i}-avatar`);
+                if (avatarEl && avatarEl.src !== p.avatar) avatarEl.src = p.avatar;
+                const nameEl = document.getElementById(`p${i}-name`);
                 if (nameEl) nameEl.textContent = p.name;
             }
         }
@@ -1252,7 +1251,7 @@
                     const countEl = document.getElementById('online-room-count');
                     if (countEl && row.player_count != null) countEl.textContent = `${row.player_count}/4`;
 
-                    // ─── ゲーム開始合図（status='playing'）───
+                    // ─── ゲーム開始合図（子クライアント） ───
                     if (row.status === 'playing' && !gameStarted) {
                         gameStarted = true;
                         clearInterval(roomPollInterval);  roomPollInterval  = null;
@@ -1263,45 +1262,328 @@
                             .order('seat_index')
                             .then(({ data }) => {
                                 if (data) applyRoomDataToPlayers(data);
-                                // ホスト: startRound()でpushGameStateするのでinitGame()でOK
-                                // 子: startGamePoll()でgame_stateが届くのを待つ
-                                setTimeout(() => initGame(), 300);
+                                // game_state が既に書かれていればそれを使って開始
+                                if (row.game_state) {
+                                    applyInitialGameState(row.game_state);
+                                } else {
+                                    setTimeout(() => initGame(), 800);
+                                }
                             });
+                    }
+
+                    // ─── 非アクティブ時: game_state が更新されたら新局開始（子側） ───
+                    if (!gameActive && !isHost() && row.game_state &&
+                        row.game_state.round > currentRound) {
+                        applyInitialGameState(row.game_state);
                         return;
                     }
 
-                    // ─── 子: game_state 更新 → 画面反映 ───
-                    if (!isHost() && row.game_state && row.game_state.players) {
-                        if (!gameActive) {
-                            applyInitialGameState(row.game_state);
-                        } else if (row.action_seq > lastProcessedSeq) {
-                            lastProcessedSeq = row.action_seq;
-                            applyGameState(row.game_state);
-                        }
-                        return;
-                    }
-
-                    // ─── ホスト: last_action（子からのアクション）を受け取って処理 ───
-                    if (isHost() && row.last_action && row.action_seq > lastProcessedSeq) {
+                    // ─── ゲーム中: last_action を受信して自分以外のアクションを反映 ───
+                    if (gameActive && row.last_action && row.action_seq > lastProcessedSeq) {
                         lastProcessedSeq = row.action_seq;
-                        processChildAction(row.last_action);
+                        receiveOnlineAction(row.last_action);
                     }
                 })
                 .subscribe();
         }
 
-        // ─── 子からホストへのアクション通知 ───
+        // ─── 【オンライン同期の核心】相手のアクションを受信して画面に反映 ───
+        function receiveOnlineAction(action) {
+            if (!action || !action.type) return;
+            // 自分が送ったアクションは無視（自分の画面はすでに反映済み）
+            if (action.sender_seat === mySeatIndex) return;
+
+            const senderLocal = seatToLocalIndex(action.sender_seat);
+
+            switch (action.type) {
+                case 'DISCARD': {
+                    // 打牌受信: sender_seat (実座席) → ローカルインデックスに変換
+                    const discardSenderLocal = (action.sender_seat !== undefined)
+                        ? seatToLocalIndex(action.sender_seat)
+                        : senderLocal;
+                    const tileId = action.tile;
+                    const hand = players[discardSenderLocal].hand;
+
+                    if (action.isCPU) {
+                        // CPU打牌: 手牌にtileIdがあれば削除(CPU_DRAWで追加済み)
+                        const idx = hand.indexOf(tileId);
+                        if (idx !== -1) hand.splice(idx, 1);
+                        else if (hand.length > 0) hand.pop();
+                    } else {
+                        // 人間打牌: 手牌の-1(ダミー)を1枚削除
+                        const dummyIdx = hand.indexOf(-1);
+                        if (dummyIdx !== -1) hand.splice(dummyIdx, 1);
+                        else if (hand.length > 0) hand.pop();
+                    }
+                    hand.sort((a, b) => a - b);
+
+                    currentTurn = discardSenderLocal;
+                    executePlayerDiscard(discardSenderLocal, tileId);
+                    break;
+                }
+                case 'DRAW': {
+                    // 人間プレイヤーがツモ → 子のデッキからもpopして同期
+                    // (実際の牌IDは秘密なので-1のダミーを手牌に追加)
+                    const drawnForSync = deck.pop(); // デッキを消費して枚数を合わせる
+                    players[senderLocal].hand.push(-1); // 手牌は不明(非公開)
+                    document.getElementById('deck-count').textContent = deck.length;
+                    break;
+                }
+                case 'CPU_DRAW': {
+                    // CPUがツモ → 牌IDが公開されているのでそのまま適用
+                    const cpuLocalFromSeat = seatToLocalIndex(action.realSeat);
+                    // デッキを消費（ホストがpopした分と同じ牌をここでも消費）
+                    deck.pop();
+                    players[cpuLocalFromSeat].hand.push(action.tile);
+                    document.getElementById('deck-count').textContent = deck.length;
+                    break;
+                }
+                case 'CPU_REACH': {
+                    // CPUがリーチ
+                    const cpuLocalR = seatToLocalIndex(action.realSeat);
+                    players[cpuLocalR].isReach = true;
+                    players[cpuLocalR].score -= 1000;
+                    document.getElementById(`p${cpuLocalR}-reach-badge`).classList.remove('hidden');
+                    updateScoresUI();
+                    break;
+                }
+                case 'REACH': {
+                    players[senderLocal].isReach = true;
+                    players[senderLocal].score -= 1000;
+                    document.getElementById(`p${senderLocal}-reach-badge`).classList.remove('hidden');
+                    appendChatMessage(players[senderLocal].name, 'リーチ！', '#bc34fa');
+                    updateScoresUI();
+                    break;
+                }
+                case 'TSUMO': {
+                    if (action.isCPU && action.cpuLocalId !== undefined) {
+                        // CPUのツモ: ホストが送ったcpuLocalIdをそのままリモートでも使う
+                        // ただし子から見たローカルインデックスに変換する
+                        const cpuRealSeat = (action.sender_seat !== undefined)
+                            ? action.sender_seat
+                            : (mySeatIndex + action.cpuLocalId) % 4; // fallback
+                        const cpuLocal = seatToLocalIndex(cpuRealSeat);
+                        currentTurn = cpuLocal;
+                        executeTsumo(cpuLocal);
+                    } else {
+                        currentTurn = senderLocal;
+                        executeTsumo(senderLocal);
+                    }
+                    break;
+                }
+                case 'RON': {
+                    const winnerLocal = seatToLocalIndex(action.winner_seat);
+                    const loserLocal  = seatToLocalIndex(action.loser_seat);
+                    // executeRon内でhand.pushするので、ここでは追加しない
+                    executeRon(winnerLocal, action.tile, loserLocal);
+                    break;
+                }
+                case 'FORCE_END': {
+                    // ② 強制終了通知: ロビーへ戻す
+                    gameActive = false;
+                    showDonjaraToast('⚠️ ' + (action.reason || '対戦が終了しました') + ' ロビーへ戻ります...');
+                    setTimeout(() => resetToLobby(), 3000);
+                    break;
+                }
+                case 'PLAYER_LEFT': {
+                    // ② プレイヤー退出通知
+                    const leftName = action.name || 'プレイヤー';
+                    showDonjaraToast(`⚠️ ${leftName} が退出しました`);
+                    appendChatMessage('システム', `${leftName} が退出しました`, '#ff4444');
+                    // CPU に変換して続行
+                    const leftLocal = seatToLocalIndex(action.seat);
+                    if (players[leftLocal]) {
+                        players[leftLocal].isCPU = true;
+                        players[leftLocal].name  = `CPU_${leftLocal}`;
+                    }
+                    humanSeats.delete(action.seat);
+                    break;
+                }
+                case 'SKIP_RON': {
+                    // 相手がロンスルー → ターン進行
+                    advanceTurn();
+                    break;
+                }
+                case 'NEXT_ROUND': {
+                    // 子: currentRound/currentDealer の更新は行わず game_state 待機のみ
+                    document.getElementById('modal-round-result').classList.add('hidden');
+                    document.getElementById('btn-tsumo').classList.add('hidden');
+                    document.getElementById('btn-reach').classList.add('hidden');
+                    gameActive = false;
+                    document.getElementById('deck-count').textContent = '...';
+                    showDonjaraToast('次の局の牌を受信中...');
+                    // ポーリングで新しい game_state を待つ
+                    // action_seq とは別に game_state の round 番号で判断する
+                    waitForNextGameState();
+                    break;
+                }
+                case 'CHAT': {
+                    // ③ 相手のチャットを受信して表示
+                    const chatColor = '#bc34fa';
+                    appendChatMessage(action.sender_name || players[senderLocal].name, action.text, chatColor);
+                    showChatBubbleOnBoard(senderLocal, action.text);
+                    break;
+                }
+                case 'SCORE_SYNC': {
+                    // スコアを全員分同期
+                    if (action.scores) {
+                        action.scores.forEach((sc, realSeat) => {
+                            const local = seatToLocalIndex(realSeat);
+                            if (players[local]) players[local].score = sc;
+                        });
+                        updateScoresUI();
+                    }
+                    break;
+                }
+            }
+        }
+
+        // ─── 自分またはCPUのアクションをDBに書き込んで全員に配信 ───
         async function broadcastAction(actionObj) {
             if (!onlinePlayerHandle || mySeatIndex === null) return;
-            if (actionObj.sender_seat === undefined) actionObj.sender_seat = mySeatIndex;
+            // sender_seat が既にセットされている場合は上書きしない（CPU打牌など）
+            if (actionObj.sender_seat === undefined) {
+                actionObj.sender_seat = mySeatIndex;
+            }
             try {
+                const { data: current } = await sb
+                    .from('donjara_rooms')
+                    .select('action_seq')
+                    .eq('id', ROOM_ID)
+                    .single();
+                const nextSeq = ((current?.action_seq) || 0) + 1;
+                lastProcessedSeq = nextSeq; // 自分が送ったものはスキップ
                 await sb.from('donjara_rooms').upsert({
                     id: ROOM_ID,
                     last_action: actionObj,
-                    action_seq: Date.now(),
+                    action_seq: nextSeq,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
             } catch(e) { console.warn('broadcastAction error:', e); }
+        }
+
+        // ─── 【親】ゲーム開始時に初期状態をDBに書き込む ───
+        async function broadcastInitialGameState(deckArr, handsArr, dealerSeat, round) {
+            const state = {
+                deck: deckArr,
+                hands: handsArr,       // hands[realSeat] = 手牌の配列
+                dealer_seat: dealerSeat,
+                round: round,
+                scores: players.map((p, i) => {
+                    // ローカルインデックス i → 実座席に変換してスコアを格納
+                    return p.score;
+                })
+            };
+            try {
+                await sb.from('donjara_rooms').upsert({
+                    id: ROOM_ID,
+                    game_state: state,
+                    action_seq: 0,
+                    last_action: null,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'id' });
+            } catch(e) { console.warn('broadcastInitialGameState error:', e); }
+        }
+
+        // ─── 【子】受け取った初期ゲーム状態を適用してゲーム開始 ───
+        function applyInitialGameState(state) {
+            if (!state) return;
+            deck = state.deck ? [...state.deck] : [];
+            const dealerLocal = seatToLocalIndex(state.dealer_seat ?? 0);
+            currentDealer = dealerLocal;
+            currentRound  = state.round ?? 1;
+
+            // 手牌を各プレイヤーに配布（state.hands[realSeat] → ローカルインデックスに変換）
+            // JSONキーは文字列になるので String() で統一
+            players.forEach((p, localIdx) => {
+                const realSeat = (mySeatIndex + localIdx) % 4;
+                p.hand     = state.hands[String(realSeat)] ? [...state.hands[String(realSeat)]] : [];
+                p.discards = [];
+                p.isReach  = false;
+                p.ippatsuChance  = false;
+                p.isDoubleReach  = false;
+                p.reachTurnCount = -1;
+                p.score    = state.scores?.[realSeat] ?? 20000;
+            });
+
+            lastProcessedSeq = 0;
+
+            // UI初期化（startRoundと同じ手順）
+            players.forEach(p => {
+                document.getElementById(`p${p.id}-dealer-badge`).classList.add('hidden');
+                document.getElementById(`p${p.id}-reach-badge`).classList.add('hidden');
+            });
+            turnCountInRound = 0;
+            document.getElementById(`p${currentDealer}-dealer-badge`).classList.remove('hidden');
+            document.getElementById('current-round-text').textContent = `東${currentRound}局`;
+            document.getElementById('deck-count').textContent = deck.length;
+            for (let i = 0; i < 4; i++) document.getElementById(`p${i}-discards`).innerHTML = '';
+            updatePlayerHandUI();
+            updateScoresUI();
+            syncOpponentUIFromPlayers();
+            showScene('scene-game');
+            gameActive = true;
+            activeSelectedTileIdx = -1;
+            const chatLog = document.getElementById('chat-history');
+            chatLog.innerHTML = `<div class="text-gray-500 text-center text-[10px]">システム: 東${currentRound}局が開始されました。</div>`;
+            currentTurn = currentDealer;
+
+            // ゲーム中ポーリング開始（Realtimeの補完用）
+            startGamePoll();
+
+            // ② 子側でも30分タイムアウトを開始
+            startGameTimeout();
+
+            setTimeout(() => triggerTurnStart(), 1000);
+        }
+
+        // ─── 子専用: 次の局の game_state が届くまでポーリングして待機 ───
+        function waitForNextGameState() {
+            const waitPoll = setInterval(async () => {
+                try {
+                    const { data } = await sb
+                        .from('donjara_rooms')
+                        .select('game_state, action_seq')
+                        .eq('id', ROOM_ID)
+                        .single();
+                    if (!data || !data.game_state) return;
+                    // 新しい局の game_state かどうかを round で判断
+                    if (data.game_state.round > currentRound || data.game_state.round === undefined) {
+                        clearInterval(waitPoll);
+                        // currentRound/currentDealer は applyInitialGameState 内で上書きされる
+                        applyInitialGameState(data.game_state);
+                    }
+                } catch(e) {}
+            }, 1500);
+        }
+
+        // ─── ゲーム中ポーリング（Realtimeが届かない場合の補完 & 子の初期状態待機） ───
+        function startGamePoll() {
+            if (gamePollInterval) { clearInterval(gamePollInterval); gamePollInterval = null; }
+            gamePollInterval = setInterval(async () => {
+                try {
+                    const { data } = await sb
+                        .from('donjara_rooms')
+                        .select('game_state, last_action, action_seq')
+                        .eq('id', ROOM_ID)
+                        .single();
+                    if (!data) return;
+
+                    // ─── 子: game_state を受け取ったらゲーム開始 ───
+                    if (!gameActive && !isHost() && data.game_state) {
+                        clearInterval(gamePollInterval);
+                        gamePollInterval = null;
+                        applyInitialGameState(data.game_state);
+                        return;
+                    }
+
+                    // ─── ゲーム中アクション受信（Realtimeの補完） ───
+                    if (gameActive && data.action_seq > lastProcessedSeq) {
+                        lastProcessedSeq = data.action_seq;
+                        receiveOnlineAction(data.last_action);
+                    }
+                } catch(e) {}
+            }, 1500);
         }
 
         function showDonjaraToast(msg) {
@@ -1560,438 +1842,102 @@
             }
         }
 
-        // ─── 自分が「ホスト（seat_index=0）」かどうか ───
+        // ─── 自分が「親（seat_index=0）」かどうか ───
+        // CPU対戦では常にtrue。オンラインでは最初に入室した人(seat=0)だけtrue。
         function isHost() {
             return mySeatIndex === null || mySeatIndex === 0;
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 新設計: ホストが全状態管理、子は状態受信して画面反映のみ
-        //
-        // 「実座席番号」で統一。seatToLocalIndex変換は廃止。
-        //   players配列は全員 players[realSeat] でアクセス。
-        //   ただしUIは「自分=players[mySeatIndex]」を p0 として表示。
-        //   → displaySeat(realSeat): UIインデックス(0=自分)を返す
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-        // 実座席 → UIインデックス（0=自分、1〜3=相手）
-        function displaySeat(realSeat) {
-            const base = mySeatIndex ?? 0;
-            return ((realSeat - base + 4) % 4);
-        }
-
-        // UIインデックス → 実座席
-        function realSeat(displayIdx) {
-            const base = mySeatIndex ?? 0;
-            return (base + displayIdx) % 4;
-        }
-
-        // ─── ゲーム状態をDBにpush（ホストのみ呼ぶ） ───
-        let pushPending = false;
-        async function pushGameState(extra = {}) {
-            if (!onlinePlayerHandle || humanSeats.size <= 1) return;
-            if (pushPending) return;
-            pushPending = true;
-            try {
-                const state = {
-                    round: currentRound,
-                    currentTurn: currentTurn, // 実座席番号
-                    dealer: currentDealer,    // 実座席番号
-                    deckLen: deck.length,
-                    turnCount: turnCountInRound,
-                    players: players.map((p, seat) => ({
-                        seat,
-                        hand: [...p.hand],
-                        discards: [...p.discards],
-                        score: p.score,
-                        isReach: p.isReach,
-                        isCPU: p.isCPU,
-                        name: p.name,
-                        avatar: p.avatar,
-                    })),
-                    ...extra
-                };
-                await sb.from('donjara_rooms').upsert({
-                    id: ROOM_ID,
-                    game_state: state,
-                    action_seq: Date.now(),
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'id' });
-            } catch(e) { console.warn('pushGameState error:', e); }
-            finally { pushPending = false; }
-        }
-
-        // ─── 子: DBの状態を受け取って画面に反映 ───
-        function applyGameState(state) {
-            if (!state || !gameActive) return;
-
-            // 全プレイヤー状態を更新
-            state.players.forEach(ps => {
-                const p = players[ps.seat];
-                if (!p) return;
-                p.hand     = [...ps.hand];
-                p.discards = [...ps.discards];
-                p.score    = ps.score;
-                p.isReach  = ps.isReach;
-                p.isCPU    = ps.isCPU;
-                p.name     = ps.name;
-                p.avatar   = ps.avatar;
-            });
-
-            currentTurn        = state.currentTurn;
-            currentDealer      = state.dealer;
-            turnCountInRound   = state.turnCount ?? turnCountInRound;
-
-            // 捨て牌UI再描画
-            for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                const el = document.getElementById(`p${dispIdx}-discards`);
-                if (!el) continue;
-                el.innerHTML = '';
-                players[seat].discards.forEach(tid => {
-                    const def = TILE_DEFINITIONS[tid];
-                    el.innerHTML += `<div class="discard-tile" title="${def.name}">
-                        <i class="fa-solid ${def.icon} bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent scale-90"></i>
-                    </div>`;
-                });
-            }
-
-            // リーチバッジ
-            for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                const badge = document.getElementById(`p${dispIdx}-reach-badge`);
-                if (badge) badge.classList.toggle('hidden', !players[seat].isReach);
-            }
-
-            updateScoresUI();
-            updatePlayerHandUI();
-            syncOpponentUIFromPlayers();
-            document.getElementById('deck-count').textContent = state.deckLen ?? deck.length;
-
-            // ターンハイライト
-            for (let i = 0; i < 4; i++) {
-                const dispIdx = displaySeat(i);
-                const avatar = document.getElementById(`p${dispIdx}-avatar`);
-                if (!avatar) continue;
-                if (i === currentTurn) {
-                    avatar.classList.add('neon-border-cyan','border-cyan-400');
-                    avatar.classList.remove('border-slate-700');
-                } else {
-                    avatar.classList.remove('neon-border-cyan','border-cyan-400');
-                    avatar.classList.add('border-slate-700');
-                }
-            }
-
-            // 自分のターンかつ特別状態の確認
-            if (currentTurn === mySeatIndex) {
-                const myHand = players[mySeatIndex].hand;
-                document.getElementById('btn-tsumo').classList.toggle('hidden', !checkWinningHand(myHand));
-                const canReach = !players[mySeatIndex].isReach &&
-                    players[mySeatIndex].score >= 1000 && checkTenpai(myHand);
-                document.getElementById('btn-reach').classList.toggle('hidden', !canReach);
-            }
-
-            // 特殊イベント
-            if (state.event) {
-                handleStateEvent(state.event, state);
-            }
-        }
-
-        // ─── 子: 状態イベントの処理 ───
-        function handleStateEvent(event, state) {
-            switch(event) {
-                case 'RON_PROMPT': {
-                    // 自分へのロン確認
-                    if (state.ronTarget === mySeatIndex) {
-                        lastDiscardedTile = state.ronTile;
-                        lastDiscarderId   = displaySeat(state.ronLoser);
-                        showRonClaimPanel();
-                    }
-                    break;
-                }
-                case 'ROUND_END': {
-                    // ラウンド終了モーダル表示
-                    gameActive = false;
-                    const winnerId  = displaySeat(state.winner);
-                    const loserId   = state.loser >= 0 ? displaySeat(state.loser) : -1;
-                    showRoundResultModal(winnerId, loserId, state.isTsumo, state.payment, state.rankInfo);
-                    break;
-                }
-                case 'DRAW_END': {
-                    gameActive = false;
-                    endRoundByDraw();
-                    break;
-                }
-                case 'FORCE_END': {
-                    showDonjaraToast('⚠️ ' + (state.reason || '対戦が終了しました') + ' ロビーへ戻ります...');
-                    setTimeout(() => resetToLobby(), 3000);
-                    break;
-                }
-                case 'CHAT': {
-                    const senderDisp = displaySeat(state.chatSeat);
-                    appendChatMessage(players[state.chatSeat].name, state.chatText, senderDisp === 0 ? '#00f0ff' : '#bc34fa');
-                    showChatBubbleOnBoard(senderDisp, state.chatText);
-                    break;
-                }
-            }
-        }
-
-        // ─── ゲーム中ポーリング（ホスト: 子のアクション受信 / 子: ホストの状態受信） ───
-        function startGamePoll() {
-            if (gamePollInterval) { clearInterval(gamePollInterval); gamePollInterval = null; }
-            let lastActionSeq = 0;
-            let lastStateSeq  = lastProcessedSeq;
-
-            gamePollInterval = setInterval(async () => {
-                try {
-                    const { data } = await sb
-                        .from('donjara_rooms')
-                        .select('game_state, last_action, action_seq')
-                        .eq('id', ROOM_ID)
-                        .single();
-                    if (!data) return;
-
-                    if (isHost()) {
-                        // ─── ホスト: 子からのアクション（PLAYER_RON/PLAYER_TSUMO/PLAYER_REACH/SKIP_RON/PLAYER_CHAT）を処理 ───
-                        if (data.last_action && data.action_seq > lastActionSeq) {
-                            lastActionSeq = data.action_seq;
-                            processChildAction(data.last_action);
-                        }
-                    } else {
-                        // ─── 子: ホストからのgame_state更新を受け取って画面反映 ───
-                        if (!gameActive && data.game_state && data.game_state.round) {
-                            applyInitialGameState(data.game_state);
-                            lastStateSeq = data.action_seq;
-                            return;
-                        }
-                        if (gameActive && data.action_seq > lastStateSeq) {
-                            lastStateSeq = data.action_seq;
-                            lastProcessedSeq = lastStateSeq;
-                            applyGameState(data.game_state);
-                        }
-                    }
-                } catch(e) {}
-            }, 1200);
-        }
-
-        // ─── ホスト: 子からのアクションを処理 ───
-        function processChildAction(action) {
-            if (!action || !action.type) return;
-            switch (action.type) {
-                case 'PLAYER_RON': {
-                    const winSeat = action.winner_seat;
-                    const loseSeat = action.loser_seat;
-                    const tile = action.tile;
-                    if (players[winSeat]) {
-                        executeRon(winSeat, tile, loseSeat);
-                    }
-                    break;
-                }
-                case 'PLAYER_TSUMO': {
-                    const winSeat = action.winner_seat;
-                    if (players[winSeat]) {
-                        executeTsumo(winSeat);
-                    }
-                    break;
-                }
-                case 'PLAYER_REACH': {
-                    const seat = action.seat;
-                    const p = players[seat];
-                    if (p && !p.isReach) {
-                        p.isReach = true;
-                        p.score -= 1000;
-                        p.ippatsuChance = true;
-                        p.reachTurnCount = turnCountInRound;
-                        const dispIdx = displaySeat(seat);
-                        document.getElementById(`p${dispIdx}-reach-badge`).classList.remove('hidden');
-                        pushGameState();
-                    }
-                    break;
-                }
-                case 'SKIP_RON': {
-                    // 子がロンをスキップ → ターンを進める
-                    if (gameActive) advanceTurn();
-                    break;
-                }
-                case 'PLAYER_CHAT': {
-                    const seat = action.seat;
-                    const dispIdx = displaySeat(seat);
-                    appendChatMessage(players[seat].name, action.text, '#bc34fa');
-                    showChatBubbleOnBoard(dispIdx, action.text);
-                    pushGameState({ event: 'CHAT', chatSeat: seat, chatText: action.text });
-                    break;
-                }
-                case 'DISCARD': {
-                    // 子が自分のターンに打牌したことをホストに通知
-                    const senderSeat = action.sender_seat;
-                    if (senderSeat !== undefined && senderSeat !== (mySeatIndex ?? 0)) {
-                        const tile = action.tile;
-                        // 手牌から削除
-                        const hand = players[senderSeat].hand;
-                        const idx = hand.indexOf(tile);
-                        if (idx >= 0) hand.splice(idx, 1);
-                        else if (hand.length > 0) hand.pop();
-                        hand.sort((a, b) => a - b);
-                        executePlayerDiscard(senderSeat, tile);
-                    }
-                    break;
-                }
-            }
-        }
-
-        // ─── 子: 初期ゲーム状態を受け取って開始 ───
-        function applyInitialGameState(state) {
-            if (!state) return;
-
-            clearInterval(gamePollInterval);
-            gamePollInterval = null;
-
-            // deck を再構築（deckLen分だけダミーで確保）
-            // 実際の牌はホストが管理。子はdeckLenのみ参照
-            deck = new Array(state.deckLen ?? 0).fill(0);
-
-            currentRound  = state.round ?? 1;
-            currentDealer = state.dealer ?? 0;
-            turnCountInRound = state.turnCount ?? 0;
-
-            // 全プレイヤー状態を反映 + isCPU フラグを正しく設定
-            state.players.forEach(ps => {
-                const p = players[ps.seat];
-                if (!p) return;
-                p.hand     = [...ps.hand];
-                p.discards = [...ps.discards];
-                p.score    = ps.score;
-                p.isReach  = ps.isReach;
-                p.isCPU    = ps.isCPU;    // ★ ホストが設定したisCPUをそのまま使う
-                p.name     = ps.name;
-                p.avatar   = ps.avatar;
-                p.ippatsuChance  = false;
-                p.isDoubleReach  = false;
-                p.reachTurnCount = -1;
-            });
-
-            currentTurn = state.currentTurn ?? currentDealer;
-            lastProcessedSeq = 0;
-
-            // UI初期化
-            for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                document.getElementById(`p${dispIdx}-dealer-badge`).classList.toggle('hidden', seat !== currentDealer);
-                document.getElementById(`p${dispIdx}-reach-badge`).classList.add('hidden');
-                document.getElementById(`p${dispIdx}-discards`).innerHTML = '';
-            }
-
-            document.getElementById('current-round-text').textContent = `東${currentRound}局`;
-            document.getElementById('deck-count').textContent = deck.length;
-            updatePlayerHandUI();
-            updateScoresUI();
-            syncOpponentUIFromPlayers();
-            showScene('scene-game');
-            gameActive = true;
-            activeSelectedTileIdx = -1;
-            document.getElementById('chat-history').innerHTML =
-                `<div class="text-gray-500 text-center text-[10px]">システム: 東${currentRound}局が開始されました。</div>`;
-
-            // 子は自分のターンになるまで待つだけ（ポーリングで状態受信）
-            startGamePoll();
-            startGameTimeout();
-
-            // 子のターン表示（UIのみ）
-            showTurnIndicator();
-
-            // 自分のターンならUIを有効化
-            if (currentTurn === mySeatIndex) {
-                enableMyTurnUI();
-            }
-        }
-
-        // ─── ゲーム開始初期化 ───
+        // --- ゲーム開始初期化 ---
         function initGame() {
             if (roomPollInterval)   { clearInterval(roomPollInterval);  roomPollInterval  = null; }
             if (lobbyTimerInterval) { clearInterval(lobbyTimerInterval); lobbyTimerInterval = null; }
 
+            players.forEach(p => { p.score = 20000; p.discards = []; p.isReach = false; });
+            currentRound  = 1;
+            currentDealer = getDealerLocalIndex();
+            syncOpponentUIFromPlayers();
+
             if (isHost()) {
-                startRound();
+                // ─── 親: デッキ生成・手牌配布・DBへ状態書き込み ───
+                startRoundAsHost();
             } else {
-                showScene('scene-game');
+                // ─── 子: Realtimeで game_state が届くまで待機 ───
+                showScene('scene-game'); // ゲーム画面を表示して待機
                 gameActive = false;
                 document.getElementById('current-round-text').textContent = '東1局';
                 document.getElementById('deck-count').textContent = '...';
                 showDonjaraToast('ゲーム状態を受信中...');
+                // ポーリングで game_state を待つ
                 startGamePoll();
             }
         }
 
-        // ─── 子: ターンインジケーターのみ更新 ───
-        function showTurnIndicator() {
-            for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                const avatar = document.getElementById(`p${dispIdx}-avatar`);
-                if (!avatar) continue;
-                if (seat === currentTurn) {
-                    avatar.classList.add('neon-border-cyan','border-cyan-400');
-                    avatar.classList.remove('border-slate-700');
-                } else {
-                    avatar.classList.remove('neon-border-cyan','border-cyan-400');
-                    avatar.classList.add('border-slate-700');
-                }
-            }
-        }
+        // --- 【親専用】局単位の開始 ---
+        async function startRoundAsHost() {
+            document.getElementById('current-round-text').textContent = `東${currentRound}局`;
+            document.getElementById('deck-count').textContent = "81";
 
-        // ─── 子: 自分のターンのUI有効化 ───
-        function enableMyTurnUI() {
-            const myHand = players[mySeatIndex].hand;
-            if (myHand.length === 8) {
-                // まだツモしていない→ツモ待ち（ホストがDRAW通知を送るまで待機）
-                // ここでは何もしない
-            }
-            // ツモ/リーチは状態を受け取ったときに判定済み
-        }
-
-        // --- 局単位の開始（ホスト専用） ---
-        function startRound() {
             deck = [];
-            for (let s = 0; s < 9; s++)
-                for (let c = 0; c < 9; c++) deck.push(s);
+            for (let styleId = 0; styleId < 9; styleId++) {
+                for (let copy = 0; copy < 9; copy++) { deck.push(styleId); }
+            }
             shuffle(deck);
 
-            // スコアは引き継ぎ（initGameでリセット済み or nextRoundで継続）
-            for (let seat = 0; seat < 4; seat++) {
-                const p = players[seat];
+            players.forEach(p => {
                 p.hand = []; p.discards = [];
                 p.isReach = false; p.ippatsuChance = false;
                 p.isDoubleReach = false; p.reachTurnCount = -1;
-                const dispIdx = displaySeat(seat);
-                document.getElementById(`p${dispIdx}-dealer-badge`).classList.add('hidden');
-                document.getElementById(`p${dispIdx}-reach-badge`).classList.add('hidden');
-            }
+                document.getElementById(`p${p.id}-dealer-badge`).classList.add('hidden');
+                document.getElementById(`p${p.id}-reach-badge`).classList.add('hidden');
+            });
             turnCountInRound = 0;
+            document.getElementById(`p${currentDealer}-dealer-badge`).classList.remove('hidden');
 
-            // 配牌（親9枚、子8枚）
-            for (let seat = 0; seat < 4; seat++) {
-                const drawCount = (seat === currentDealer) ? 9 : 8;
-                for (let i = 0; i < drawCount; i++) players[seat].hand.push(deck.pop());
-                players[seat].hand.sort((a, b) => a - b);
-            }
+            // 牌を配る（親は9枚、他は8枚）
+            players.forEach(p => {
+                const drawCount = (p.id === currentDealer) ? 9 : 8;
+                for (let i = 0; i < drawCount; i++) p.hand.push(deck.pop());
+                p.hand.sort((a, b) => a - b);
+            });
 
-            const dealerDisp = displaySeat(currentDealer);
-            document.getElementById(`p${dealerDisp}-dealer-badge`).classList.remove('hidden');
             for (let i = 0; i < 4; i++) document.getElementById(`p${i}-discards`).innerHTML = '';
-            document.getElementById('current-round-text').textContent = `東${currentRound}局`;
-            document.getElementById('deck-count').textContent = deck.length;
             updatePlayerHandUI();
             updateScoresUI();
             showScene('scene-game');
             gameActive = true;
             activeSelectedTileIdx = -1;
-            document.getElementById('chat-history').innerHTML =
-                `<div class="text-gray-500 text-center text-[10px]">システム: 東${currentRound}局が開始されました。</div>`;
+            const chatLog = document.getElementById('chat-history');
+            chatLog.innerHTML = `<div class="text-gray-500 text-center text-[10px]">システム: 東${currentRound}局が開始されました。</div>`;
             currentTurn = currentDealer;
 
-            pushGameState().then(() => {
-                startGameTimeout();
-                setTimeout(() => triggerTurnStart(), 1000);
-            });
+            // ─── オンライン時: 手牌・デッキをDBに書き込んで全員に配布 ───
+            if (onlinePlayerHandle && humanSeats.size > 1) {
+                // hands[realSeat] = 手牌配列 に変換
+                const handsForDB = {};
+                players.forEach((p, localIdx) => {
+                    const realSeat = (mySeatIndex + localIdx) % 4;
+                    handsForDB[String(realSeat)] = [...p.hand]; // JSONキーを文字列で統一
+                });
+                await broadcastInitialGameState(
+                    [...deck],
+                    handsForDB,
+                    mySeatIndex, // dealer は seat_index=0（最初の入室者）固定
+                    currentRound
+                );
+                lastProcessedSeq = 0;
+                startGamePoll(); // ゲーム中ポーリング開始
+            }
+
+            // ② ゲーム開始時に30分タイムアウトを設定
+            startGameTimeout();
+
+            setTimeout(() => triggerTurnStart(), 1000);
+        }
+
+        // --- CPU対戦/オンライン共通: startRound は startRoundAsHost に委譲 ---
+        function startRound() {
+            startRoundAsHost();
         }
 
         // --- シャッフルアルゴリズム ---
@@ -2002,14 +1948,15 @@
             }
         }
 
-        // --- 各ターン進行開始（ホスト専用 / CPU対戦） ---
-        // オンラインマルチ時: ホストのみ呼ぶ。子は pushGameState の受信で状態反映。
+        // --- 各ターン進行開始 ---
         function triggerTurnStart() {
             if (!gameActive) return;
 
+            // ④ ターン開始時に必ずツモ/リーチボタンを隠す（前のターンの残留防止）
             document.getElementById('btn-tsumo').classList.add('hidden');
             document.getElementById('btn-reach').classList.add('hidden');
 
+            // デッキ切れチェック
             if (deck.length === 0) {
                 endRoundByDraw();
                 return;
@@ -2018,12 +1965,10 @@
             turnCountInRound++;
             updateScoresUI();
 
-            // ターンインジケータ（UIインデックスで描画）
-            for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                const avatar = document.getElementById(`p${dispIdx}-avatar`);
-                if (!avatar) continue;
-                if (seat === currentTurn) {
+            // ターンインジケータ（アバターにハイライト）
+            for (let i = 0; i < 4; i++) {
+                const avatar = document.getElementById(`p${i}-avatar`);
+                if (i === currentTurn) {
                     avatar.classList.add('neon-border-cyan', 'border-cyan-400');
                     avatar.classList.remove('border-slate-700');
                 } else {
@@ -2032,43 +1977,36 @@
                 }
             }
 
-            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
-            const isMyTurn = (currentTurn === (mySeatIndex ?? 0));
             const turnPlayer = players[currentTurn];
+            const isMyTurn   = (currentTurn === 0);
+            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
 
             if (isMyTurn) {
-                // ─── 自分のターン（ホスト・子共通） ───
-                const me = players[mySeatIndex ?? 0];
-                if (me.hand.length === 8) {
+                // ─── 自分のターン ───
+                if (players[0].hand.length === 8) {
                     const drawn = deck.pop();
-                    me.hand.push(drawn);
+                    players[0].hand.push(drawn);
                     AudioEngine.play('draw');
                     hasJustDrawn = true;
                     updatePlayerHandUI();
+                    if (isOnlineMulti) broadcastAction({ type: 'DRAW' });
                 } else {
                     hasJustDrawn = false;
                 }
                 document.getElementById('deck-count').textContent = deck.length;
 
-                const myHand = me.hand;
-                document.getElementById('btn-tsumo').classList.toggle('hidden', !checkWinningHand(myHand));
-                const canReach = !me.isReach && me.score >= 1000 && checkTenpai(myHand);
+                const isWinning = checkWinningHand(players[0].hand);
+                document.getElementById('btn-tsumo').classList.toggle('hidden', !isWinning);
+
+                const canReach = !players[0].isReach && players[0].score >= 1000 && checkTenpai(players[0].hand);
                 document.getElementById('btn-reach').classList.toggle('hidden', !canReach);
 
-                // ホストなら現時点の状態をpushして子に通知（ツモ前の状態）
-                if (isOnlineMulti && isHost()) {
-                    pushGameState();
-                }
             } else if (!turnPlayer.isCPU && isOnlineMulti) {
-                // ─── オンライン: 相手(人間)のターン ───
-                // ホストは状態をpushして子に通知。子は待機。
-                if (isHost()) {
-                    pushGameState();
-                }
+                // ─── オンライン: 相手(人間)のターン → DRAW受信まで待機 ───
+                // deckはDRAW受信時にpopする。ここでは何もしない
                 document.getElementById('deck-count').textContent = deck.length;
             } else {
-                // ─── CPU のターン（ホストのみ実行） ───
-                if (isOnlineMulti && !isHost()) return; // 子はCPUターンを実行しない
+                // ─── CPU のターン ───
                 executeCPUTurn(currentTurn);
             }
         }
@@ -2145,7 +2083,7 @@
             return false;
         }
 
-        // --- 自分の手牌 UI 描画（mySeatIndex の手牌を表示） ---
+        // --- あなたの手牌 UI 描画 ---
         function updatePlayerHandUI() {
             const normalTilesContainer = document.getElementById('hand-normal-tiles');
             const drawTileContainer = document.getElementById('hand-draw-tile');
@@ -2153,9 +2091,9 @@
             normalTilesContainer.innerHTML = "";
             drawTileContainer.innerHTML = "";
 
-            const mySeat = mySeatIndex ?? 0;
-            const len = players[mySeat].hand.length;
-            const displayHand = [...players[mySeat].hand];
+            // もしアガリ判定等で9枚になっている場合、最後の1枚をツモ牌扱いで隙間を空けて右に配置
+            const len = players[0].hand.length;
+            const displayHand = [...players[0].hand];
 
             let normalHand = displayHand;
             let drawTile = null;
@@ -2215,46 +2153,43 @@
 
         // --- あなたの手牌を切る（打牌） ---
         function manualDiscard() {
-            const mySeat = mySeatIndex ?? 0;
-            if (currentTurn !== mySeat) return;
+            if (currentTurn !== 0) return;
             if (activeSelectedTileIdx === -1) {
-                activeSelectedTileIdx = players[mySeat].hand.length - 1;
+                // 未選択なら一番右を自動選択して切る
+                activeSelectedTileIdx = players[0].hand.length - 1;
             }
             discardSelectedTile();
         }
 
         // --- 選択中の牌を実際に川へ捨てる ---
         function discardSelectedTile() {
-            const mySeat = mySeatIndex ?? 0;
-            if (currentTurn !== mySeat || activeSelectedTileIdx === -1) return;
+            if (currentTurn !== 0 || activeSelectedTileIdx === -1) return;
 
-            const me = players[mySeat];
-            const discardedTile = me.hand.splice(activeSelectedTileIdx, 1)[0];
-            me.hand.sort((a, b) => a - b);
+            const discardedTile = players[0].hand.splice(activeSelectedTileIdx, 1)[0];
+            players[0].hand.sort((a, b) => a - b); // 切ったあとソート
 
             activeSelectedTileIdx = -1;
             updatePlayerHandUI();
 
-            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
-
-            if (isOnlineMulti && !isHost()) {
-                // 子: ホストに打牌を通知してローカルでも処理
-                broadcastAction({ type: 'DISCARD', tile: discardedTile, sender_seat: mySeat });
+            // ─── オンライン: 打牌を全員に配信 ───
+            if (onlinePlayerHandle && humanSeats.size > 1) {
+                broadcastAction({ type: 'DISCARD', tile: discardedTile });
             }
-            executePlayerDiscard(mySeat, discardedTile);
+
+            executePlayerDiscard(0, discardedTile);
         }
 
-        // --- 共通捨て牌処理（実座席番号で受け取る） ---
-        function executePlayerDiscard(realSeatId, tileId) {
+        // --- 共通捨て牌処理（ビジュアル反映、ロンチェック、ターン送り） ---
+        function executePlayerDiscard(playerId, tileId) {
             AudioEngine.play('discard');
-            players[realSeatId].discards.push(tileId);
+            players[playerId].discards.push(tileId);
 
-            // 川UI: displaySeatでUIインデックスに変換
-            const dispIdx = displaySeat(realSeatId);
-            const discardsContainer = document.getElementById(`p${dispIdx}-discards`);
+            // 川UIの更新
+            const discardsContainer = document.getElementById(`p${playerId}-discards`);
             const def = TILE_DEFINITIONS[tileId];
-
-            const isReachTile = (players[realSeatId].isReach && players[realSeatId].discards.length === 1);
+            
+            // リーチ宣言時は横向きにする
+            const isReachTile = (players[playerId].isReach && players[playerId].discards.length === 1);
             const reachStyle = isReachTile ? 'transform: rotate(90deg) scale(0.9); border-color: #ef4444;' : '';
 
             const tileMarkup = `
@@ -2264,70 +2199,56 @@
             `;
             discardsContainer.innerHTML += tileMarkup;
 
+            // 直前の捨て牌情報
             lastDiscardedTile = tileId;
-            lastDiscarderId   = realSeatId; // 実座席番号で保持
+            lastDiscarderId = playerId;
 
-            players.forEach((p, seat) => {
-                if (seat !== realSeatId && p.isReach && p.ippatsuChance) {
+            // 一発判定: リーチ宣言者本人以外が打牌したら、その宣言者の一発チャンスは消える
+            // (本人のリーチ宣言直後の打牌そのものでは消費しない)
+            players.forEach(p => {
+                if (p.id !== playerId && p.isReach && p.ippatsuChance) {
                     p.ippatsuChance = false;
                 }
             });
 
-            // ホストまたはCPU対戦 → ロン判定へ
-            // 子（オンライン）→ 自分へのロンのみ判定
+            // 他プレイヤーのロン判定チェックへ移行
             checkRonPossibility();
         }
 
-        // --- ロン判定チェック（実座席ベース） ---
+        // --- ロン(他人の牌でアガる)発生チェック ---
         function checkRonPossibility() {
             const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
-            const mySeat = mySeatIndex ?? 0;
 
-            // 1. 自分へのロンチェック（自分以外が捨てた場合）
-            if (lastDiscarderId !== mySeat) {
-                const hypotheticalHand = [...players[mySeat].hand, lastDiscardedTile];
+            // 1. 自分（players[0]）へのロンチェック（打牌が自分以外から来た場合）
+            if (lastDiscarderId !== 0) {
+                const hypotheticalHand = [...players[0].hand, lastDiscardedTile];
                 if (checkWinningHand(hypotheticalHand)) {
                     showRonClaimPanel();
                     return;
                 }
             }
 
-            // オンライン子プレイヤー → 自分のロン判定だけして終了（ホストが進行を管理）
-            if (isOnlineMulti && !isHost()) return;
-
-            // ホストまたはCPU対戦 → 全席のロン判定
-            for (let seat = 0; seat < 4; seat++) {
-                if (seat === lastDiscarderId) continue;
-                if (seat === mySeat) continue; // 自分は上でチェック済み
-                if (isOnlineMulti && !players[seat].isCPU) {
-                    // 人間席: ロン確認イベントをpushして子に通知
-                    const hypotheticalHand = [...players[seat].hand, lastDiscardedTile];
-                    if (checkWinningHand(hypotheticalHand)) {
-                        // ロン可能な子に通知（3秒待ってから進行）
-                        pushGameState({
-                            event: 'RON_PROMPT',
-                            ronTarget: seat,
-                            ronTile: lastDiscardedTile,
-                            ronLoser: lastDiscarderId
-                        });
-                        // 3秒タイムアウト後に進行
+            // 2. CPUプレイヤーへのチェック
+            // ─── オンライン時: 人間が着いている席はCPU処理しない（相手クライアントが自分でcheckRonする） ───
+            for (let i = 1; i < 4; i++) {
+                if (i === lastDiscarderId) continue;
+                if (isOnlineMulti && !players[i].isCPU) continue; // 人間席はスキップ
+                const hypotheticalHand = [...players[i].hand, lastDiscardedTile];
+                if (checkWinningHand(hypotheticalHand)) {
+                    if (Math.random() < 0.85) {
                         setTimeout(() => {
-                            if (gameActive) advanceTurn();
-                        }, 3500);
+                            if (isOnlineMulti) {
+                                // CPU席のロンでもbroadcastして全員に通知
+                                broadcastAction({ type: 'RON', winner_seat: (mySeatIndex + i) % 4, loser_seat: (mySeatIndex + lastDiscarderId) % 4, tile: lastDiscardedTile });
+                            }
+                            executeRon(i, lastDiscardedTile, lastDiscarderId);
+                        }, 1000);
                         return;
                     }
-                    continue;
-                }
-                // CPU席のロン判定
-                const hypotheticalHand = [...players[seat].hand, lastDiscardedTile];
-                if (checkWinningHand(hypotheticalHand) && Math.random() < 0.85) {
-                    setTimeout(() => {
-                        executeRon(seat, lastDiscardedTile, lastDiscarderId);
-                    }, 1000);
-                    return;
                 }
             }
 
+            // 誰もロンしなければターン終了
             advanceTurn();
         }
 
@@ -2357,10 +2278,8 @@
         function skipRon() {
             clearInterval(ronTimerInterval);
             document.getElementById('ron-claim-panel').classList.add('hidden');
-            // 子はスキップをホストに通知。ターン進行はホストが管理。
-            if (onlinePlayerHandle && humanSeats.size > 1 && !isHost()) {
+            if (onlinePlayerHandle && humanSeats.size > 1) {
                 broadcastAction({ type: 'SKIP_RON' });
-                return; // 子はadvanceTurnしない（ホストが進める）
             }
             advanceTurn();
         }
@@ -2369,41 +2288,44 @@
         function claimRon() {
             clearInterval(ronTimerInterval);
             document.getElementById('ron-claim-panel').classList.add('hidden');
-            const mySeat = mySeatIndex ?? 0;
-            // ホストにロン宣言を通知（pushGameStateのイベントで処理）
-            if (onlinePlayerHandle && humanSeats.size > 1 && !isHost()) {
-                // 子からホストへ: action として送信
-                broadcastAction({ type: 'PLAYER_RON', winner_seat: mySeat, loser_seat: lastDiscarderId, tile: lastDiscardedTile });
+            if (onlinePlayerHandle && humanSeats.size > 1) {
+                broadcastAction({ type: 'RON', winner_seat: mySeatIndex, loser_seat: (mySeatIndex + lastDiscarderId) % 4, tile: lastDiscardedTile });
             }
-            executeRon(mySeat, lastDiscardedTile, lastDiscarderId);
+            executeRon(0, lastDiscardedTile, lastDiscarderId);
         }
 
         // --- ツモ（自分で引いて上がる）を宣言する ---
         function claimTsumo() {
-            const mySeat = mySeatIndex ?? 0;
-            if (!checkWinningHand(players[mySeat].hand)) return;
-            // 子はホストに通知
-            if (onlinePlayerHandle && humanSeats.size > 1 && !isHost()) {
-                broadcastAction({ type: 'PLAYER_TSUMO', winner_seat: mySeat });
+            // ガード: 自分のターンかつアガリ形が確定している場合のみ
+            if (!checkWinningHand(players[0].hand)) return;
+            if (onlinePlayerHandle && humanSeats.size > 1) {
+                broadcastAction({ type: 'TSUMO' });
             }
-            executeTsumo(mySeat);
+            executeTsumo(0);
         }
 
-        // --- ロン実行（実座席番号で受け取る） ---
-        function executeRon(winnerSeat, tileId, loserSeat) {
+        // --- ロン実行 ---
+        function executeRon(winnerId, tileId, loserId) {
             AudioEngine.play('win');
             gameActive = false;
 
-            players[winnerSeat].hand.push(tileId);
-            players[winnerSeat].hand.sort((a, b) => a - b);
+            // アガったプレイヤーの手牌に捨て牌を追加して完成させる
+            players[winnerId].hand.push(tileId);
+            // ③バグ修正: 追加した牌をソートし、結果画面で3枚セットが正しく並んで見えるようにする
+            players[winnerId].hand.sort((a, b) => a - b);
 
+            // 画面を派手に揺らす
             document.getElementById('game-container').classList.add('animate-shake');
-            setTimeout(() => document.getElementById('game-container').classList.remove('animate-shake'), 600);
+            setTimeout(() => {
+                document.getElementById('game-container').classList.remove('animate-shake');
+            }, 600);
 
+            // 状況役の判定: 河底撈魚(山が0枚の状態での捨て牌をロン)、一発(リーチ直後の1巡以内)
             const isHaitei = deck.length === 0;
-            const winner = players[winnerSeat];
+            const winner = players[winnerId];
             const isIppatsu = winner.isReach && winner.ippatsuChance;
 
+            // 得点移動計算
             const rankInfo = getHandRank(winner.hand, {
                 isDoubleReach: winner.isDoubleReach,
                 isIppatsu: isIppatsu,
@@ -2411,37 +2333,38 @@
                 isTsumo: false
             });
             let payment = rankInfo.score;
+
+            // リーチ時は＋1,000点
             if (winner.isReach) payment += 1000;
-            if (winnerSeat === currentDealer) payment = Math.floor(payment * 1.5);
 
-            players[winnerSeat].score += payment;
-            players[loserSeat].score -= payment;
-
-            // UIインデックスに変換してモーダル表示
-            const winnerDisp = displaySeat(winnerSeat);
-            const loserDisp  = displaySeat(loserSeat);
-
-            // ホストならpushして全員に通知
-            if (onlinePlayerHandle && humanSeats.size > 1 && isHost()) {
-                pushGameState({ event: 'ROUND_END', winner: winnerSeat, loser: loserSeat,
-                    isTsumo: false, payment, rankInfo });
+            // 親が上がると1.5倍
+            if (winnerId === currentDealer) {
+                payment = Math.floor(payment * 1.5);
             }
 
-            showRoundResultModal(winnerDisp, loserDisp, false, payment, rankInfo);
+            // ロンは振り込んだ人(loser)の一人払い
+            players[winnerId].score += payment;
+            players[loserId].score -= payment;
+
+            showRoundResultModal(winnerId, loserId, false, payment, rankInfo);
         }
 
-        // --- ツモ実行（実座席番号で受け取る） ---
-        function executeTsumo(winnerSeat) {
+        // --- ツモ実行 ---
+        function executeTsumo(winnerId) {
             AudioEngine.play('win');
             gameActive = false;
 
             document.getElementById('game-container').classList.add('animate-shake');
-            setTimeout(() => document.getElementById('game-container').classList.remove('animate-shake'), 600);
+            setTimeout(() => {
+                document.getElementById('game-container').classList.remove('animate-shake');
+            }, 600);
 
-            players[winnerSeat].hand.sort((a, b) => a - b);
+            // ③バグ修正: ツモ牌追加後の手牌をソートし、結果画面の表示順を正しくする
+            players[winnerId].hand.sort((a, b) => a - b);
 
+            // 状況役の判定: 海底撈月(山の最後の1枚でツモ)、一発、ダブルリーチ
             const isHaitei = deck.length === 0;
-            const winner = players[winnerSeat];
+            const winner = players[winnerId];
             const isIppatsu = winner.isReach && winner.ippatsuChance;
 
             const rankInfo = getHandRank(winner.hand, {
@@ -2451,50 +2374,49 @@
                 isTsumo: true
             });
             let payment = rankInfo.score;
+
             if (winner.isReach) payment += 1000;
-            if (winnerSeat === currentDealer) payment = Math.floor(payment * 1.5);
 
-            const perPlayerPay = Math.floor(payment / 3);
-            players.forEach((p, seat) => {
-                if (seat === winnerSeat) p.score += perPlayerPay * 3;
-                else p.score -= perPlayerPay;
-            });
-
-            const winnerDisp = displaySeat(winnerSeat);
-
-            if (onlinePlayerHandle && humanSeats.size > 1 && isHost()) {
-                pushGameState({ event: 'ROUND_END', winner: winnerSeat, loser: -1,
-                    isTsumo: true, payment, rankInfo });
+            if (winnerId === currentDealer) {
+                payment = Math.floor(payment * 1.5);
             }
 
-            showRoundResultModal(winnerDisp, -1, true, payment, rankInfo);
+            // ツモは全員で均等に割り振って支払う
+            const payerCount = 3;
+            const perPlayerPay = Math.floor(payment / payerCount);
+
+            players.forEach(p => {
+                if (p.id === winnerId) {
+                    p.score += perPlayerPay * payerCount;
+                } else {
+                    p.score -= perPlayerPay;
+                }
+            });
+
+            showRoundResultModal(winnerId, -1, true, payment, rankInfo);
         }
 
         // --- リーチ宣言処理 ---
         function declareReach() {
-            const mySeat = mySeatIndex ?? 0;
-            if (currentTurn !== mySeat || players[mySeat].isReach) return;
+            if (currentTurn !== 0 || players[0].isReach) return;
 
             AudioEngine.play('reach');
-            const me = players[mySeat];
-            me.isReach = true;
-            me.score -= 1000;
-            me.ippatsuChance = true;
-            me.reachTurnCount = turnCountInRound;
-            me.isDoubleReach = (turnCountInRound <= 1);
+            players[0].isReach = true;
+            players[0].score -= 1000;
+            players[0].ippatsuChance = true;
+            players[0].reachTurnCount = turnCountInRound;
+            players[0].isDoubleReach = (turnCountInRound <= 1);
 
             document.getElementById('p0-reach-badge').classList.remove('hidden');
             document.getElementById('btn-reach').classList.add('hidden');
             updateScoresUI();
 
-            appendChatMessage("システム", `${me.name} がリーチを宣言！`, "#ffb700");
+            appendChatMessage("システム", `${players[0].name} がリーチを宣言！`, "#ffb700");
 
-            // 子はホストに通知（ホストが全員に状態をpush）
-            if (onlinePlayerHandle && humanSeats.size > 1 && !isHost()) {
-                broadcastAction({ type: 'PLAYER_REACH', seat: mySeat });
-            } else if (onlinePlayerHandle && humanSeats.size > 1 && isHost()) {
-                pushGameState();
+            if (onlinePlayerHandle && humanSeats.size > 1) {
+                broadcastAction({ type: 'REACH' });
             }
+
         }
 
         // --- 役・点数の算出 ---
@@ -2566,7 +2488,6 @@
         }
 
         // --- ラウンド勝利モーダル展開 ---
-        // winnerId, loserId は displaySeat() 変換済みのUIインデックス(0=自分)
         function showRoundResultModal(winnerId, loserId, isTsumo, payment, rankInfo) {
             const modal = document.getElementById('modal-round-result');
             const title = document.getElementById('result-status-title');
@@ -2576,10 +2497,7 @@
             const scoreText = document.getElementById('result-hand-score');
             const payerText = document.getElementById('result-payer');
 
-            // UIインデックス→実座席に変換してplayers[]を参照
-            const winnerRealSeat = realSeat(winnerId);
-            const loserRealSeat  = loserId >= 0 ? realSeat(loserId) : -1;
-
+            // タイトル
             if (winnerId === 0) {
                 title.textContent = "VICTORY";
                 title.className = "text-2xl sm:text-3xl font-black italic tracking-widest text-cyan-400 mb-2 neon-text-cyan";
@@ -2588,11 +2506,14 @@
                 title.className = "text-2xl sm:text-3xl font-black italic tracking-widest text-pink-500 mb-2 neon-text-magenta";
             }
 
-            detail.textContent = `${players[winnerRealSeat].name} のドンジャラ！`;
+            // 勝者詳細
+            detail.textContent = `${players[winnerId].name} のドンジャラ！`;
 
+            // ③手牌描画: 同じ絵柄ごとにグループ化
             handDisp.innerHTML = "";
             const groupedCounts = {};
-            players[winnerRealSeat].hand.filter(t => t >= 0).forEach(t => {
+            // ダミー牌(-1)は除外して表示
+            players[winnerId].hand.filter(t => t >= 0).forEach(t => {
                 groupedCounts[t] = (groupedCounts[t] || 0) + 1;
             });
             Object.keys(groupedCounts).sort((a, b) => a - b).forEach(tileIdStr => {
@@ -2617,10 +2538,11 @@
             rankText.textContent = rankInfo.name;
             scoreText.textContent = `+${payment.toLocaleString()} pts`;
 
+            // 支払い種別
             if (isTsumo) {
                 payerText.textContent = "自摸 (ツモ): 全員均等払い";
             } else {
-                payerText.textContent = `放銃 (ロン): ${players[loserRealSeat].name} からの直撃`;
+                payerText.textContent = `放銃 (ロン): ${players[loserId].name} からの直撃`;
             }
 
             modal.classList.remove('hidden');
@@ -2653,6 +2575,8 @@
         // --- 局終了、次の局への進行設定 ---
         function nextRound() {
             document.getElementById('modal-round-result').classList.add('hidden');
+
+            // ④ ツモ/リーチボタンを確実に隠す
             document.getElementById('btn-tsumo').classList.add('hidden');
             document.getElementById('btn-reach').classList.add('hidden');
 
@@ -2661,21 +2585,21 @@
 
             if (currentRound > 3) {
                 endWholeMatch();
-                return;
-            }
-
-            if (onlinePlayerHandle && humanSeats.size > 1) {
+            } else if (onlinePlayerHandle && humanSeats.size > 1) {
+                // ─── オンラインマルチ ───
                 if (isHost()) {
-                    // ホスト: 新局開始 → startRound()内でpushGameState()して子に配布
-                    startRound();
+                    // 親: NEXT_ROUNDをbroadcastしてから新局を配布
+                    broadcastAction({ type: 'NEXT_ROUND' });
+                    startRoundAsHost(); // 新局の game_state をDBに書き込む
                 } else {
-                    // 子: ホストが新しいgame_stateをpushするまで待機
+                    // 子: NEXT_ROUND broadcast を受け取った側は receiveOnlineAction で処理するため
+                    // ここには来ない設計。念のため待機処理を入れる
                     gameActive = false;
                     document.getElementById('deck-count').textContent = '...';
-                    showDonjaraToast('次の局の牌を受信中...');
-                    startGamePoll();
+                    waitForNextGameState();
                 }
             } else {
+                // CPU対戦
                 startRound();
             }
         }
@@ -2746,66 +2670,89 @@
 
         // --- スコアボードUI同期 ---
         function updateScoresUI() {
-            // players は実座席インデックス、DOM は displaySeat() のUIインデックス
-            players.forEach((p, seat) => {
-                const dispIdx = displaySeat(seat);
-                const el = document.getElementById(`p${dispIdx}-score`);
-                if (el) el.textContent = p.score.toLocaleString();
+            players.forEach(p => {
+                document.getElementById(`p${p.id}-score`).textContent = p.score.toLocaleString();
             });
         }
 
         // --- ターンプレイヤーの進行 ---
         function advanceTurn() {
             currentTurn = (currentTurn + 1) % 4;
-            setTimeout(() => triggerTurnStart(), 1000);
+            setTimeout(() => {
+                triggerTurnStart();
+            }, 1000);
         }
 
-        // --- CPU AIの思考・打牌実行（実座席番号で受け取る） ---
-        // オンライン時: ホストのみ実行。終了後 pushGameState() で子に状態配信。
-        function executeCPUTurn(cpuSeat) {
+        // --- CPU AIの思考・打牌実行 ---
+        // ★オンライン時: CPU処理はホスト(seat=0)のみ実行し、結果をbroadcast。子はreceiveOnlineActionで受け取る
+        function executeCPUTurn(cpuId) {
             const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
-            if (isOnlineMulti && !isHost()) return; // 子はCPUを動かさない
 
+            // オンライン時: ホスト以外はCPUターンを実行しない（broadcastを待つだけ）
+            if (isOnlineMulti && !isHost()) return;
+
+            // CPUが山から1枚ツモる
             const drawn = deck.pop();
-            players[cpuSeat].hand.push(drawn);
+            players[cpuId].hand.push(drawn);
             document.getElementById('deck-count').textContent = deck.length;
 
+            // オンライン時: DRAWをbroadcast（牌IDも含めて送信 ─ CPUの手牌は全員共有）
+            if (isOnlineMulti) {
+                broadcastAction({ type: 'CPU_DRAW', cpuLocalId: cpuId, tile: drawn,
+                    realSeat: (mySeatIndex + cpuId) % 4 });
+            }
+
+            // 1秒待機してからアクション
             setTimeout(() => {
                 // 1. ツモあがり判定
-                if (checkWinningHand(players[cpuSeat].hand)) {
-                    executeTsumo(cpuSeat);
+                if (checkWinningHand(players[cpuId].hand)) {
+                    if (isOnlineMulti) {
+                        broadcastAction({ type: 'TSUMO', sender_seat: (mySeatIndex + cpuId) % 4,
+                            isCPU: true, cpuLocalId: cpuId });
+                    }
+                    executeTsumo(cpuId);
                     return;
                 }
 
                 // 2. リーチ判定
-                const cpu = players[cpuSeat];
-                if (!cpu.isReach && cpu.score >= 1000 && checkTenpai(cpu.hand)) {
-                    cpu.isReach = true;
-                    cpu.score -= 1000;
-                    cpu.ippatsuChance = true;
-                    cpu.reachTurnCount = turnCountInRound;
-                    cpu.isDoubleReach = (turnCountInRound <= 1);
-                    const cpuDisp = displaySeat(cpuSeat);
-                    document.getElementById(`p${cpuDisp}-reach-badge`).classList.remove('hidden');
+                if (!players[cpuId].isReach && players[cpuId].score >= 1000 && checkTenpai(players[cpuId].hand)) {
+                    players[cpuId].isReach = true;
+                    players[cpuId].score -= 1000;
+                    players[cpuId].ippatsuChance = true;
+                    players[cpuId].reachTurnCount = turnCountInRound;
+                    players[cpuId].isDoubleReach = (turnCountInRound <= 1);
+                    document.getElementById(`p${cpuId}-reach-badge`).classList.remove('hidden');
+                    if (isOnlineMulti) {
+                        broadcastAction({ type: 'CPU_REACH', realSeat: (mySeatIndex + cpuId) % 4 });
+                    }
                 }
 
                 // 3. 打牌選択
                 const counts = {};
-                cpu.hand.forEach(t => counts[t] = (counts[t] || 0) + 1);
-                let selectedDiscard = cpu.hand[0];
-                const singletons = cpu.hand.filter(t => counts[t] === 1);
+                players[cpuId].hand.forEach(t => counts[t] = (counts[t] || 0) + 1);
+                let selectedDiscard = -1;
+                const singletons = players[cpuId].hand.filter(t => counts[t] === 1);
                 if (singletons.length > 0) {
                     selectedDiscard = singletons[Math.floor(Math.random() * singletons.length)];
                 } else {
-                    const pairs = cpu.hand.filter(t => counts[t] === 2);
-                    if (pairs.length > 0) selectedDiscard = pairs[0];
+                    const doubletons = players[cpuId].hand.filter(t => counts[t] === 2);
+                    if (doubletons.length > 0) {
+                        selectedDiscard = doubletons[0];
+                    } else {
+                        selectedDiscard = players[cpuId].hand[0];
+                    }
                 }
 
-                const discardIdx = cpu.hand.indexOf(selectedDiscard);
-                cpu.hand.splice(discardIdx, 1);
-                cpu.hand.sort((a, b) => a - b);
+                const discardIdx = players[cpuId].hand.indexOf(selectedDiscard);
+                players[cpuId].hand.splice(discardIdx, 1);
+                players[cpuId].hand.sort((a, b) => a - b);
 
-                executePlayerDiscard(cpuSeat, selectedDiscard);
+                // オンライン時: CPUの打牌もbroadcast
+                if (isOnlineMulti) {
+                    broadcastAction({ type: 'DISCARD', tile: selectedDiscard,
+                        sender_seat: (mySeatIndex + cpuId) % 4, isCPU: true });
+                }
+                executePlayerDiscard(cpuId, selectedDiscard);
 
             }, 1200);
         }
@@ -2821,19 +2768,14 @@
         }
 
         function sendQuickChat(message) {
-            const mySeat = mySeatIndex ?? 0;
             AudioEngine.play('click');
-            appendChatMessage(players[mySeat].name, message, "#00f0ff");
-            showChatBubbleOnBoard(0, message); // 自分は常にUI表示0
+            appendChatMessage(players[0].name, message, "#00f0ff");
+            showChatBubbleOnBoard(0, message);
             toggleChat(false);
 
-            // オンライン: ホストは pushGameState(CHAT)、子はbroadcastAction
+            // ③ オンライン: チャットを全員に配信
             if (onlinePlayerHandle && humanSeats.size > 1) {
-                if (isHost()) {
-                    pushGameState({ event: 'CHAT', chatSeat: mySeat, chatText: message });
-                } else {
-                    broadcastAction({ type: 'PLAYER_CHAT', seat: mySeat, text: message });
-                }
+                broadcastAction({ type: 'CHAT', text: message, sender_name: players[0].name });
             }
         }
 

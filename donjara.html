@@ -1274,7 +1274,11 @@
                     if (!isHost() && row.game_state && row.game_state.players) {
                         const gs = row.game_state;
                         const gsSeq = gs.seq ?? row.action_seq ?? 0;
-                        if (!gameActive) {
+                        // 【修正⑩】ROUND_END等のイベント付きpushは、自分がツモ/ロンを自己宣言した
+                        // 直後でgameActiveがfalseになっていても必ずapplyGameState（イベント処理）に渡す。
+                        // これをしないと結果通知がapplyInitialGameStateに渡って局が再開した状態になり、
+                        // ツモ/ロンボタンが再表示されて何度も上がり宣言が繰り返されてしまう。
+                        if (!gameActive && !gs.event) {
                             // seqチェックはapplyInitialGameState内で行う
                             applyInitialGameState(gs);
                         } else if (gsSeq > lastProcessedSeq) {
@@ -1814,11 +1818,16 @@
                         const gsSeq = gs.seq ?? seq;
                         if (gsSeq <= lastProcessedSeq) return; // 既に処理済みならスキップ
 
-                        if (!gameActive) {
+                        // 【修正⑩】ROUND_END等のイベント付きpushは、自分がツモ/ロンを自己宣言した
+                        // 直後でgameActiveがfalseになっていても必ずapplyGameState（イベント処理）に渡す。
+                        // これをしないと結果通知がapplyInitialGameStateに渡って局が再開した状態になり、
+                        // ツモ/ロンボタンが再表示されて何度も上がり宣言が繰り返されてしまう
+                        // （手牌が9枚を超えて増え続け、連勝扱いになる不具合の原因）。
+                        if (!gameActive && !gs.event) {
                             // まだゲーム未開始 → 初期状態を適用
                             applyInitialGameState(gs);
                         } else {
-                            // ゲーム中 → 差分を適用
+                            // ゲーム中、またはイベント通知 → 差分・イベントを適用
                             applyGameState(gs);
                         }
                     }

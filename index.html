@@ -3441,11 +3441,17 @@ function _showNewBar(){
 
 }
 
-function showNewPosts(){
+async function showNewPosts(){
 
   pendingNewTweets=[];
 
   document.getElementById('new-posts-bar').style.display='none';
+
+  // プッシュ通知タップ経由の場合、ローカルの tweets 配列に新着が
+  // 反映されていないことがあるため、DBから最新を取得してから描画する。
+  // fetchTweets() 内で tweets を上書きし renderFeed() も呼ぶ。
+
+  await fetchTweets();
 
   renderFeed(document.getElementById('search-input').value.toLowerCase());
 

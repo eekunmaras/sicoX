@@ -1593,12 +1593,14 @@
             if (pushPending) return;
             pushPending = true;
             try {
+                const seq = Date.now();
                 const state = {
                     round: currentRound,
-                    currentTurn: currentTurn, // 実座席番号
-                    dealer: currentDealer,    // 実座席番号
+                    currentTurn: currentTurn,
+                    dealer: currentDealer,
                     deckLen: deck.length,
                     turnCount: turnCountInRound,
+                    seq: seq,
                     players: players.map((p, seat) => ({
                         seat,
                         hand: [...p.hand],
@@ -1614,83 +1616,105 @@
                 await sb.from('donjara_rooms').upsert({
                     id: ROOM_ID,
                     game_state: state,
-                    action_seq: Date.now(),
+                    action_seq: seq,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'id' });
             } catch(e) { console.warn('pushGameState error:', e); }
             finally { pushPending = false; }
         }
 
-        // ─── 子: DBの状態を受け取って画面に反映 ───
+        // ─── 子: ホストのgame_state差分を受け取って画面更新 ───
         function applyGameState(state) {
-            if (!state) return;
-            if (!gameActive && state.event !== 'FORCE_END') return;
+            if (!state || !state.players) return;
+
+            // イベントのみの場合（FORCE_END等）は gameActive チェックをスキップ
+            if (!gameActive && !state.event) return;
 
             // 全プレイヤー状態を更新
             state.players.forEach(ps => {
                 const p = players[ps.seat];
                 if (!p) return;
-                p.hand     = [...ps.hand];
-                p.discards = [...ps.discards];
-                p.score    = ps.score;
-                p.isReach  = ps.isReach;
-                p.isCPU    = ps.isCPU;
-                p.name     = ps.name;
-                p.avatar   = ps.avatar;
+                p.hand     = [...(ps.hand || [])];
+                p.discards = [...(ps.discards || [])];
+                p.score    = ps.score ?? p.score;
+                p.isReach  = !!ps.isReach;
+                p.isCPU    = !!ps.isCPU;
+                p.name     = ps.name || p.name;
+                p.avatar   = ps.avatar || p.avatar;
             });
 
-            const prevTurn   = currentTurn;
-            currentTurn      = state.currentTurn;
-            currentDealer    = state.dealer;
+            currentTurn      = state.currentTurn ?? currentTurn;
+            currentDealer    = state.dealer ?? currentDealer;
             turnCountInRound = state.turnCount ?? turnCountInRound;
-            // 子のdeckは枚数管理のみ（実際の牌はホストが管理）
-            deck = new Array(state.deckLen ?? 0).fill(0);
 
-            // 捨て牌UI再描画
+            // 特殊イベント（ラウンド終了など）を最優先で処理
+            if (state.event) {
+                handleStateEvent(state.event, state);
+                return;
+            }
+
+            // 捨て牌UI再描画（discards配列から正確に再構築）
             for (let seat = 0; seat < 4; seat++) {
                 const dispIdx = displaySeat(seat);
                 const el = document.getElementById(`p${dispIdx}-discards`);
                 if (!el) continue;
                 el.innerHTML = '';
-                players[seat].discards.forEach(tid => {
+                (players[seat].discards || []).forEach(tid => {
                     const def = TILE_DEFINITIONS[tid];
+                    if (!def) return;
                     el.innerHTML += `<div class="discard-tile" title="${def.name}">
                         <i class="fa-solid ${def.icon} bg-gradient-to-b ${def.colorClass} bg-clip-text text-transparent scale-90"></i>
                     </div>`;
                 });
             }
 
-            // リーチバッジ・ターンハイライト
+            // バッジ・ハイライト更新
             for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                const badge  = document.getElementById(`p${dispIdx}-reach-badge`);
-                const avatar = document.getElementById(`p${dispIdx}-avatar`);
+                const d = displaySeat(seat);
+                const badge  = document.getElementById(`p${d}-reach-badge`);
+                const avatar = document.getElementById(`p${d}-avatar`);
                 if (badge)  badge.classList.toggle('hidden', !players[seat].isReach);
                 if (avatar) {
-                    avatar.classList.toggle('neon-border-cyan',  seat === currentTurn);
-                    avatar.classList.toggle('border-cyan-400',   seat === currentTurn);
-                    avatar.classList.toggle('border-slate-700',  seat !== currentTurn);
+                    const isActive = (seat === currentTurn);
+                    avatar.classList.toggle('neon-border-cyan', isActive);
+                    avatar.classList.toggle('border-cyan-400',  isActive);
+                    avatar.classList.toggle('border-slate-700', !isActive);
                 }
             }
 
-            updateScoresUI();
-            updatePlayerHandUI();
-            syncOpponentUIFromPlayers();
             document.getElementById('deck-count').textContent = state.deckLen ?? 0;
             document.getElementById('btn-tsumo').classList.add('hidden');
             document.getElementById('btn-reach').classList.add('hidden');
 
-            // 特殊イベント（ラウンド終了など）を先に処理
-            if (state.event) {
-                handleStateEvent(state.event, state);
-                return;
-            }
+            updateScoresUI();
+            updatePlayerHandUI();
+            syncOpponentUIFromPlayers();
 
-            // ③④ 自分のターンになったら子側でtriggerTurnStartを呼んでUI有効化
+            // 自分のターン → 打牌UIを有効化（手牌はホストがツモ後pushしてくる）
             if (currentTurn === mySeatIndex) {
-                // ホストがツモ済みの状態をpushしてくるので、子はdeckからpopしない
-                // triggerTurnStart内でisMyTurn=trueかつ子モードの分岐で処理される
-                setTimeout(() => triggerTurnStart(), 300);
+                _enableMyTurnButtons();
+            }
+        }
+
+        // 自分のターンボタン表示（子専用）
+        function _enableMyTurnButtons() {
+            const mySeat = mySeatIndex ?? 0;
+            const myHand = players[mySeat].hand;
+            document.getElementById('btn-tsumo').classList.toggle('hidden', !checkWinningHand(myHand));
+            const canReach = !players[mySeat].isReach && players[mySeat].score >= 1000 && checkTenpai(myHand);
+            document.getElementById('btn-reach').classList.toggle('hidden', !canReach);
+        }
+
+        // ターンハイライト表示
+        function showTurnIndicator() {
+            for (let seat = 0; seat < 4; seat++) {
+                const d = displaySeat(seat);
+                const avatar = document.getElementById(`p${d}-avatar`);
+                if (!avatar) continue;
+                const isActive = (seat === currentTurn);
+                avatar.classList.toggle('neon-border-cyan', isActive);
+                avatar.classList.toggle('border-cyan-400',  isActive);
+                avatar.classList.toggle('border-slate-700', !isActive);
             }
         }
 
@@ -1733,11 +1757,13 @@
             }
         }
 
-        // ─── ゲーム中ポーリング（ホスト: 子のアクション受信 / 子: ホストの状態受信） ───
+        // ─── ゲーム中ポーリング ───
+        // ホスト: 子のアクション(last_action)を受信して processChildAction
+        // 子: ホストのgame_stateを受信して applyGameState / applyInitialGameState
         function startGamePoll() {
             if (gamePollInterval) { clearInterval(gamePollInterval); gamePollInterval = null; }
-            let lastActionSeq = 0;
-            let lastStateSeq  = lastProcessedSeq;
+            let lastSeenActionSeq = 0;
+            let lastSeenStateSeq  = 0;
 
             gamePollInterval = setInterval(async () => {
                 try {
@@ -1748,27 +1774,32 @@
                         .single();
                     if (!data) return;
 
+                    const seq = data.action_seq ?? 0;
+
                     if (isHost()) {
-                        // ─── ホスト: 子からのアクション（PLAYER_RON/PLAYER_TSUMO/PLAYER_REACH/SKIP_RON/PLAYER_CHAT）を処理 ───
-                        if (data.last_action && data.action_seq > lastActionSeq) {
-                            lastActionSeq = data.action_seq;
+                        // ホスト: 子からのアクションを処理
+                        if (data.last_action && seq > lastSeenActionSeq) {
+                            lastSeenActionSeq = seq;
                             processChildAction(data.last_action);
                         }
                     } else {
-                        // ─── 子: ホストからのgame_state更新を受け取って画面反映 ───
-                        if (!gameActive && data.game_state && data.game_state.players) {
-                            applyInitialGameState(data.game_state);
-                            lastStateSeq = data.action_seq;
-                            return;
-                        }
-                        if (gameActive && data.game_state && data.game_state.players && data.action_seq > lastStateSeq) {
-                            lastStateSeq = data.action_seq;
-                            lastProcessedSeq = lastStateSeq;
-                            applyGameState(data.game_state);
+                        // 子: ホストのgame_stateを受信
+                        const gs = data.game_state;
+                        if (!gs || !gs.players) return;
+
+                        if (seq > lastSeenStateSeq) {
+                            lastSeenStateSeq = seq;
+                            if (!gameActive) {
+                                // まだゲーム未開始 → 初期状態を適用
+                                applyInitialGameState(gs);
+                            } else {
+                                // ゲーム中 → 差分を適用
+                                applyGameState(gs);
+                            }
                         }
                     }
                 } catch(e) {}
-            }, 1200);
+            }, 1000);
         }
 
         // ─── ホスト: 子からのアクションを処理 ───
@@ -1836,70 +1867,72 @@
             }
         }
 
-        // ─── 子: 初期ゲーム状態を受け取って開始 ───
+        // ─── 子: 初期ゲーム状態を受け取って局を開始 ───
         function applyInitialGameState(state) {
-            if (!state) return;
+            if (!state || !state.players) return;
 
-            clearInterval(gamePollInterval);
-            gamePollInterval = null;
+            // 既存ポーリングを止める（再起動する）
+            if (gamePollInterval) { clearInterval(gamePollInterval); gamePollInterval = null; }
 
-            // deck を再構築（deckLen分だけダミーで確保）
-            // 実際の牌はホストが管理。子はdeckLenのみ参照
-            deck = new Array(state.deckLen ?? 0).fill(0);
-
-            currentRound  = state.round ?? 1;
-            currentDealer = state.dealer ?? 0;
+            currentRound     = state.round ?? 1;
+            currentDealer    = state.dealer ?? 0;
+            currentTurn      = state.currentTurn ?? state.dealer ?? 0;
             turnCountInRound = state.turnCount ?? 0;
+            lastProcessedSeq = state.seq ?? 0;
 
-            // 全プレイヤー状態を反映 + isCPU フラグを正しく設定
+            // 全プレイヤー状態を反映（isCPU はホストの設定をそのまま使う）
             state.players.forEach(ps => {
                 const p = players[ps.seat];
                 if (!p) return;
-                p.hand     = [...ps.hand];
-                p.discards = [...ps.discards];
-                p.score    = ps.score;
-                p.isReach  = ps.isReach;
-                p.isCPU    = ps.isCPU;    // ★ ホストが設定したisCPUをそのまま使う
-                p.name     = ps.name;
-                p.avatar   = ps.avatar;
+                p.hand           = [...(ps.hand || [])];
+                p.discards       = [...(ps.discards || [])];
+                p.score          = ps.score ?? 20000;
+                p.isReach        = !!ps.isReach;
+                p.isCPU          = !!ps.isCPU;
+                p.name           = ps.name;
+                p.avatar         = ps.avatar;
                 p.ippatsuChance  = false;
                 p.isDoubleReach  = false;
                 p.reachTurnCount = -1;
             });
 
-            currentTurn = state.currentTurn ?? currentDealer;
-            lastProcessedSeq = 0;
-
-            // UI初期化
+            // UI全初期化
             for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                document.getElementById(`p${dispIdx}-dealer-badge`).classList.toggle('hidden', seat !== currentDealer);
-                document.getElementById(`p${dispIdx}-reach-badge`).classList.add('hidden');
-                document.getElementById(`p${dispIdx}-discards`).innerHTML = '';
+                const d = displaySeat(seat);
+                const el = document.getElementById(`p${d}-discards`);
+                if (el) el.innerHTML = '';
+                const badge = document.getElementById(`p${d}-dealer-badge`);
+                if (badge) badge.classList.toggle('hidden', seat !== currentDealer);
+                const reach = document.getElementById(`p${d}-reach-badge`);
+                if (reach) reach.classList.add('hidden');
             }
 
+            document.getElementById('btn-tsumo').classList.add('hidden');
+            document.getElementById('btn-reach').classList.add('hidden');
             document.getElementById('current-round-text').textContent = `東${currentRound}局`;
-            document.getElementById('deck-count').textContent = deck.length;
+            document.getElementById('deck-count').textContent = state.deckLen ?? 0;
+            activeSelectedTileIdx = -1;
+
             updatePlayerHandUI();
             updateScoresUI();
             syncOpponentUIFromPlayers();
             showScene('scene-game');
             gameActive = true;
-            activeSelectedTileIdx = -1;
+
             document.getElementById('chat-history').innerHTML =
                 `<div class="text-gray-500 text-center text-[10px]">システム: 東${currentRound}局が開始されました。</div>`;
 
-            // 子は自分のターンになるまで待つだけ（ポーリングで状態受信）
-            startGamePoll();
-            startGameTimeout();
-
-            // 子のターン表示（UIのみ）
+            // ターンハイライト
             showTurnIndicator();
 
-            // 自分のターンならUIを有効化
+            // 自分のターンなら打牌UIを有効化（ツモは既に手牌9枚として届く）
             if (currentTurn === mySeatIndex) {
-                enableMyTurnUI();
+                _enableMyTurnButtons();
             }
+
+            // ポーリング再開（差分更新を受け取るため）
+            startGamePoll();
+            startGameTimeout();
         }
 
         // ─── ゲーム開始初期化 ───
@@ -1932,31 +1965,7 @@
             }
         }
 
-        // ─── 子: ターンインジケーターのみ更新 ───
-        function showTurnIndicator() {
-            for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                const avatar = document.getElementById(`p${dispIdx}-avatar`);
-                if (!avatar) continue;
-                if (seat === currentTurn) {
-                    avatar.classList.add('neon-border-cyan','border-cyan-400');
-                    avatar.classList.remove('border-slate-700');
-                } else {
-                    avatar.classList.remove('neon-border-cyan','border-cyan-400');
-                    avatar.classList.add('border-slate-700');
-                }
-            }
-        }
 
-        // ─── 子: 自分のターンのUI有効化 ───
-        function enableMyTurnUI() {
-            const myHand = players[mySeatIndex].hand;
-            if (myHand.length === 8) {
-                // まだツモしていない→ツモ待ち（ホストがDRAW通知を送るまで待機）
-                // ここでは何もしない
-            }
-            // ツモ/リーチは状態を受け取ったときに判定済み
-        }
 
         // --- 局単位の開始（ホスト専用） ---
         function startRound() {
@@ -1998,10 +2007,19 @@
                 `<div class="text-gray-500 text-center text-[10px]">システム: 東${currentRound}局が開始されました。</div>`;
             currentTurn = currentDealer;
 
-            pushGameState().then(() => {
+            // オンラインマルチ時: pushGameState完了を待ってからターン開始
+            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
+            if (isOnlineMulti) {
+                pushGameState().then(() => {
+                    startGameTimeout();
+                    // 子がstate受信できるよう少し待ってからターン開始
+                    setTimeout(() => triggerTurnStart(), 1500);
+                });
+            } else {
+                // CPU対戦: 即時開始
                 startGameTimeout();
                 setTimeout(() => triggerTurnStart(), 1000);
-            });
+            }
         }
 
         // --- シャッフルアルゴリズム ---
@@ -2012,15 +2030,23 @@
             }
         }
 
-        // --- 各ターン進行開始（ホスト専用 / CPU対戦） ---
-        // オンラインマルチ時: ホストのみ呼ぶ。子は pushGameState の受信で状態反映。
+        // --- ターン進行（ホスト・CPU対戦専用） ---
+        // オンライン子プレイヤーはこの関数を呼ばない。
+        // 子は applyGameState / applyInitialGameState で状態を受け取り
+        // 自分のターンのみ _enableMyTurnButtons() でUI有効化する。
         function triggerTurnStart() {
             if (!gameActive) return;
+
+            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
+
+            // 子はこの関数を実行しない
+            if (isOnlineMulti && !isHost()) return;
 
             document.getElementById('btn-tsumo').classList.add('hidden');
             document.getElementById('btn-reach').classList.add('hidden');
 
             if (deck.length === 0) {
+                if (isOnlineMulti) pushGameState({ event: 'DRAW_END' });
                 endRoundByDraw();
                 return;
             }
@@ -2028,62 +2054,51 @@
             turnCountInRound++;
             updateScoresUI();
 
-            // ターンインジケータ（UIインデックスで描画）
+            // ターンハイライト
             for (let seat = 0; seat < 4; seat++) {
-                const dispIdx = displaySeat(seat);
-                const avatar = document.getElementById(`p${dispIdx}-avatar`);
+                const d = displaySeat(seat);
+                const avatar = document.getElementById(`p${d}-avatar`);
                 if (!avatar) continue;
-                if (seat === currentTurn) {
-                    avatar.classList.add('neon-border-cyan', 'border-cyan-400');
-                    avatar.classList.remove('border-slate-700');
-                } else {
-                    avatar.classList.remove('neon-border-cyan', 'border-cyan-400');
-                    avatar.classList.add('border-slate-700');
-                }
+                const isActive = (seat === currentTurn);
+                avatar.classList.toggle('neon-border-cyan', isActive);
+                avatar.classList.toggle('border-cyan-400',  isActive);
+                avatar.classList.toggle('border-slate-700', !isActive);
             }
 
-            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
-            const isMyTurn = (currentTurn === (mySeatIndex ?? 0));
+            const mySeat     = mySeatIndex ?? 0;
+            const isMyTurn   = (currentTurn === mySeat);
             const turnPlayer = players[currentTurn];
 
             if (isMyTurn) {
-                const me = players[mySeatIndex ?? 0];
-
-                if (!isOnlineMulti || isHost()) {
-                    // ─── CPU対戦 or ホスト: 自分でdeckからツモる ───
-                    if (me.hand.length === 8) {
-                        const drawn = deck.pop();
-                        me.hand.push(drawn);
-                        AudioEngine.play('draw');
-                        hasJustDrawn = true;
-                        updatePlayerHandUI();
-                    } else {
-                        hasJustDrawn = false;
-                    }
-                    document.getElementById('deck-count').textContent = deck.length;
-
-                    // ホスト: ツモ後の状態を子に配信
-                    if (isOnlineMulti) pushGameState();
-                } else {
-                    // ─── 子: applyGameState で既にツモ済みの手牌が届いている ───
-                    // deck.pop() はしない。手牌・デッキ枚数は state から設定済み。
+                // ─── 自分（ホスト）のターン ───
+                const me = players[mySeat];
+                if (me.hand.length === 8) {
+                    const drawn = deck.pop();
+                    me.hand.push(drawn);
                     AudioEngine.play('draw');
                     hasJustDrawn = true;
                     updatePlayerHandUI();
+                } else {
+                    hasJustDrawn = false;
                 }
+                document.getElementById('deck-count').textContent = deck.length;
 
-                const myHand = me.hand;
-                document.getElementById('btn-tsumo').classList.toggle('hidden', !checkWinningHand(myHand));
-                const canReach = !me.isReach && me.score >= 1000 && checkTenpai(myHand);
+                // ホストが自分のターンをpushして子に通知（ツモ後の手牌を含む）
+                if (isOnlineMulti) pushGameState();
+
+                document.getElementById('btn-tsumo').classList.toggle('hidden', !checkWinningHand(me.hand));
+                const canReach = !me.isReach && me.score >= 1000 && checkTenpai(me.hand);
                 document.getElementById('btn-reach').classList.toggle('hidden', !canReach);
 
             } else if (!turnPlayer.isCPU && isOnlineMulti) {
-                // ─── オンライン: 相手(人間)のターン ───
-                if (isHost()) pushGameState(); // ホストは状態を子に通知
+                // ─── 人間の子プレイヤーのターン ───
+                // ホストは現在の状態をpushして子に「あなたのターン」を通知
+                if (isOnlineMulti) pushGameState();
                 document.getElementById('deck-count').textContent = deck.length;
+                // ホスト側は子の打牌broadcastを待つ（processChildAction経由）
+
             } else {
-                // ─── CPU のターン ───
-                if (isOnlineMulti && !isHost()) return; // 子はCPUターンを実行しない
+                // ─── CPUのターン ───
                 executeCPUTurn(currentTurn);
             }
         }
@@ -2280,7 +2295,7 @@
             discardsContainer.innerHTML += tileMarkup;
 
             lastDiscardedTile = tileId;
-            lastDiscarderId   = realSeatId; // 実座席番号で保持
+            lastDiscarderId   = realSeatId;
 
             players.forEach((p, seat) => {
                 if (seat !== realSeatId && p.isReach && p.ippatsuChance) {
@@ -2288,9 +2303,13 @@
                 }
             });
 
-            // ホストまたはCPU対戦 → ロン判定へ
-            // 子（オンライン）→ 自分へのロンのみ判定
-            checkRonPossibility();
+            // ロン判定前にホストは状態を子に配信（捨て牌を全員に見せる）
+            const isOnlineMulti = onlinePlayerHandle && humanSeats.size > 1;
+            if (isOnlineMulti && isHost()) {
+                pushGameState().then(() => checkRonPossibility());
+            } else {
+                checkRonPossibility();
+            }
         }
 
         // --- ロン判定チェック（実座席ベース） ---

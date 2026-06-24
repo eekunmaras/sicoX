@@ -1272,11 +1272,14 @@
 
                     // ─── 子: game_state 更新 → 画面反映 ───
                     if (!isHost() && row.game_state && row.game_state.players) {
+                        const gs = row.game_state;
+                        const gsSeq = gs.seq ?? row.action_seq ?? 0;
                         if (!gameActive) {
-                            applyInitialGameState(row.game_state);
-                        } else if (row.action_seq > lastProcessedSeq) {
-                            lastProcessedSeq = row.action_seq;
-                            applyGameState(row.game_state);
+                            // seqチェックはapplyInitialGameState内で行う
+                            applyInitialGameState(gs);
+                        } else if (gsSeq > lastProcessedSeq) {
+                            // seqチェックはapplyGameState内でも行う（二重防止統合済み）
+                            applyGameState(gs);
                         }
                         return;
                     }
@@ -1638,6 +1641,11 @@
             // イベントのみの場合（FORCE_END等）は gameActive チェックをスキップ
             if (!gameActive && !state.event) return;
 
+            // ─── 【修正A】Realtimeとポーリングどちらのパスでもseqで重複適用を防止 ───
+            const incomingSeq = state.seq ?? 0;
+            if (incomingSeq && incomingSeq <= lastProcessedSeq) return;
+            if (incomingSeq) lastProcessedSeq = incomingSeq;
+
             // 全プレイヤー状態を更新
             state.players.forEach(ps => {
                 const p = players[ps.seat];
@@ -1778,8 +1786,8 @@
         // 子: ホストのgame_stateを受信して applyGameState / applyInitialGameState
         function startGamePoll() {
             if (gamePollInterval) { clearInterval(gamePollInterval); gamePollInterval = null; }
-            let lastSeenActionSeq = 0;
-            let lastSeenStateSeq  = 0;
+            // ─── 【修正A】lastSeenStateSeq / lastSeenActionSeq を廃止し lastProcessedSeq に統合 ───
+            // seqの重複チェックはapplyGameState/applyInitialGameState内とlastProcessedSeqで一元管理する
 
             gamePollInterval = setInterval(async () => {
                 try {
@@ -1793,25 +1801,25 @@
                     const seq = data.action_seq ?? 0;
 
                     if (isHost()) {
-                        // ホスト: 子からのアクションを処理
-                        if (data.last_action && seq > lastSeenActionSeq) {
-                            lastSeenActionSeq = seq;
+                        // ホスト: 子からのアクションを処理（lastProcessedSeqで重複防止）
+                        if (data.last_action && seq > lastProcessedSeq) {
+                            lastProcessedSeq = seq;
                             processChildAction(data.last_action);
                         }
                     } else {
-                        // 子: ホストのgame_stateを受信
+                        // 子: ホストのgame_stateを受信（seqチェックはapply関数内で実施）
                         const gs = data.game_state;
                         if (!gs || !gs.players) return;
 
-                        if (seq > lastSeenStateSeq) {
-                            lastSeenStateSeq = seq;
-                            if (!gameActive) {
-                                // まだゲーム未開始 → 初期状態を適用
-                                applyInitialGameState(gs);
-                            } else {
-                                // ゲーム中 → 差分を適用
-                                applyGameState(gs);
-                            }
+                        const gsSeq = gs.seq ?? seq;
+                        if (gsSeq <= lastProcessedSeq) return; // 既に処理済みならスキップ
+
+                        if (!gameActive) {
+                            // まだゲーム未開始 → 初期状態を適用
+                            applyInitialGameState(gs);
+                        } else {
+                            // ゲーム中 → 差分を適用
+                            applyGameState(gs);
                         }
                     }
                 } catch(e) {}
@@ -1879,12 +1887,23 @@
                             console.warn(`[DISCARD] senderSeat=${senderSeat} but currentTurn=${currentTurn}, skip`);
                             break;
                         }
-                        const tile = action.tile;
-                        // 手牌から削除
+                        // ─── 【修正B】tileをNumberに変換し、undefined/重複処理を厳格ガード ───
+                        const tileRaw = action.tile;
+                        const tile = (tileRaw !== undefined && tileRaw !== null) ? Number(tileRaw) : NaN;
+                        if (isNaN(tile) || tile < 0 || tile > 8) {
+                            console.error(`[DISCARD] 無効なtile値: ${tileRaw} (seat=${senderSeat})`);
+                            // tile不明でも次ターンへ強制進行
+                            advanceTurn();
+                            break;
+                        }
+                        // 手牌から削除（牌が見つからない場合はRealtimeとポーリングの二重処理とみなしてスキップ）
                         const hand = players[senderSeat].hand;
                         const idx = hand.indexOf(tile);
-                        if (idx >= 0) hand.splice(idx, 1);
-                        else if (hand.length > 0) hand.pop();
+                        if (idx < 0) {
+                            console.warn(`[DISCARD] tile=${tile} が手牌にない(二重処理)、スキップ`);
+                            break;
+                        }
+                        hand.splice(idx, 1);
                         hand.sort((a, b) => a - b);
                         executePlayerDiscard(senderSeat, tile);
                     }
@@ -1896,6 +1915,10 @@
         // ─── 子: 初期ゲーム状態を受け取って局を開始 ───
         function applyInitialGameState(state) {
             if (!state || !state.players) return;
+
+            // ─── 【修正A】同一seqによる二重初期化を防止（Realtimeとポーリングの競合対策）───
+            const incomingSeq = state.seq ?? 0;
+            if (incomingSeq && incomingSeq <= lastProcessedSeq) return;
 
             // 既存ポーリングを止める（再起動する）
             if (gamePollInterval) { clearInterval(gamePollInterval); gamePollInterval = null; }

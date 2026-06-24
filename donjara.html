@@ -1182,6 +1182,10 @@
         // ─── ゲームアクション受信済みシーケンス番号（重複処理防止） ───
         let lastProcessedSeq = 0;
 
+        // 【修正⑪】ホストが処理済みの子アクションID（action_seqはhost自身のpushGameStateでも
+        // 更新されてしまう共有カラムのため、これとは別にアクション自体のIDで重複防止する）
+        let lastProcessedActionId = null;
+
         // ─── ゲーム中アクションポーリング（1.5秒間隔） ───
         let gamePollInterval = null;
 
@@ -1289,8 +1293,14 @@
                     }
 
                     // ─── ホスト: last_action（子からのアクション）を受け取って処理 ───
-                    if (isHost() && row.last_action && row.action_seq > lastProcessedSeq) {
-                        lastProcessedSeq = row.action_seq;
+                    // 【修正⑪】action_seqはホスト自身のpushGameState（executeTsumo/executeRon等の
+                    // 副作用で呼ばれる）でも更新されてしまう共有カラムのため、これだけで重複判定すると
+                    // 「処理済みの古いlast_actionを、action_seqが増えただけで再度処理してしまう」
+                    // 無限ループ（ツモ/ロンが何度も実行され手牌が増殖し続ける）が発生する。
+                    // アクション自体に付与した一意ID(_aid)で重複防止する。
+                    if (isHost() && row.last_action && row.last_action._aid && row.last_action._aid !== lastProcessedActionId) {
+                        lastProcessedActionId = row.last_action._aid;
+                        if (row.action_seq > lastProcessedSeq) lastProcessedSeq = row.action_seq;
                         processChildAction(row.last_action);
                     }
                 })
@@ -1301,6 +1311,8 @@
         async function broadcastAction(actionObj) {
             if (!onlinePlayerHandle || mySeatIndex === null) return;
             if (actionObj.sender_seat === undefined) actionObj.sender_seat = mySeatIndex;
+            // 【修正⑪】アクションごとに一意なIDを付与（ホスト側の重複処理防止に使う）
+            actionObj._aid = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
             try {
                 await sb.from('donjara_rooms').upsert({
                     id: ROOM_ID,
@@ -1805,9 +1817,15 @@
                     const seq = data.action_seq ?? 0;
 
                     if (isHost()) {
-                        // ホスト: 子からのアクションを処理（lastProcessedSeqで重複防止）
-                        if (data.last_action && seq > lastProcessedSeq) {
-                            lastProcessedSeq = seq;
+                        // ホスト: 子からのアクションを処理
+                        // 【修正⑪】action_seqはホスト自身のpushGameState（executeTsumo/executeRon等の
+                        // 副作用で呼ばれる）でも更新される共有カラムのため、これだけで重複判定すると
+                        // 処理済みのlast_actionをaction_seqの増加だけで再処理してしまい、
+                        // ツモ/ロンが無限に再実行されて手牌が増殖し続けるバグになる。
+                        // アクション自体に付与した一意ID(_aid)で重複防止する。
+                        if (data.last_action && data.last_action._aid && data.last_action._aid !== lastProcessedActionId) {
+                            lastProcessedActionId = data.last_action._aid;
+                            if (seq > lastProcessedSeq) lastProcessedSeq = seq;
                             processChildAction(data.last_action);
                         }
                     } else {
@@ -3154,6 +3172,7 @@
             lastDiscardedTile  = null;
             lastDiscarderId    = null;
             lastProcessedSeq   = 0;
+            lastProcessedActionId = null;
             pushPending        = false;
 
             showScene('scene-lobby');

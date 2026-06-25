@@ -7324,7 +7324,20 @@ function openApp(appId){
   const app=APPS[appId];
   if(!app) return;
   closeAppSelect();
-  window.open(app.url,'_blank','noopener,noreferrer');
+  // ローカルHTMLはiframeで、外部URLは別タブで開く
+  if(app.url && !app.url.startsWith('http')){
+    const titleEl=document.getElementById('game-frame-title');
+    const iconEl=document.getElementById('game-frame-icon');
+    if(titleEl) titleEl.textContent=app.name||'';
+    if(iconEl){ iconEl.src=app.icon||''; iconEl.style.display=app.icon?'block':'none'; }
+    const frame=document.getElementById('game-frame');
+    frame.removeAttribute('srcdoc');
+    frame.src=app.url;
+    document.getElementById('game-frame-overlay').classList.add('open');
+    document.body.classList.add('modal-open');
+  }else{
+    window.open(app.url,'_blank','noopener,noreferrer');
+  }
 }
 
 
@@ -11915,7 +11928,7 @@ function tweetWcMatchFromBtn(btn){
 
   <div class="game-frame-body">
 
-    <iframe id="game-frame" sandbox="allow-scripts"></iframe>
+    <iframe id="game-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
 
   </div>
 

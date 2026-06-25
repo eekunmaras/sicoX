@@ -133,13 +133,18 @@ function renderUserPill(){
       <span class="av" style="background:${col};overflow:hidden;">
         ${currentUser.avatarUrl?`<img src="${esc(currentUser.avatarUrl)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:esc(initial(currentUser.name))}
       </span>
-      <span>${esc(currentUser.name||currentUser.handle)}</span>
+      <span class="user-pill-info">
+        <span class="user-pill-name">${esc(currentUser.name||currentUser.handle)}</span>
+        <span class="user-pill-pts" id="header-pts-display">— pt</span>
+      </span>
     </div>
   `;
 }
 
 function renderMyBalance(){
   document.getElementById('my-balance').textContent = fmtPts(myAvailablePoints)+' pt';
+  const hdr=document.getElementById('header-pts-display');
+  if(hdr) hdr.textContent = fmtPts(myAvailablePoints)+' pt';
 }
 
 // ── 段階解放ニュースの表示制御 ──
@@ -171,7 +176,7 @@ function renderTotalAndGauge(total){
     document.getElementById('gauge-fill').style.width = pct.toFixed(1)+'%';
     document.getElementById('gauge-next-label').textContent = '次のレポートまで';
     document.getElementById('gauge-next-text').innerHTML =
-      `あと <b>${fmtPts(nextItem.t-total)} pt</b> で「${esc(nextItem.title)}」が届きます`;
+      `あと <b>${fmtPts(nextItem.t-total)} pt</b> で次の支援となります`;
   }else{
     document.getElementById('gauge-fill').style.width='100%';
     document.getElementById('gauge-next-label').textContent='全レポート解放済み';
@@ -423,6 +428,9 @@ async function init(){
   }else{
     myAvailablePoints = await dbFetchAvailablePoints(currentUser.handle);
     renderMyBalance();
+    // ヘッダーpt表示を初期値でセット
+    const hdr=document.getElementById('header-pts-display');
+    if(hdr) hdr.textContent = fmtPts(myAvailablePoints)+' pt';
   }
 
   setupAmountUI();

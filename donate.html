@@ -81,6 +81,9 @@ header.site{
 }
 .user-pill .av{width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;}
 .user-pill .pts{color:var(--coral-deep);font-weight:700;}
+.user-pill-info{display:flex;flex-direction:column;align-items:flex-start;gap:1px;}
+.user-pill-name{font-size:10.5px;color:var(--ink-soft);line-height:1.2;}
+.user-pill-pts{font-size:12.5px;font-weight:700;color:var(--coral-deep);line-height:1.2;}
 
 /* ===== ヒーロー ===== */
 .hero{
@@ -170,7 +173,7 @@ header.site{
 /* ===== 寄付パネル ===== */
 .donate-panel{
   background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-  padding:26px;box-shadow:var(--shadow);
+  padding:26px;box-shadow:var(--shadow);overflow:hidden;
 }
 .balance-row{
   display:flex;justify-content:space-between;align-items:center;
@@ -187,15 +190,20 @@ header.site{
 .amount-btn.active{background:var(--navy);border-color:var(--navy);color:#fff;}
 .amount-custom{
   display:flex;align-items:center;gap:8px;
-  background:var(--paper-deep);border:1.5px solid var(--line);border-radius:10px;
-  padding:6px 6px 6px 14px;margin-bottom:18px;
+  background:var(--paper-deep);border:1.5px solid var(--coral);border-radius:10px;
+  padding:10px 14px;margin-bottom:18px;box-sizing:border-box;width:100%;
 }
-.amount-custom span{font-size:13px;color:var(--ink-soft);white-space:nowrap;}
+.amount-custom span{font-size:13px;color:var(--ink-soft);white-space:nowrap;flex:0 0 auto;}
 .amount-custom input{
-  flex:1;border:none;background:transparent;font-size:16px;font-weight:700;
-  color:var(--navy-deep);outline:none;min-width:0;text-align:right;font-family:inherit;
+  flex:1;border:none;background:transparent;font-size:18px;font-weight:700;
+  color:var(--navy-deep);outline:none;min-width:0;width:0;
+  text-align:right;font-family:inherit;padding:0;
 }
 .amount-custom input::placeholder{color:#B8AE96;font-weight:500;}
+/* number inputのスピナーを非表示 */
+.amount-custom input[type=number]::-webkit-inner-spin-button,
+.amount-custom input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+.amount-custom input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .donate-cta{width:100%;padding:15px;font-size:15.5px;}
 .donate-note{font-size:11.5px;color:var(--ink-soft);margin-top:12px;text-align:center;}
 .handle-warn{
@@ -355,8 +363,8 @@ footer.site p{font-size:11.5px;color:var(--ink-soft);}
 
 <header class="site">
   <div class="site-inner">
-    <a href="#" class="brand" onclick="return false;">
-      <span class="brand-mark">愛</span>
+    <a href="sicox.html" class="brand">
+      <span class="brand-mark" style="font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:700;letter-spacing:0;">戻る</span>
       <span class="brand-name">SicoX Hope<small>ポイントで、できる支援</small></span>
     </a>
     <div id="user-pill-slot"></div>
@@ -367,6 +375,9 @@ footer.site p{font-size:11.5px;color:var(--ink-soft);}
   <div class="wrap hero-inner">
     <span class="eyebrow">SicoX Community Fund</span>
     <h1>あなたのポイントが、<br>誰かの今日を変える一歩になる。</h1>
+    <div style="margin:0 0 22px;border-radius:12px;overflow:hidden;max-width:560px;">
+      <img src="kihubanner.png" alt="SicoX Hope バナー" style="width:100%;display:block;border-radius:12px;">
+    </div>
     <p class="lead">SicoX内で得たポイントを寄付に変えることで、世界各地の水・教育・医療・栄養支援に役立てます。寄付額が一定のラインを超えるたび、現地の支援活動レポートが届きます。</p>
 
     <div class="total-card">

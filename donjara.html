@@ -386,6 +386,16 @@
 
                 <div id="matching-timer" class="text-xs text-gray-400 tracking-wider mt-2">セッションを接続中...</div>
             </div>
+
+            <!-- ルームリセットボタン（右下固定） -->
+            <button
+                onclick="forceResetRoom()"
+                title="ルームを初期状態に強制リセットしてロビーへ戻る"
+                class="absolute bottom-4 right-4 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-800/60 bg-red-950/70 text-red-400 text-[11px] font-bold tracking-wide shadow-lg shadow-red-900/30 active:scale-95 transition-all hover:border-red-500/70 hover:text-red-300 z-20"
+            >
+                <i class="fas fa-rotate-left text-[10px]"></i>
+                ルームリセット
+            </button>
         </div>
 
         <div id="scene-game" class="absolute inset-0 z-10 hidden flex-col justify-between p-2 sm:p-3 gap-2">
@@ -548,19 +558,22 @@
                     <div class="text-gray-500 text-center text-[10px]">システム: チャットルームへ接続中...</div>
                 </div>
                 <div class="p-2 border-t border-slate-800 bg-slate-950/30 grid grid-cols-1 gap-1.5 rounded-bl-2xl shrink-0">
-                    <button onclick="sendQuickChat('よろしくお願いします！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        👋 よろしくお願いします
+                     <button onclick="sendQuickChat('ヨロピク👋')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        ヨロピク👋
                     </button>
-                    <button onclick="sendQuickChat('ドンジャラ！勝利を掴む！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        🔥 勝利を掴む！
+                    <button onclick="sendQuickChat('駒井')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        駒井
                     </button>
-                    <button onclick="sendQuickChat('お見事です！悔しい〜')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        👏 お見事です！
+                    <button onclick="sendQuickChat('ちんぽ🍄')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        ちんぽ🍄
                     </button>
-                    <button onclick="sendQuickChat('リーチ！勝負だ！！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        💥 勝負だ！！
+                    <button onclick="sendQuickChat('イチゴ🍓LOVE')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        イチゴ🍓LOVE
                     </button>
-                </div>
+                    <button onclick="sendQuickChat('ｼｺｼｺｼｺｼｺ💦')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        ｼｺｼｺｼｺｼｺ💦
+                    </button>
+               </div>
             </div>
 
             <button onclick="toggleChat(true)" class="absolute bottom-32 right-2 w-10 h-10 bg-slate-900/90 border border-cyan-500 rounded-full flex items-center justify-center text-cyan-400 active:text-white active:scale-95 transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] z-30">
@@ -3106,6 +3119,33 @@
                 // 全参加者レコードを削除
                 await sb.from('donjara_room_players').delete().eq('room_id', ROOM_ID);
             } catch(e) { console.warn('resetRoomInDB error:', e); }
+        }
+
+        // ─── ① 入室待ち画面のリセットボタン用：DBを初期状態に戻してロビーへ ───
+        async function forceResetRoom() {
+            if (!confirm('ルームを強制リセットしますか？\n全参加者が切断され、入室状態が初期化されます。')) return;
+
+            // タイマー類を先に止める
+            if (lobbyTimerInterval) { clearInterval(lobbyTimerInterval); lobbyTimerInterval = null; }
+            if (roomPollInterval)   { clearInterval(roomPollInterval);   roomPollInterval   = null; }
+
+            // ロビーへ戻ることをDB経由で全員に通知（online参加中の場合）
+            if (onlinePlayerHandle) {
+                try {
+                    await sb.from('donjara_rooms').upsert({
+                        id: ROOM_ID,
+                        last_action: { type: 'FORCE_END', reason: 'ルームがリセットされました' },
+                        action_seq: Date.now(),
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'id' });
+                } catch(e) { console.warn('forceResetRoom: notify error', e); }
+            }
+
+            // DBを初期状態（waiting, player_count=0）へ
+            await resetRoomInDB('手動リセット');
+
+            showDonjaraToast('🔄 ルームをリセットしました');
+            resetToLobby();
         }
 
         // ─── ② 途中退出・強制終了時に子へ通知してルームをリセット ───

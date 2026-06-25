@@ -321,6 +321,27 @@
             </div>
         </div>
 
+        <!-- ルームリセット確認モーダル（confirm()の代替） -->
+        <div id="modal-reset-confirm" class="modal-overlay hidden" style="z-index:80;">
+            <div class="modal-card p-6 flex flex-col items-center gap-4 text-center max-w-[320px]">
+                <div class="w-14 h-14 rounded-full bg-red-950/80 border border-red-700/60 flex items-center justify-center">
+                    <i class="fas fa-triangle-exclamation text-red-400 text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-white font-black text-base mb-1">ルームを強制リセット</p>
+                    <p class="text-gray-400 text-xs leading-relaxed">全参加者が切断され、<br>入室状態が初期化されます。<br>よろしいですか？</p>
+                </div>
+                <div class="flex gap-3 w-full">
+                    <button onclick="_resetConfirmResolve(false)" class="flex-1 py-2.5 rounded-xl border border-slate-700 bg-slate-800/80 text-gray-300 font-bold text-sm active:scale-95 transition-all">
+                        キャンセル
+                    </button>
+                    <button onclick="_resetConfirmResolve(true)" class="flex-1 py-2.5 rounded-xl border border-red-700/70 bg-red-900/70 text-red-300 font-bold text-sm active:scale-95 transition-all">
+                        <i class="fas fa-rotate-left mr-1 text-xs"></i>リセット
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div id="scene-matching" class="absolute inset-0 z-10 hidden flex-col items-center justify-between p-4 sm:p-6 overflow-y-auto no-scrollbar">
             <div class="text-center mt-6 sm:mt-10">
                 <h2 class="text-xl sm:text-2xl font-black italic text-cyan-400 tracking-wider" id="matching-title">MATCHMAKING LOBBY</h2>
@@ -558,7 +579,7 @@
                     <div class="text-gray-500 text-center text-[10px]">システム: チャットルームへ接続中...</div>
                 </div>
                 <div class="p-2 border-t border-slate-800 bg-slate-950/30 grid grid-cols-1 gap-1.5 rounded-bl-2xl shrink-0">
-                     <button onclick="sendQuickChat('ヨロピク👋')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        <button onclick="sendQuickChat('ヨロピク👋')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
                         ヨロピク👋
                     </button>
                     <button onclick="sendQuickChat('駒井')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
@@ -573,7 +594,7 @@
                     <button onclick="sendQuickChat('ｼｺｼｺｼｺｼｺ💦')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
                         ｼｺｼｺｼｺｼｺ💦
                     </button>
-               </div>
+             </div>
             </div>
 
             <button onclick="toggleChat(true)" class="absolute bottom-32 right-2 w-10 h-10 bg-slate-900/90 border border-cyan-500 rounded-full flex items-center justify-center text-cyan-400 active:text-white active:scale-95 transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] z-30">
@@ -3122,8 +3143,22 @@
         }
 
         // ─── ① 入室待ち画面のリセットボタン用：DBを初期状態に戻してロビーへ ───
+
+        // confirm()の代替：カスタムモーダルでPromiseを返す
+        let _resetConfirmResolve = () => {};
+        function showResetConfirmModal() {
+            return new Promise(resolve => {
+                _resetConfirmResolve = (result) => {
+                    document.getElementById('modal-reset-confirm').classList.add('hidden');
+                    resolve(result);
+                };
+                document.getElementById('modal-reset-confirm').classList.remove('hidden');
+            });
+        }
+
         async function forceResetRoom() {
-            if (!confirm('ルームを強制リセットしますか？\n全参加者が切断され、入室状態が初期化されます。')) return;
+            const confirmed = await showResetConfirmModal();
+            if (!confirmed) return;
 
             // タイマー類を先に止める
             if (lobbyTimerInterval) { clearInterval(lobbyTimerInterval); lobbyTimerInterval = null; }

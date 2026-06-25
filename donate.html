@@ -363,10 +363,15 @@ footer.site p{font-size:11.5px;color:var(--ink-soft);}
 
 <header class="site">
   <div class="site-inner">
-    <a href="#" onclick="if(window.parent&&window.parent!==window){window.parent.closeGame();}else{history.back();}return false;" class="brand">
-      <span class="brand-mark" style="font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:700;letter-spacing:0;">戻る</span>
+    <div class="brand">
+      <button id="music-btn" onclick="toggleMusic()" aria-label="音楽のオン/オフ" style="
+        width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;
+        background:linear-gradient(135deg,var(--navy),var(--navy-deep));
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;
+        color:#fff;font-size:17px;transition:opacity .2s;opacity:0.45;
+      ">🔇</button>
       <span class="brand-name">SicoX Hope<small>ポイントで、できる支援</small></span>
-    </a>
+    </div>
     <div id="user-pill-slot"></div>
   </div>
 </header>
@@ -521,5 +526,29 @@ footer.site p{font-size:11.5px;color:var(--ink-soft);}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="news_data.js"></script>
 <script src="donate.js"></script>
+
+<audio id="bgm" src="kihu.mp3" loop preload="none"></audio>
+<script>
+(function(){
+  let playing = false;
+  window.toggleMusic = function(){
+    const audio = document.getElementById('bgm');
+    const btn   = document.getElementById('music-btn');
+    if(!audio || !btn) return;
+    if(playing){
+      audio.pause();
+      playing = false;
+      btn.textContent = '🔇';
+      btn.style.opacity = '0.45';
+    } else {
+      audio.play().then(()=>{
+        playing = true;
+        btn.textContent = '🔊';
+        btn.style.opacity = '1';
+      }).catch(()=>{});
+    }
+  };
+})();
+</script>
 </body>
 </html>

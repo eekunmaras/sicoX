@@ -548,20 +548,17 @@
                     <div class="text-gray-500 text-center text-[10px]">システム: チャットルームへ接続中...</div>
                 </div>
                 <div class="p-2 border-t border-slate-800 bg-slate-950/30 grid grid-cols-1 gap-1.5 rounded-bl-2xl shrink-0">
-                    <button onclick="sendQuickChat('ヨロピク👋')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        ヨロピク👋
+                    <button onclick="sendQuickChat('よろしくお願いします！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        👋 よろしくお願いします
                     </button>
-                    <button onclick="sendQuickChat('駒井')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        駒井
+                    <button onclick="sendQuickChat('ドンジャラ！勝利を掴む！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        🔥 勝利を掴む！
                     </button>
-                    <button onclick="sendQuickChat('ちんぽ🍄')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        ちんぽ🍄
+                    <button onclick="sendQuickChat('お見事です！悔しい〜')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        👏 お見事です！
                     </button>
-                    <button onclick="sendQuickChat('イチゴ🍓LOVE')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        イチゴ🍓LOVE
-                    </button>
-                    <button onclick="sendQuickChat('ｼｺｼｺｼｺｼｺ💦')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
-                        ｼｺｼｺｼｺｼｺ💦
+                    <button onclick="sendQuickChat('リーチ！勝負だ！！')" class="bg-slate-800 active:bg-[#1b2144] active:text-[#00f0ff] text-[10px] py-1.5 px-1.5 rounded text-left truncate">
+                        💥 勝負だ！！
                     </button>
                 </div>
             </div>
@@ -1141,25 +1138,27 @@
             humanSeats = new Set(data.map(p => p.seat_index));
 
             // まずオンライン参加者を反映
+            // 【修正⑭】players[]は常に「実座席番号」でインデックスする配列。
+            // seatToLocalIndex()（自分視点のUI表示インデックス）を使うと、ホスト以外の
+            // クライアントで名前・アバター・isCPUが本来と違う座席に書き込まれてしまう。
             data.forEach(p => {
-                const localIdx = seatToLocalIndex(p.seat_index);
-                if (!players[localIdx]) return;
-                players[localIdx].name   = p.user_name   || ('Player ' + (p.seat_index + 1));
-                players[localIdx].avatar = p.user_avatar || AVATARS[localIdx % 4];
+                const realIdx = p.seat_index;
+                if (!players[realIdx]) return;
+                players[realIdx].name   = p.user_name   || ('Player ' + (p.seat_index + 1));
+                players[realIdx].avatar = p.user_avatar || AVATARS[realIdx % 4];
                 // ─── 自分の座席 → isCPU=false、他の人間の座席 → isCPU=false ───
-                players[localIdx].isCPU  = false;
+                players[realIdx].isCPU  = false;
             });
 
             // 人間が座っていない席は CPU に戻す
             for (let seat = 0; seat < 4; seat++) {
                 if (!humanSeats.has(seat)) {
-                    const localIdx = seatToLocalIndex(seat);
-                    if (!players[localIdx]) continue;
+                    if (!players[seat]) continue;
                     // CPU のデフォルト名・アバターを復元（既にCPUなら上書きしない）
-                    if (!players[localIdx].isCPU) {
-                        players[localIdx].isCPU   = true;
-                        players[localIdx].name    = `CPU_${localIdx}`;
-                        players[localIdx].avatar  = AVATARS[localIdx % 4];
+                    if (!players[seat].isCPU) {
+                        players[seat].isCPU   = true;
+                        players[seat].name    = `CPU_${seat}`;
+                        players[seat].avatar  = AVATARS[seat % 4];
                     }
                 }
             }
@@ -1770,7 +1769,11 @@
                     // 自分へのロン確認
                     if (state.ronTarget === mySeatIndex) {
                         lastDiscardedTile = state.ronTile;
-                        lastDiscarderId   = displaySeat(state.ronLoser);
+                        // 【修正⑬】state.ronLoserは既に実座席番号。displaySeat()でUI表示用インデックスに
+                        // 変換してしまうと、claimRon()がhost側へ送るloser_seatが実座席と取り違えられ、
+                        // 「ロンの得点が誰にも反映されない（勝者と敗者が同一座席扱いで相殺、または無関係な
+                        // 座席から減点される）」バグになる。lastDiscarderIdは実座席番号のまま保持する。
+                        lastDiscarderId   = state.ronLoser;
                         showRonClaimPanel();
                     }
                     break;
@@ -1792,6 +1795,10 @@
                     break;
                 }
                 case 'CHAT': {
+                    // 【修正⑫】自分が送った発言はsendQuickChat()内で既にローカル表示済みのため、
+                    // ホストが全員へ配信し直したCHATイベントが自分に返ってきた時は再表示しない
+                    // （これが「1クリックでコメントが2重に表示される」バグの原因）
+                    if (state.chatSeat === mySeatIndex) break;
                     const senderDisp = displaySeat(state.chatSeat);
                     appendChatMessage(players[state.chatSeat].name, state.chatText, senderDisp === 0 ? '#00f0ff' : '#bc34fa');
                     showChatBubbleOnBoard(senderDisp, state.chatText);
@@ -1861,6 +1868,13 @@
             if (!action || !action.type) return;
             switch (action.type) {
                 case 'PLAYER_RON': {
+                    // 【修正⑮】子がロンで局を終えた時も打牌タイムアウトをクリアする
+                    // （DISCARDケースと同様。残したままだと次局以降に古いタイムアウトが
+                    // 誤発火し、無関係なプレイヤーの手牌が強制的に打牌されてしまう）
+                    if (window._childTurnTimeout) {
+                        clearTimeout(window._childTurnTimeout);
+                        window._childTurnTimeout = null;
+                    }
                     const winSeat = action.winner_seat;
                     const loseSeat = action.loser_seat;
                     const tile = action.tile;
@@ -1870,6 +1884,11 @@
                     break;
                 }
                 case 'PLAYER_TSUMO': {
+                    // 【修正⑮】子がツモで局を終えた時も打牌タイムアウトをクリアする
+                    if (window._childTurnTimeout) {
+                        clearTimeout(window._childTurnTimeout);
+                        window._childTurnTimeout = null;
+                    }
                     const winSeat = action.winner_seat;
                     if (players[winSeat]) {
                         executeTsumo(winSeat);

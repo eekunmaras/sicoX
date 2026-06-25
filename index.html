@@ -2263,6 +2263,9 @@ let ctxTargetHandle = null, ctxTargetTweetId = null;
 
 let viewStack = ['feed'];
 
+// 画面ごとのスクロール位置を記憶（リロードで消えるのでアプリ再起動時は常に初期位置）
+let viewScrollPos = {};
+
 let activeThreadId = null;
 
 let threadHistory = [];
@@ -2437,7 +2440,7 @@ function goBack(){
 
   if(viewStack.length>1) viewStack.pop();
 
-  _activate(viewStack[viewStack.length-1]);
+  _activate(viewStack[viewStack.length-1],true);
 
   if(viewStack[viewStack.length-1]!=='thread'){
 
@@ -2449,13 +2452,23 @@ function goBack(){
 
 }
 
-function _activate(id){
+function _activate(id,isBack){
 
   // threadビューが既にアクティブかどうかをclassListを変更する前にチェック
 
   const targetEl=document.getElementById('view-'+id);
 
   const threadAlreadyActive=(id==='thread')&&targetEl&&targetEl.classList.contains('active');
+
+  // 離れる前の画面のスクロール位置を保存（dm-chatはfixed positionなので対象外）
+  const prevActiveEl=document.querySelector('.view.active');
+  if(prevActiveEl){
+    const prevId=prevActiveEl.id.replace('view-','');
+    if(prevId!==id&&prevId!=='dm-chat'){
+      const main=document.getElementById('main-col');
+      viewScrollPos[prevId]=main?main.scrollTop:0;
+    }
+  }
 
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
 
@@ -2518,6 +2531,22 @@ function _activate(id){
         });
 
       }
+
+    } else if(isBack&&viewScrollPos.hasOwnProperty(id)){
+
+      // 戻る操作の場合は離れる前のスクロール位置を復元
+
+      const savedPos=viewScrollPos[id];
+
+      requestAnimationFrame(()=>{
+
+        const main=document.getElementById('main-col');
+
+        if(main) main.scrollTop=savedPos;
+
+        window.scrollTo(0,0);
+
+      });
 
     } else {
 

@@ -363,7 +363,7 @@ footer.site p{font-size:11.5px;color:var(--ink-soft);}
 
 <header class="site">
   <div class="site-inner">
-    <a href="#" onclick="history.back();return false;" class="brand">
+    <a href="#" onclick="if(window.parent&&window.parent!==window){window.parent.closeGame();}else{history.back();}return false;" class="brand">
       <span class="brand-mark" style="font-size:12px;font-family:'Noto Sans JP',sans-serif;font-weight:700;letter-spacing:0;">戻る</span>
       <span class="brand-name">SicoX Hope<small>ポイントで、できる支援</small></span>
     </a>
@@ -501,7 +501,7 @@ footer.site p{font-size:11.5px;color:var(--ink-soft);}
 
 <footer class="site">
   <div class="wrap">
-    <a href="#" onclick="history.back();return false;" class="back-link">← SicoXに戻る</a>
+    <a href="#" onclick="if(window.parent&&window.parent!==window){window.parent.closeGame();}else{history.back();}return false;" class="back-link">← SicoXに戻る</a>
     <p>SicoX Hope は、SicoX内ポイントを使った疑似的な寄付体験コンテンツです。実際の金銭の寄付は発生しません。</p>
   </div>
 </footer>

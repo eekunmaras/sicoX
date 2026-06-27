@@ -98,6 +98,16 @@ async function dbFetchAllDonations(){
   }catch(e){ return []; }
 }
 
+// サイト全体の寄付累計（donation_totalsから取得。daily/monthlyロールアップで消えない）
+async function dbFetchGrandTotal(){
+  try{
+    const {data,error}=await sb.from('donation_totals')
+      .select('total_donated');
+    if(error||!data) return 0;
+    return data.reduce((sum,row)=>sum+(Number(row.total_donated)||0),0);
+  }catch(e){ return 0; }
+}
+
 async function dbFetchProfilesMap(){
   try{
     const {data,error}=await sb.from('profiles').select('handle,name,avatar_url,color');
@@ -395,13 +405,14 @@ function setupAmountUI(){
 // 初期化・データ取得
 // ══════════════════════════════════════
 async function refreshAllData(checkUnlock){
-  const [donations, profilesMap] = await Promise.all([
+  const [donations, profilesMap, grandTotal] = await Promise.all([
     dbFetchAllDonations(),
-    dbFetchProfilesMap()
+    dbFetchProfilesMap(),
+    dbFetchGrandTotal()
   ]);
 
   const prevTotal = currentTotal;
-  const total = donations.reduce((sum,d)=>sum+Math.abs(d.delta||0),0);
+  const total = grandTotal;
   currentTotal = total;
 
   renderTotalAndGauge(total);

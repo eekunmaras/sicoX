@@ -87,15 +87,14 @@ async function dbApplyDonation(handle,amount){
 // SicoX Hope経由の寄付のみを対象にする（reason = '寄付' のマイナス取引）
 async function dbFetchAllDonations(){
   try{
-    const {data,error}=await sb.from('point_transactions')
+    const {data,error}=await sb.from('public_donation_log')
       .select('user_handle,delta,reason,created_at')
-      .eq('reason',DONATE_REASON)
-      .lt('delta',0)
       .order('created_at',{ascending:false})
       .limit(2000);
-    if(error||!data) return [];
+    if(error){ console.error('dbFetchAllDonations error',error); return []; }
+    if(!data) return [];
     return data;
-  }catch(e){ return []; }
+  }catch(e){ console.error('dbFetchAllDonations exception',e); return []; }
 }
 
 // サイト全体の寄付累計（donation_totalsから取得。daily/monthlyロールアップで消えない）

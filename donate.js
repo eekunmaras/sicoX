@@ -97,13 +97,24 @@ async function dbFetchAllDonations(){
   }catch(e){ console.error('dbFetchAllDonations exception',e); return []; }
 }
 
-// サイト全体の寄付累計（donation_totalsから取得。daily/monthlyロールアップで消えない）
-async function dbFetchGrandTotal(){
+// 寄付ランキング用：donation_totals（ロールアップで消えない恒久的な累計テーブル）から
+// ユーザー別の累計寄付額を取得する
+async function dbFetchDonationTotals(){
   try{
     const {data,error}=await sb.from('donation_totals')
-      .select('total_donated');
-    if(error||!data) return 0;
-    return data.reduce((sum,row)=>sum+(Number(row.total_donated)||0),0);
+      .select('user_handle,total_donated,last_donated_at')
+      .order('total_donated',{ascending:false});
+    if(error){ console.error('dbFetchDonationTotals error',error); return []; }
+    if(!data) return [];
+    return data;
+  }catch(e){ console.error('dbFetchDonationTotals exception',e); return []; }
+}
+
+// サイト全体の寄付累計（donation_totalsから取得。daily/monthlyロールアップで消えない）
+async function dbFetchGrandTotal(donationTotalsRows){
+  try{
+    const rows = donationTotalsRows || await dbFetchDonationTotals();
+    return rows.reduce((sum,row)=>sum+(Number(row.total_donated)||0),0);
   }catch(e){ return 0; }
 }
 
@@ -268,13 +279,13 @@ function renderLog(donations, profilesMap){
   }).join('');
 }
 
-function renderRanking(donations, profilesMap){
-  const totals={};
-  for(const d of donations){
-    const h=d.user_handle||'unknown';
-    totals[h]=(totals[h]||0)+Math.abs(d.delta||0);
-  }
-  const ranked = Object.entries(totals).sort((a,b)=>b[1]-a[1]).slice(0,10);
+// donationTotals: dbFetchDonationTotals() の結果（{user_handle, total_donated, last_donated_at}の配列）
+function renderRanking(donationTotals, profilesMap){
+  const ranked = donationTotals
+    .map(row=>[row.user_handle, Number(row.total_donated)||0])
+    .filter(([,amt])=>amt>0)
+    .sort((a,b)=>b[1]-a[1])
+    .slice(0,10);
   const grid=document.getElementById('rank-grid');
 
   if(!ranked.length){
@@ -404,20 +415,20 @@ function setupAmountUI(){
 // 初期化・データ取得
 // ══════════════════════════════════════
 async function refreshAllData(checkUnlock){
-  const [donations, profilesMap, grandTotal] = await Promise.all([
+  const [donations, profilesMap, donationTotals] = await Promise.all([
     dbFetchAllDonations(),
     dbFetchProfilesMap(),
-    dbFetchGrandTotal()
+    dbFetchDonationTotals()
   ]);
 
   const prevTotal = currentTotal;
-  const total = grandTotal;
+  const total = await dbFetchGrandTotal(donationTotals); // donationTotalsを再利用（追加クエリなし）
   currentTotal = total;
 
   renderTotalAndGauge(total);
   renderNewsFeed(total);
   renderLog(donations, profilesMap);
-  renderRanking(donations, profilesMap);
+  renderRanking(donationTotals, profilesMap);
 
   if(checkUnlock){
     const newlyUnlocked = NEWS_DATA.filter(n=>n.t>prevTotal && n.t<=total);

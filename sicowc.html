@@ -456,8 +456,8 @@ function fifaChampOdds(teamName){
 }
 
 // ══ 優勝予想の受付締め切り ══
-// 2026-06-28 23:59:59 (JST, UTC+9) = 2026-06-28T14:59:59Z
-const CHAMP_PICK_DEADLINE = new Date('2026-06-28T14:59:59Z').getTime();
+// 2026-07-02 23:59:59 (JST, UTC+9) = 2026-07-02T14:59:59Z
+const CHAMP_PICK_DEADLINE = new Date('2026-07-02T14:59:59Z').getTime();
 function isChampPickClosed(){
   return Date.now() > CHAMP_PICK_DEADLINE;
 }

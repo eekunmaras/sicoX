@@ -248,6 +248,20 @@
                 <span id="lobby-balance-display" class="text-sm font-mono font-bold text-cyan-400">読込中...</span>
             </div>
 
+            <!-- レート（掛け金）設定タブ：手持ちポイントに応じて上位レートが解放される -->
+            <div class="glass-panel rounded-xl p-3 w-full max-w-[360px] border border-[#2e3768] shadow-2xl relative z-20 mt-2">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[11px] text-gray-400 font-bold tracking-wider">
+                        <i class="fa-solid fa-coins text-amber-400 mr-1"></i>レート（掛け金）
+                    </span>
+                    <span id="rate-current-display" class="text-xs font-mono font-bold text-amber-400">20,000 pt</span>
+                </div>
+                <div id="rate-tier-buttons" class="grid grid-cols-3 gap-2"></div>
+                <p class="text-[9px] text-gray-500 mt-2 leading-relaxed">
+                    ※手持ちポイントが一定額を超えると上位レートを選択できます。オンライン対戦では親（最初の入室者）が設定したレートが卓全体に適用されます。
+                </p>
+            </div>
+
             <div class="flex flex-col sm:flex-row gap-3 mb-4 mt-3 relative z-20 w-full max-w-[360px]">
                 <button onclick="startMatchmaking('cpu')" class="w-full h-14 bg-gradient-to-r from-cyan-600 to-blue-700 active:from-cyan-500 active:to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-cyan-900/40 border border-cyan-400/30 transition-all transform active:scale-95 flex items-center justify-center gap-3">
                     <i class="fa-solid fa-microchip text-lg"></i>
@@ -882,6 +896,65 @@
         let hasJustDrawn = false;       // ツモ番直後か
         let turnCountInRound = 0;       // 局内の総ターン数（ダブルリーチ・海底判定用）
 
+        // --- レート（掛け金）システム ---
+        const RATE_BASE = 20000;                       // 基準レート（従来の固定持ち点）
+        const RATE_TIERS = [20000, 10000000, 100000000]; // 選択可能なレート一覧
+        let currentRate = RATE_BASE;    // 現在選択中のレート（初期値20,000点。ロビーで変更可能）
+        let sicoXBalance = null;        // sicoXから取得した実際の手持ちポイント残高（未取得時はnull）
+
+        // レートに応じた点数移動の倍率（基準20,000点に対する比率）
+        function getRateMultiplier() {
+            return currentRate / RATE_BASE;
+        }
+        // リーチ料（レートに応じて等倍でスケーリング）
+        function getReachCost() {
+            return 1000 * getRateMultiplier();
+        }
+        // 指定レートが選択可能か（手持ちポイントに応じて判定。基準レートは常に選択可）
+        function isRateTierUnlocked(tier) {
+            if (tier <= RATE_BASE) return true;
+            if (tier === 10000000) return sicoXBalance !== null && sicoXBalance > 10000000;
+            if (tier === 100000000) return sicoXBalance !== null && sicoXBalance > 100000000;
+            return false;
+        }
+        function formatRateLabel(tier) {
+            if (tier >= 100000000) return '1億pt';
+            if (tier >= 10000000) return '1000万pt';
+            return tier.toLocaleString() + 'pt';
+        }
+        // レートタブのボタンを現在の手持ちポイント・選択状態に応じて描画
+        function renderRateOptions() {
+            const container = document.getElementById('rate-tier-buttons');
+            if (container) {
+                container.innerHTML = RATE_TIERS.map(tier => {
+                    const unlocked = isRateTierUnlocked(tier);
+                    const selected = (currentRate === tier);
+                    let stateClass;
+                    if (selected) {
+                        stateClass = 'bg-gradient-to-r from-amber-500 to-orange-600 text-white border-amber-300 shadow-lg shadow-amber-900/40';
+                    } else if (unlocked) {
+                        stateClass = 'bg-slate-800/70 text-gray-200 border-slate-600 active:scale-95';
+                    } else {
+                        stateClass = 'bg-slate-900/50 text-gray-600 border-slate-800 opacity-60 cursor-not-allowed';
+                    }
+                    const lockIcon = unlocked ? '' : '<i class="fa-solid fa-lock mr-1 text-[9px]"></i>';
+                    return `<button onclick="selectRate(${tier})" class="py-2 rounded-lg text-[11px] font-bold border transition-all ${stateClass}">${lockIcon}${formatRateLabel(tier)}</button>`;
+                }).join('');
+            }
+            const display = document.getElementById('rate-current-display');
+            if (display) display.textContent = currentRate.toLocaleString() + ' pt';
+        }
+        // レート選択（手持ちポイント不足の場合は選択させない）
+        function selectRate(tier) {
+            if (!isRateTierUnlocked(tier)) {
+                showDonjaraToast('🔒 手持ちポイントが不足しているため、このレートは選択できません');
+                return;
+            }
+            currentRate = tier;
+            AudioEngine.play('click');
+            renderRateOptions();
+        }
+
         // 待機ルーム用タイマー変数
         let lobbyTimerInterval = null;
         let lobbyTimeLeft = 180; // 3分（180秒）
@@ -1002,6 +1075,9 @@
                     // 残高表示をロビーに反映
                     const balEl = document.getElementById('lobby-balance-display');
                     if (balEl) balEl.textContent = Math.round(res.balance).toLocaleString() + ' pt';
+                    // レートタブの選択可否判定に使う実残高を保持し、再描画する
+                    sicoXBalance = res.balance;
+                    renderRateOptions();
                 }
             }
         }
@@ -1372,6 +1448,7 @@
         // --- 初期設定・イベント登録 ---
         window.onload = () => {
             initGridBackground();
+            renderRateOptions();
             loadParentProfile();
         };
 
@@ -1663,6 +1740,7 @@
                     dealer: currentDealer,
                     deckLen: deck.length,
                     turnCount: turnCountInRound,
+                    rate: currentRate,
                     seq: seq,
                     players: players.map((p, seat) => ({
                         seat,
@@ -1714,6 +1792,8 @@
             currentTurn      = state.currentTurn ?? currentTurn;
             currentDealer    = state.dealer ?? currentDealer;
             turnCountInRound = state.turnCount ?? turnCountInRound;
+            // 親（ホスト）が設定したレートを卓全体に適用（子側のレート判定を親と一致させる）
+            if (state.rate) currentRate = state.rate;
 
             // 特殊イベント（ラウンド終了など）を最優先で処理
             if (state.event) {
@@ -1779,7 +1859,7 @@
                 return;
             }
             document.getElementById('btn-tsumo').classList.toggle('hidden', !checkWinningHand(myHand));
-            const canReach = !players[mySeat].isReach && players[mySeat].score >= 1000 && checkTenpai(myHand);
+            const canReach = !players[mySeat].isReach && players[mySeat].score >= getReachCost() && checkTenpai(myHand);
             document.getElementById('btn-reach').classList.toggle('hidden', !canReach);
         }
 
@@ -1934,7 +2014,7 @@
                     const p = players[seat];
                     if (p && !p.isReach) {
                         p.isReach = true;
-                        p.score -= 1000;
+                        p.score = Math.max(0, p.score - getReachCost());
                         p.ippatsuChance = true;
                         p.reachTurnCount = turnCountInRound;
                         const dispIdx = displaySeat(seat);
@@ -2011,6 +2091,8 @@
             currentTurn      = state.currentTurn ?? state.dealer ?? 0;
             turnCountInRound = state.turnCount ?? 0;
             lastProcessedSeq = state.seq ?? 0;
+            // 親（ホスト）が設定したレートを卓全体に適用（子側のレート判定を親と一致させる）
+            if (state.rate) currentRate = state.rate;
 
             // 全プレイヤー状態を反映（isCPU はホストの設定をそのまま使う）
             state.players.forEach(ps => {
@@ -2018,7 +2100,7 @@
                 if (!p) return;
                 p.hand           = [...(ps.hand || [])];
                 p.discards       = [...(ps.discards || [])];
-                p.score          = ps.score ?? 20000;
+                p.score          = ps.score ?? currentRate;
                 p.isReach        = !!ps.isReach;
                 p.isCPU          = !!ps.isCPU;
                 p.name           = ps.name;
@@ -2072,11 +2154,11 @@
             if (roomPollInterval)   { clearInterval(roomPollInterval);  roomPollInterval  = null; }
             if (lobbyTimerInterval) { clearInterval(lobbyTimerInterval); lobbyTimerInterval = null; }
 
-            // ② スコア・ラウンドを必ずリセット
+            // ② スコア・ラウンドを必ずリセット（持ち点は選択中のレートを適用）
             currentRound  = 1;
             currentDealer = 0;
             players.forEach(p => {
-                p.score = 20000; p.hand = []; p.discards = [];
+                p.score = currentRate; p.hand = []; p.discards = [];
                 p.isReach = false; p.ippatsuChance = false;
                 p.isDoubleReach = false; p.reachTurnCount = -1;
             });
@@ -2226,7 +2308,7 @@
                 if (isOnlineMulti) pushGameState();
 
                 document.getElementById('btn-tsumo').classList.toggle('hidden', !checkWinningHand(me.hand));
-                const canReach = !me.isReach && me.score >= 1000 && checkTenpai(me.hand);
+                const canReach = !me.isReach && me.score >= getReachCost() && checkTenpai(me.hand);
                 document.getElementById('btn-reach').classList.toggle('hidden', !canReach);
 
             } else if (!turnPlayer.isCPU && isOnlineMulti) {
@@ -2639,11 +2721,12 @@
                 isTsumo: false
             });
             let payment = rankInfo.score;
-            if (winner.isReach) payment += 1000;
+            if (winner.isReach) payment += getReachCost();
             if (winnerSeat === currentDealer) payment = Math.floor(payment * 1.5);
 
             players[winnerSeat].score += payment;
-            players[loserSeat].score -= payment;
+            // 負け額が手持ちを上回っても、持ち点がマイナスにならないようにする
+            players[loserSeat].score = Math.max(0, players[loserSeat].score - payment);
 
             // ホストならpushして全員に通知
             if (onlinePlayerHandle && humanSeats.size > 1 && isHost()) {
@@ -2676,13 +2759,14 @@
                 isTsumo: true
             });
             let payment = rankInfo.score;
-            if (winner.isReach) payment += 1000;
+            if (winner.isReach) payment += getReachCost();
             if (winnerSeat === currentDealer) payment = Math.floor(payment * 1.5);
 
             const perPlayerPay = Math.floor(payment / 3);
             players.forEach((p, seat) => {
                 if (seat === winnerSeat) p.score += perPlayerPay * 3;
-                else p.score -= perPlayerPay;
+                // 負け額が手持ちを上回っても、持ち点がマイナスにならないようにする
+                else p.score = Math.max(0, p.score - perPlayerPay);
             });
 
             if (onlinePlayerHandle && humanSeats.size > 1 && isHost()) {
@@ -2702,7 +2786,7 @@
             AudioEngine.play('reach');
             const me = players[mySeat];
             me.isReach = true;
-            me.score -= 1000;
+            me.score = Math.max(0, me.score - getReachCost());
             me.ippatsuChance = true;
             me.reachTurnCount = turnCountInRound;
             me.isDoubleReach = (turnCountInRound <= 1);
@@ -2785,7 +2869,7 @@
             return {
                 key: baseRank.key,
                 name: finalName,
-                score: baseRank.score + bonusScore
+                score: (baseRank.score + bonusScore) * getRateMultiplier()
             };
         }
 
@@ -2946,9 +3030,9 @@
             document.getElementById('podium-4-name').textContent = sorted[3].name;
             document.getElementById('podium-4-score').textContent = `${sorted[3].score.toLocaleString()} pts`;
 
-            // sicoXポイント同期: 初期20000を基準とした差分を送信
+            // sicoXポイント同期: 選択中レート（初期持ち点）を基準とした差分を送信
             const playerFinalScore = players[mySeatIndex ?? 0].score;
-            const playerInitialScore = 20000;
+            const playerInitialScore = currentRate;
             const djDeltaPt = playerFinalScore - playerInitialScore;
             syncFinalScore(playerFinalScore, playerInitialScore);
 
@@ -3016,9 +3100,9 @@
 
                 // 2. リーチ判定
                 const cpu = players[cpuSeat];
-                if (!cpu.isReach && cpu.score >= 1000 && checkTenpai(cpu.hand)) {
+                if (!cpu.isReach && cpu.score >= getReachCost() && checkTenpai(cpu.hand)) {
                     cpu.isReach = true;
-                    cpu.score -= 1000;
+                    cpu.score = Math.max(0, cpu.score - getReachCost());
                     cpu.ippatsuChance = true;
                     cpu.reachTurnCount = turnCountInRound;
                     cpu.isDoubleReach = (turnCountInRound <= 1);
@@ -3272,6 +3356,7 @@
             lastProcessedActionId = null;
             pushPending        = false;
 
+            renderRateOptions();
             showScene('scene-lobby');
         }
     </script>

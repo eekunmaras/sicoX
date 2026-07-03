@@ -3356,6 +3356,12 @@
             lastProcessedActionId = null;
             pushPending        = false;
 
+            // sicoXの手持ちポイントを再取得し、ロビー表示を最新化する
+            // （iframeを開き直さなくても、対局後の増減が即座に反映されるように）
+            const balEl = document.getElementById('lobby-balance-display');
+            if (balEl) balEl.textContent = '読込中...';
+            loadParentProfile();
+
             renderRateOptions();
             showScene('scene-lobby');
         }

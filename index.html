@@ -7317,6 +7317,12 @@ const APPS={
   kihu:{
     name:'寄付',
     url:'donate.html'
+  },
+  voxel:{
+    name:'VoxelMulti',
+    url:'https://restless-bread-41e6.opteharadadaisuke.workers.dev/',
+    icon:'voxel.png',
+    iframe:true
   }
 };
 
@@ -7324,8 +7330,8 @@ function openApp(appId){
   const app=APPS[appId];
   if(!app) return;
   closeAppSelect();
-  // ローカルHTMLはiframeで、外部URLは別タブで開く
-  if(app.url && !app.url.startsWith('http')){
+  // ローカルHTML、またはiframe:true指定のアプリはiframeで、それ以外の外部URLは別タブで開く
+  if(app.iframe || (app.url && !app.url.startsWith('http'))){
     const titleEl=document.getElementById('game-frame-title');
     const iconEl=document.getElementById('game-frame-icon');
     if(titleEl) titleEl.textContent=app.name||'';
@@ -11902,6 +11908,13 @@ function tweetWcMatchFromBtn(btn){
 
       </div>
 
+      <div class="game-icon-btn game-icon-btn-img" onclick="openApp('voxel')">
+
+        <img src="voxel.png" alt="VoxelMulti" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>🧊</span>')">
+        <span class="game-tile-label">VoxelMulti</span>
+
+      </div>
+
     </div>
 
     <button class="game-select-close" onclick="closeAppSelect()">閉じる</button>
@@ -11928,7 +11941,7 @@ function tweetWcMatchFromBtn(btn){
 
   <div class="game-frame-body">
 
-    <iframe id="game-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+    <iframe id="game-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"></iframe>
 
   </div>
 

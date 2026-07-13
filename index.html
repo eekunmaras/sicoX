@@ -7356,6 +7356,16 @@ function openApp(appId){
 
 const GAMES={
 
+  quest:{
+
+    title:'クエスト',
+
+    icon:'quest.png',
+
+    src:'https://sicoliaonanispark.onrender.com/'
+
+  },
+
   taika:{
 
     title:'タイカゲーム',
@@ -11874,6 +11884,13 @@ function tweetWcMatchFromBtn(btn){
 
       </div>
 
+      <div class="game-icon-btn game-icon-btn-img" onclick="openGame('quest')">
+
+        <img src="quest.png" alt="クエスト" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\'font-size:48px;line-height:60px;display:block;text-align:center;\'>🗺️</span>')">
+        <span class="game-tile-label">クエスト</span>
+
+      </div>
+
     </div>
 
     <button class="game-select-close" onclick="closeGameSelect()">閉じる</button>
@@ -11941,7 +11958,7 @@ function tweetWcMatchFromBtn(btn){
 
   <div class="game-frame-body">
 
-    <iframe id="game-frame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"></iframe>
+    <iframe id="game-frame" allow="fullscreen; autoplay" allowfullscreen sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-pointer-lock"></iframe>
 
   </div>
 

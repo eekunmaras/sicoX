@@ -2251,6 +2251,8 @@ let pendingNewTweets = [];
 
 let selectedImages = [];
 
+let replyImages = [];
+
 let quoteTargetId = null;
 
 let pollActive = false;
@@ -4023,6 +4025,8 @@ function showThread(tweetId, fromHistory=false){
 
   }
 
+  if(activeThreadId!==tweetId) replyImages=[];
+
   activeThreadId=tweetId;
 
   const liked=likedSet.has(tweetId);
@@ -4050,12 +4054,22 @@ function showThread(tweetId, fromHistory=false){
     <div style="flex:1;">
 
       <textarea class="reply-ta" id="thread-reply-ta" placeholder="${esc(parent.user.name)} に返信…" maxlength="280" rows="3" oninput="onThreadInput()"></textarea>
+      <div class="img-pw" id="reply-img-pw"></div>
+      <div class="up-status" id="reply-up-status"></div>
 
-      <div style="display:flex;justify-content:flex-end;margin-top:6px;gap:8px;align-items:center;">
+      <div style="display:flex;justify-content:space-between;margin-top:6px;gap:8px;align-items:center;">
+        <div class="compose-tools">
+          <button class="icon-btn" onclick="document.getElementById('reply-img-file').click()" title="画像">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+          </button>
+          <input type="file" id="reply-img-file" accept="image/*" multiple style="display:none" onchange="onReplyImgSelect(event)">
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
 
         <span class="char-count" id="thread-reply-char">280</span>
 
         <button class="post-btn" id="thread-reply-btn" onclick="submitReply('${tweetId}')" disabled>返信</button>
+        </div>
 
       </div>
 
@@ -4123,6 +4137,8 @@ function showThread(tweetId, fromHistory=false){
 
   `;
 
+  renderReplyImgPreview();
+
   goView('thread');
 
 }
@@ -4137,7 +4153,7 @@ function onThreadInput(){
 
   const cc=document.getElementById('thread-reply-char'); if(cc){cc.textContent=rem;cc.className='char-count'+(rem<20?(rem<0?' danger':' warn'):'');}
 
-  const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=!v.trim();
+  const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=!v.trim()&&replyImages.length===0;
 
 }
 
@@ -4145,15 +4161,19 @@ async function submitReply(parentId){
 
   const ta=document.getElementById('thread-reply-ta'); if(!ta)return;
 
-  const text=ta.value.trim(); if(!text)return;
+  const text=ta.value.trim(); if(!text&&replyImages.length===0)return;
 
-  const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null,
+  const replyImgUrls=replyImages.map(img=>img.uploadedUrl||img.dataUrl);
+
+  const t={id:uid(),user:{...currentUser},text,imageUrl:replyImgUrls[0]||null,imageUrls:replyImgUrls,ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null,
 
     badgeUrl:activeBadgeUrl||null};
 
   tweets.push(t);
 
   ta.value='';
+
+  removeAllReplyImgs();
 
   showThread(parentId);
 
@@ -4808,6 +4828,59 @@ function removeImg(idx){
 }
 
 
+
+// ── 返信（スレッド）用の画像添付 ──
+async function onReplyImgSelect(e){
+  const files=[...e.target.files];
+  if(!files.length)return;
+  const remaining=4-replyImages.length;
+  if(remaining<=0){showToast('画像は最大4枚まで');return;}
+  const toAdd=files.slice(0,remaining);
+  if(files.length>remaining)showToast(`最大4枚まで。${toAdd.length}枚を追加します`);
+  const st=document.getElementById('reply-up-status');
+  if(st){st.style.display='block';st.textContent='📤 アップロード中…';}
+  for(const file of toAdd){
+    const dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.readAsDataURL(file);});
+    const entry={dataUrl,uploadedUrl:null};
+    replyImages.push(entry);
+    renderReplyImgPreview();
+    const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=false;
+    try{entry.uploadedUrl=await uploadToImgur(file);}catch(err){}
+  }
+  const st2=document.getElementById('reply-up-status');
+  if(st2)st2.textContent=replyImages.length+'枚選択中';
+  e.target.value='';
+}
+
+function renderReplyImgPreview(){
+  const pw=document.getElementById('reply-img-pw');
+  const st=document.getElementById('reply-up-status');
+  if(!pw)return;
+  if(replyImages.length===0){
+    pw.style.display='none';pw.innerHTML='';
+    if(st)st.style.display='none';
+    return;
+  }
+  pw.style.display='flex';
+  pw.innerHTML=replyImages.map((img,i)=>`
+    <div class="img-pw-item">
+      <img src="${img.dataUrl}" alt="">
+      <button class="img-remove" onclick="removeReplyImg(${i})">✕</button>
+    </div>`).join('');
+  if(st){st.style.display='block';st.textContent=replyImages.length+'枚選択中';}
+}
+
+function removeReplyImg(idx){
+  replyImages.splice(idx,1);
+  renderReplyImgPreview();
+  onThreadInput();
+}
+
+function removeAllReplyImgs(){
+  replyImages=[];
+  renderReplyImgPreview();
+  const f=document.getElementById('reply-img-file'); if(f)f.value='';
+}
 
 function removeAllImgs(){
 

@@ -2251,8 +2251,6 @@ let pendingNewTweets = [];
 
 let selectedImages = [];
 
-let replyImages = [];
-
 let quoteTargetId = null;
 
 let pollActive = false;
@@ -4025,8 +4023,6 @@ function showThread(tweetId, fromHistory=false){
 
   }
 
-  if(activeThreadId!==tweetId) replyImages=[];
-
   activeThreadId=tweetId;
 
   const liked=likedSet.has(tweetId);
@@ -4054,22 +4050,12 @@ function showThread(tweetId, fromHistory=false){
     <div style="flex:1;">
 
       <textarea class="reply-ta" id="thread-reply-ta" placeholder="${esc(parent.user.name)} に返信…" maxlength="280" rows="3" oninput="onThreadInput()"></textarea>
-      <div class="img-pw" id="reply-img-pw"></div>
-      <div class="up-status" id="reply-up-status"></div>
 
-      <div style="display:flex;justify-content:space-between;margin-top:6px;gap:8px;align-items:center;">
-        <div class="compose-tools">
-          <button class="icon-btn" onclick="document.getElementById('reply-img-file').click()" title="画像">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-          </button>
-          <input type="file" id="reply-img-file" accept="image/*" multiple style="display:none" onchange="onReplyImgSelect(event)">
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+      <div style="display:flex;justify-content:flex-end;margin-top:6px;gap:8px;align-items:center;">
 
         <span class="char-count" id="thread-reply-char">280</span>
 
         <button class="post-btn" id="thread-reply-btn" onclick="submitReply('${tweetId}')" disabled>返信</button>
-        </div>
 
       </div>
 
@@ -4137,8 +4123,6 @@ function showThread(tweetId, fromHistory=false){
 
   `;
 
-  renderReplyImgPreview();
-
   goView('thread');
 
 }
@@ -4153,7 +4137,7 @@ function onThreadInput(){
 
   const cc=document.getElementById('thread-reply-char'); if(cc){cc.textContent=rem;cc.className='char-count'+(rem<20?(rem<0?' danger':' warn'):'');}
 
-  const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=!v.trim()&&replyImages.length===0;
+  const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=!v.trim();
 
 }
 
@@ -4161,19 +4145,15 @@ async function submitReply(parentId){
 
   const ta=document.getElementById('thread-reply-ta'); if(!ta)return;
 
-  const text=ta.value.trim(); if(!text&&replyImages.length===0)return;
+  const text=ta.value.trim(); if(!text)return;
 
-  const replyImgUrls=replyImages.map(img=>img.uploadedUrl||img.dataUrl);
-
-  const t={id:uid(),user:{...currentUser},text,imageUrl:replyImgUrls[0]||null,imageUrls:replyImgUrls,ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null,
+  const t={id:uid(),user:{...currentUser},text,imageUrl:null,imageUrls:[],ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null,
 
     badgeUrl:activeBadgeUrl||null};
 
   tweets.push(t);
 
   ta.value='';
-
-  removeAllReplyImgs();
 
   showThread(parentId);
 
@@ -4828,59 +4808,6 @@ function removeImg(idx){
 }
 
 
-
-// ── 返信（スレッド）用の画像添付 ──
-async function onReplyImgSelect(e){
-  const files=[...e.target.files];
-  if(!files.length)return;
-  const remaining=4-replyImages.length;
-  if(remaining<=0){showToast('画像は最大4枚まで');return;}
-  const toAdd=files.slice(0,remaining);
-  if(files.length>remaining)showToast(`最大4枚まで。${toAdd.length}枚を追加します`);
-  const st=document.getElementById('reply-up-status');
-  if(st){st.style.display='block';st.textContent='📤 アップロード中…';}
-  for(const file of toAdd){
-    const dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.readAsDataURL(file);});
-    const entry={dataUrl,uploadedUrl:null};
-    replyImages.push(entry);
-    renderReplyImgPreview();
-    const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=false;
-    try{entry.uploadedUrl=await uploadToImgur(file);}catch(err){}
-  }
-  const st2=document.getElementById('reply-up-status');
-  if(st2)st2.textContent=replyImages.length+'枚選択中';
-  e.target.value='';
-}
-
-function renderReplyImgPreview(){
-  const pw=document.getElementById('reply-img-pw');
-  const st=document.getElementById('reply-up-status');
-  if(!pw)return;
-  if(replyImages.length===0){
-    pw.style.display='none';pw.innerHTML='';
-    if(st)st.style.display='none';
-    return;
-  }
-  pw.style.display='flex';
-  pw.innerHTML=replyImages.map((img,i)=>`
-    <div class="img-pw-item">
-      <img src="${img.dataUrl}" alt="">
-      <button class="img-remove" onclick="removeReplyImg(${i})">✕</button>
-    </div>`).join('');
-  if(st){st.style.display='block';st.textContent=replyImages.length+'枚選択中';}
-}
-
-function removeReplyImg(idx){
-  replyImages.splice(idx,1);
-  renderReplyImgPreview();
-  onThreadInput();
-}
-
-function removeAllReplyImgs(){
-  replyImages=[];
-  renderReplyImgPreview();
-  const f=document.getElementById('reply-img-file'); if(f)f.value='';
-}
 
 function removeAllImgs(){
 
@@ -7391,6 +7318,17 @@ const APPS={
     name:'寄付',
     url:'donate.html'
   },
+  multiverse:{
+    name:'マルチバース',
+
+    url:'mv.html',
+
+    icon:'mvsicox.png',
+
+    iframe:true
+
+  },
+
   voxel:{
     name:'VoxelMulti',
     url:'https://restless-bread-41e6.opteharadadaisuke.workers.dev/',
@@ -7398,6 +7336,200 @@ const APPS={
     iframe:true
   }
 };
+
+
+
+// ══════════════════════════════════════
+
+// マルチバース SicoX
+
+//   ・mv.html を iframe で開く（同一オリジン）
+
+//   ・ポイントは本家が持ち、向こうは postMessage で「使わせてくれ」と頼むだけ
+
+//   ・行き来のときに砂嵐が走る
+
+// ══════════════════════════════════════
+
+const MV_WORKER = 'https://mv-sicox.eekunmaras.workers.dev';   // ★ wrangler deploy で出たURLに書き換える
+
+const MV_ORIGIN = location.origin;
+
+
+
+async function openMultiverse(){
+
+  if(!currentUser){ showToast('プロフィールを設定してください'); return; }
+
+  closeAppSelect();
+
+  await mvStatic();                       // 砂嵐
+
+
+
+  const titleEl = document.getElementById('game-frame-title');
+
+  const iconEl  = document.getElementById('game-frame-icon');
+
+  if(titleEl) titleEl.textContent = 'マルチバース';
+
+  if(iconEl){ iconEl.src = 'mvsicox.png'; iconEl.style.display = 'block'; }
+
+
+
+  const frame = document.getElementById('game-frame');
+
+  frame.removeAttribute('srcdoc');
+
+  frame.src = 'mv.html';
+
+  document.getElementById('game-frame-overlay').classList.add('open');
+
+  document.body.classList.add('modal-open');
+
+}
+
+
+
+// ── 向こうからの依頼を受ける ──
+
+window.addEventListener('message', async (e) => {
+
+  if(e.origin !== MV_ORIGIN) return;                       // ★ 出所を必ず確認する
+
+  const m = e.data || {};
+
+  if(m.type === 'mv:close'){ await mvStatic(); closeGame(); return; }
+
+  if(m.type !== 'mv:call') return;
+
+
+
+  const reply = (o) => e.source.postMessage({ ...o, type:'mv:response', reqId:m.reqId }, MV_ORIGIN);
+
+  try{
+
+    const r = await fetch(MV_WORKER + m.path, {
+
+      method:'POST',
+
+      headers:{'Content-Type':'application/json'},
+
+      // ★ handle は本家が入れる。iframe に名乗らせない（なりすまし防止）
+
+      body: JSON.stringify({ ...(m.body || {}), handle: currentUser?.handle })
+
+    });
+
+    const j = await r.json();
+
+    reply(j);
+
+    if(m.path === '/mv/spend' && j.ok && currentUser && typeof loadUserPoints === 'function') loadUserPoints(currentUser.handle);
+
+  }catch(err){
+
+    reply({ ok:false, error:'通信に失敗しました' });
+
+  }
+
+});
+
+
+
+// ── 砂嵐（薄め）──
+
+async function mvStatic(){
+
+  const layer = document.createElement('div');
+
+  layer.style.cssText = 'position:fixed;inset:0;z-index:9500;pointer-events:all;opacity:0;transition:opacity .22s;';
+
+  const cv = document.createElement('canvas');
+
+  cv.style.cssText = 'width:100%;height:100%;display:block;image-rendering:pixelated;opacity:.5;';
+
+  cv.width  = Math.max(1, innerWidth  / 4 | 0);
+
+  cv.height = Math.max(1, innerHeight / 4 | 0);
+
+  const scan = document.createElement('div');
+
+  scan.style.cssText = 'position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.2) 0 1px,transparent 1px 4px);';
+
+  layer.appendChild(cv); layer.appendChild(scan);
+
+  document.body.appendChild(layer);
+
+
+
+  const ctx = cv.getContext('2d');
+
+  let raf;
+
+  const grain = () => {
+
+    const w = cv.width, h = cv.height;
+
+    const img = ctx.createImageData(w, h), d = img.data;
+
+    for(let i=0;i<d.length;i+=4){
+
+      const v = 70 + Math.random()*160;                    // 白飛びさせない
+
+      d[i]=v*.84; d[i+1]=v*.9; d[i+2]=v; d[i+3]=255;
+
+    }
+
+    ctx.putImageData(img, 0, 0);
+
+    if(Math.random() < .5){                                // 裂け目は1本だけ
+
+      const y = Math.random()*h, hh = 1 + Math.random()*4;
+
+      ctx.putImageData(ctx.getImageData(0, y, w, hh), (Math.random()-.5)*w*.14, y);
+
+    }
+
+    raf = requestAnimationFrame(grain);
+
+  };
+
+
+
+  const app = document.querySelector('.app') || document.body;
+
+  const prev = app.style.cssText;
+
+  app.style.transition = 'opacity .34s ease-in, filter .34s ease-in';
+
+  app.style.opacity = '.15';
+
+  app.style.filter  = 'brightness(1.6) saturate(.4)';
+
+
+
+  layer.style.opacity = '1';
+
+  grain();
+
+  await new Promise(r => setTimeout(r, 640));
+
+
+
+  layer.style.opacity = '0';
+
+  await new Promise(r => setTimeout(r, 240));
+
+  cancelAnimationFrame(raf);
+
+  layer.remove();
+
+  app.style.cssText = prev;
+
+}
+
+
 
 function openApp(appId){
   const app=APPS[appId];
@@ -11995,6 +12127,14 @@ function tweetWcMatchFromBtn(btn){
 
         <img src="kihu.png" alt="寄付" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>💗</span>')">
         <span class="game-tile-label">寄付</span>
+
+      </div>
+
+      <div class="game-icon-btn game-icon-btn-img" onclick="openMultiverse()">
+
+        <img src="mvsicox.png" alt="マルチバース" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\\'font-size:48px;line-height:60px;display:block;text-align:center;\\'>🌀</span>')">
+
+        <span class="game-tile-label">マルチバース</span>
 
       </div>
 

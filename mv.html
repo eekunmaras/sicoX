@@ -32,7 +32,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 
 .card{display:flex;gap:11px;padding:13px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;}
 .card:hover{background:rgba(255,255,255,.026);}
-.av{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;}
+.av{width:40px;height:40px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;overflow:hidden;object-fit:cover;}
+img.av{display:block;}
 .bd{flex:1;min-width:0;}
 .row{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;}
 .nm{font-size:14px;font-weight:800;}
@@ -45,6 +46,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 .act svg{width:17px;height:17px;}
 .act:hover{color:var(--accent);}
 
+/* 異界人＝あなたの投稿だけが、この世界では希薄 */
 .outsider .bd,.outsider .av{opacity:.42;filter:saturate(.15) contrast(.82) blur(.4px);animation:ghost 5.5s ease-in-out infinite;}
 .outsider .tx{letter-spacing:.05em;text-shadow:0 0 6px rgba(255,255,255,.14);}
 .outsider .tx::selection{background:transparent;}
@@ -127,7 +129,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
     <div class="hd-title">SicoX</div>
     <div class="hd-spacer"></div>
     <div class="pts">🪙 <b id="pts">…</b> pt</div>
-    <button class="exit" onclick="parent.postMessage({type:'mv:close'}, MAIN_ORIGIN)">戻る</button>
+    <button class="exit" onclick="leave()">戻る</button>
   </header>
 
   <div class="view on" id="v-home"><div class="empty">読み込み中…</div></div>
@@ -173,15 +175,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);display:flex
 /* ════════════════════════════════════════════════════
    ★ ここだけ書き換える
    ════════════════════════════════════════════════════ */
-const MV_URL      = 'https://sjvakjlscryyeflsjaak.supabase.co';   // MV専用 Supabase の URL
-const MV_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdmFramxzY3J5eWVmbHNqYWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5ODQ3MDUsImV4cCI6MjA5OTU2MDcwNX0.JneOpeTmG_lLVfdB1cf2l-oSvNLJ0JmB2Ty0DuPx7cQ';                  // MV専用 Supabase の anon キー（読み取り専用）
-const MAIN_ORIGIN = 'https://sicox.eekunmaras.workers.dev';   // 本家 SicoX を置いているオリジン
+const MV_URL      = 'https://xxxxxxxx.supabase.co';           // MV専用 Supabase の Project URL
+const MV_ANON     = 'eyJhbGciOi...';                          // MV専用 Supabase の anon キー（service_roleではない）
+const MAIN_ORIGIN = 'https://sicox.eekunmaras.workers.dev';   // 本家 SicoX のオリジン
 /* ════════════════════════════════════════════════════ */
 
 const $ = id => document.getElementById(id);
-const esc = s => {const d=document.createElement('div');d.textContent=s;return d.innerHTML;};
+const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
 
-/* ── MV Supabase から読むだけ（書き込みは Worker のみ） ── */
+/* ── MV Supabase から読むだけ。書き込みは Worker のみ ── */
 async function q(table, query){
   const r = await fetch(`${MV_URL}/rest/v1/${table}?${query}`, {
     headers:{ apikey: MV_ANON, Authorization: 'Bearer ' + MV_ANON }
@@ -190,25 +192,30 @@ async function q(table, query){
   return r.json();
 }
 
-/* ── 本家へのブリッジ（ptとアイテムは全部ここ経由） ── */
+/* ── 本家へのブリッジ（ptもアイテムも自分では持たない） ── */
 const REQS = new Map();
 function bridge(path, body = {}, timeout = 9000){
   const reqId = 'mv' + Date.now() + Math.random().toString(36).slice(2,8);
+  const type  = (path === 'mv:me') ? 'mv:me' : 'mv:call';
   return new Promise(resolve => {
-    const timer = setTimeout(() => { REQS.delete(reqId); resolve({ok:false, error:'タイムアウトしました'}); }, timeout);
-    REQS.set(reqId, {resolve, timer});
-    parent.postMessage({ type:'mv:call', path, body, reqId }, MAIN_ORIGIN);
+    const timer = setTimeout(() => { REQS.delete(reqId); resolve({ ok:false, error:'タイムアウトしました' }); }, timeout);
+    REQS.set(reqId, { resolve, timer });
+    parent.postMessage({ type, path, body, reqId }, MAIN_ORIGIN);
   });
 }
 window.addEventListener('message', e => {
   if(e.origin !== MAIN_ORIGIN) return;
   const m = e.data || {};
   if(m.type === 'mv:response' && REQS.has(m.reqId)){
-    const r = REQS.get(m.reqId); clearTimeout(r.timer); REQS.delete(m.reqId); r.resolve(m);
+    const r = REQS.get(m.reqId);
+    clearTimeout(r.timer); REQS.delete(m.reqId);
+    r.resolve(m);
   }
 });
+function leave(){ parent.postMessage({ type:'mv:close' }, MAIN_ORIGIN); }
 
 /* ── 状態 ── */
+let ME = { handle:null, name:'あなた', avatar:null, color:'#1d9bf0' };   // ★本家から受け取る
 let PEOPLE = {}, FEED = [], INV = {}, PTS = 0;
 let observed = {}, threadId = null, prevTab = 'home';
 
@@ -225,58 +232,83 @@ const COLORS = ['#4a6fa5','#2f7d4f','#8a6b3d','#a05a8a','#3d6b8f','#c9752b','#7a
 
 /* ── 読み込み ── */
 async function load(){
+  // まず「自分は誰か」を本家に聞く
+  const meRes = await bridge('mv:me');
+  if(meRes.ok && meRes.me) ME = { ...ME, ...meRes.me };
+
   try{
     const [chars, tweets] = await Promise.all([
       q('mv_characters', 'select=handle,name,age,job,color,status&order=created_at.asc'),
       q('mv_tweets', 'select=*&order=ts.desc&limit=120'),
     ]);
-    PEOPLE = Object.fromEntries(chars.map((c,i) => [c.handle, {...c, c: c.color || COLORS[i % COLORS.length]}]));
+    PEOPLE = Object.fromEntries(chars.map((c,i) => [c.handle, { ...c, c: c.color || COLORS[i % COLORS.length] }]));
     FEED = tweets.slice().reverse();
   }catch(e){
     $('v-home').innerHTML = `<div class="empty">この世界に接続できませんでした。<br><span style="font-size:11px;opacity:.6">${esc(e.message)}</span></div>`;
     return;
   }
   await sync();
-  render();
+  renderHome();
 }
 
 async function sync(){
   const r = await bridge('/mv/points');
-  if(r.ok){ PTS = r.balance; INV = r.inventory || {}; $('pts').textContent = PTS.toLocaleString(); }
+  if(r.ok){
+    PTS = r.balance;
+    INV = r.inventory || {};
+    $('pts').textContent = PTS.toLocaleString();
+  }
 }
 
 /* ── 描画 ── */
 const get = id => FEED.find(t => t.id === id);
 const kids = id => FEED.filter(t => t.reply_to === id);
 const countAll = id => kids(id).reduce((a,c) => a + 1 + countAll(c.id), 0);
-const who = p => p.is_outsider ? {name:'あなた', c:'#1d9bf0'} : (PEOPLE[p.handle] || {name:p.handle, c:'#555'});
 const ago = ts => {
   const m = (Date.now() - Date.parse(ts)) / 60000 | 0;
   return m < 1 ? 'たった今' : m < 60 ? m + '分' : m < 1440 ? (m/60|0) + '時間' : (m/1440|0) + '日';
 };
 
+/** 異界人（あなた）は本家の名前とアイコンを使う */
+const who = p => p.is_outsider
+  ? { name: ME.name, c: ME.color, avatar: ME.avatar }
+  : (PEOPLE[p.handle] || { name: p.handle, c: '#555' });
+
+/** アバター。画像があれば画像、無ければ頭文字 */
+const avHTML = (P, extra = '') => P.avatar
+  ? `<img class="av" src="${esc(P.avatar)}" style="${extra}" alt="">`
+  : `<div class="av" style="background:${P.c};${extra}">${esc((P.name || '?')[0])}</div>`;
+
 const I_RE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8A8.5 8.5 0 0 1 12.5 20a8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/></svg>';
 
 function card(p){
-  const P = who(p), up = p.reply_to ? get(p.reply_to) : null, rc = countAll(p.id);
-  return `<article class="card ${p.is_outsider?'outsider':''}" onclick="openThread('${p.id}')">
-    <div class="av" style="background:${P.c}">${esc(P.name[0])}</div>
+  const P = who(p);
+  const up = p.reply_to ? get(p.reply_to) : null;
+  const rc = countAll(p.id);
+  return `<article class="card ${p.is_outsider ? 'outsider' : ''}" onclick="openThread('${p.id}')">
+    ${avHTML(P)}
     <div class="bd">
       ${up ? `<div class="re">返信先: <b>@${esc(up.handle)}</b></div>` : ''}
-      <div class="row"><span class="nm">${esc(P.name)}</span><span class="hn">@${esc(p.handle)}</span><span class="tm">· ${ago(p.ts)}</span></div>
+      <div class="row">
+        <span class="nm">${esc(P.name)}</span>
+        <span class="hn">@${esc(p.handle)}</span>
+        <span class="tm">· ${ago(p.ts)}</span>
+      </div>
       <div class="tx">${esc(p.text)}</div>
-      <div class="acts"><button class="act" onclick="event.stopPropagation();openThread('${p.id}')">${I_RE}<span>${rc||''}</span></button></div>
+      <div class="acts">
+        <button class="act" onclick="event.stopPropagation();openThread('${p.id}')">${I_RE}<span>${rc || ''}</span></button>
+      </div>
     </div>
   </article>${p.is_outsider ? '<div class="no-reply">この投稿には、誰も反応していない</div>' : ''}`;
 }
 
 function renderHome(){
-  const can = (INV.whisper||0) > 0;
+  const can = (INV.whisper || 0) > 0;
   const tops = FEED.filter(t => !t.reply_to).slice().reverse();
   $('v-home').innerHTML = `
     <div class="compose">
-      <div class="av" style="background:#1d9bf0">あ</div>
-      <textarea id="ta" placeholder="${can?'この世界に囁く…':'囁きがありません'}" ${can?'':'disabled'} maxlength="200"
+      ${avHTML(ME)}
+      <textarea id="ta" placeholder="${can ? 'この世界に囁く…' : '囁きがありません'}" ${can ? '' : 'disabled'} maxlength="200"
                 oninput="$('cb').disabled=!this.value.trim()"></textarea>
       <button class="cbtn" id="cb" disabled onclick="whisper(null)">囁く</button>
     </div>
@@ -287,54 +319,66 @@ function renderHome(){
 }
 
 function subtree(id, d){
-  return kids(id).map(k => `<div class="rnode" style="margin-left:${Math.min(d,3)*10}px">${card(k)}${subtree(k.id, d+1)}</div>`).join('');
+  return kids(id).map(k =>
+    `<div class="rnode" style="margin-left:${Math.min(d,3)*10}px">${card(k)}${subtree(k.id, d+1)}</div>`
+  ).join('');
 }
 
 function renderThread(){
   const p = get(threadId); if(!p) return;
-  const P = who(p), rc = countAll(p.id), can = (INV.whisper||0) > 0;
+  const P = who(p);
+  const rc = countAll(p.id);
+  const can = (INV.whisper || 0) > 0;
   const up = p.reply_to ? get(p.reply_to) : null;
+
   $('v-thread').innerHTML = `
-    <div class="parent ${p.is_outsider?'outsider':''}">
+    <div class="parent ${p.is_outsider ? 'outsider' : ''}">
       ${up ? `<div class="re" style="margin-bottom:9px">返信先: <b onclick="openThread('${up.id}')" style="cursor:pointer">@${esc(up.handle)}</b></div>` : ''}
       <div style="display:flex;gap:11px;align-items:center">
-        <div class="av" style="background:${P.c};width:46px;height:46px">${esc(P.name[0])}</div>
-        <div><div class="nm" style="font-size:15px">${esc(P.name)}</div><div class="hn">@${esc(p.handle)}</div></div>
+        ${avHTML(P, 'width:46px;height:46px;')}
+        <div>
+          <div class="nm" style="font-size:15px">${esc(P.name)}</div>
+          <div class="hn">@${esc(p.handle)}</div>
+        </div>
       </div>
       <div class="tx">${esc(p.text)}</div>
       <div class="tm-full">${new Date(p.ts).toLocaleString('ja-JP')}</div>
       <div class="stats"><span><b>${rc}</b> 返信</span></div>
     </div>
+
     ${p.is_outsider
       ? '<div class="no-reply" style="padding:14px 16px 16px">この投稿には、誰も反応していない</div>'
       : `<div class="compose">
-          <div class="av" style="background:#1d9bf0">あ</div>
-          <textarea id="rta" placeholder="${can?`@${esc(p.handle)} に囁く…`:'囁きがありません'}" ${can?'':'disabled'} maxlength="200"
+          ${avHTML(ME)}
+          <textarea id="rta" placeholder="${can ? `@${esc(p.handle)} に囁く…` : '囁きがありません'}" ${can ? '' : 'disabled'} maxlength="200"
                     oninput="$('rb').disabled=!this.value.trim()"></textarea>
           <button class="cbtn" id="rb" disabled onclick="whisper('${p.id}')">囁く</button>
         </div>
-        <div class="cnote">${can ? `囁き <b style="color:var(--gold)">×${INV.whisper}</b> ／ 返事は返ってきません。` : `返信するには「囁き」が必要です。`}</div>`}
-    ${rc ? `<div class="thread-head">返信 ${rc}件</div>${subtree(p.id,0)}` : ''}`;
+        <div class="cnote">${can
+          ? `囁き <b style="color:var(--gold)">×${INV.whisper}</b> ／ 返事は返ってきません。`
+          : `返信するには「囁き」が必要です。`}</div>`}
+
+    ${rc ? `<div class="thread-head">返信 ${rc}件</div>${subtree(p.id, 0)}` : ''}`;
 }
 
-function renderSearch(qs=''){
+function renderSearch(qs = ''){
   const list = Object.entries(PEOPLE).filter(([h,p]) =>
-    !qs || h.includes(qs) || (p.name||'').includes(qs) || (p.job||'').includes(qs));
+    !qs || h.includes(qs) || (p.name || '').includes(qs) || (p.job || '').includes(qs));
   $('v-search').innerHTML = `
     <div class="srch"><input placeholder="名前・@ハンドル・職業で検索" value="${esc(qs)}"
       oninput="renderSearch(this.value);const i=document.querySelector('.srch input');i.focus();i.setSelectionRange(i.value.length,i.value.length)"></div>
     ${list.length ? list.map(([h,p]) => `
       <div class="res" onclick="observe('${h}')">
-        <div class="av" style="background:${p.c}">${esc(p.name[0])}</div>
+        ${avHTML(p)}
         <div class="bd">
           <div class="row"><span class="nm">${esc(p.name)}</span><span class="hn">@${esc(h)}</span></div>
-          <div class="meta">${p.age||''}歳 ／ ${esc(p.job||'')}</div>
+          <div class="meta">${p.age || ''}歳 ／ ${esc(p.job || '')}</div>
         </div>
         ${observed[h] ? '' : '<div class="locked">👁 観測</div>'}
       </div>
       <div class="obs">
         <div class="obs-k">いま抱えていること</div>
-        <div class="obs-v ${observed[h]?'':'blur'}">${esc(observed[h] || p.status || '（まだ何も抱えていない）')}</div>
+        <div class="obs-v ${observed[h] ? '' : 'blur'}">${esc(observed[h] || p.status || '（まだ何も抱えていない）')}</div>
       </div>`).join('') : '<div class="empty">該当する住人はいません</div>'}`;
 }
 
@@ -350,10 +394,10 @@ function renderItems(){
         <div class="qty">×${INV[s.key]}</div>
       </div>`).join('') : '<div class="empty">アイテムがありません。<br>ショップで手に入れてください。</div>'}
     <div class="sec">使い方</div>
-    <div class="item"><div class="icn">💭</div><div class="itxt"><div class="t">囁き</div>
-      <div class="d">ホーム、または誰かの投稿を開いて書き込みます</div></div></div>
-    <div class="item"><div class="icn">👁</div><div class="itxt"><div class="t">観測</div>
-      <div class="d">住人タブで、覗きたい相手をタップします</div></div></div>`;
+    <div class="item"><div class="icn">💭</div><div class="itxt">
+      <div class="t">囁き</div><div class="d">ホーム、または誰かの投稿を開いて書き込みます</div></div></div>
+    <div class="item"><div class="icn">👁</div><div class="itxt">
+      <div class="t">観測</div><div class="d">住人タブで、覗きたい相手をタップします</div></div></div>`;
 }
 
 function renderShop(){
@@ -366,34 +410,38 @@ function renderShop(){
     ${SHOP.map(s => `
       <div class="item">
         <div class="icn">${s.icon}</div>
-        <div class="itxt"><div class="t">${s.name} <span style="color:var(--gold);font-size:12px;margin-left:4px">${s.cost.toLocaleString()}pt</span></div>
-          <div class="d">${s.d}</div></div>
+        <div class="itxt">
+          <div class="t">${s.name} <span style="color:var(--gold);font-size:12px;margin-left:4px">${s.cost.toLocaleString()}pt</span></div>
+          <div class="d">${s.d}</div>
+        </div>
         <button class="buy" ${PTS < s.cost ? 'disabled' : ''} onclick="buy('${s.key}')">買う</button>
       </div>`).join('')}
     <div style="height:26px"></div>`;
 }
 
-function render(){ renderHome(); }
-
 /* ── アクション（すべて Worker が検証する） ── */
 async function buy(key){
-  const r = await bridge('/mv/spend', {item:key});
+  const r = await bridge('/mv/spend', { item: key });
   if(!r.ok) return toast(r.error);
-  await sync(); renderShop(); renderItems();
-  toast(`${SHOP.find(s=>s.key===key).name} を手に入れた`);
+  await sync();
+  renderShop(); renderItems();
+  toast(`${SHOP.find(s => s.key === key).name} を手に入れた`);
 }
 
 async function whisper(parentId){
   const ta = parentId ? $('rta') : $('ta');
-  const text = ta.value.trim(); if(!text) return;
+  const text = ta.value.trim();
+  if(!text) return;
   ta.disabled = true;
-  const r = await bridge('/mv/whisper', {text, reply_to: parentId || null, kind:'whisper'});
+  const r = await bridge('/mv/whisper', { text, reply_to: parentId || null, kind: 'whisper' });
   ta.disabled = false;
   if(!r.ok) return toast(r.error);
   ta.value = '';
   await sync();
-  const [fresh] = await q('mv_tweets', `id=eq.${r.id}`);
-  if(fresh) FEED.push(fresh);
+  try{
+    const [fresh] = await q('mv_tweets', `id=eq.${r.id}`);
+    if(fresh) FEED.push(fresh);
+  }catch{}
   toast('声は届いた。誰も振り向かない');
   renderHome(); renderItems();
   if(parentId) renderThread();
@@ -401,7 +449,7 @@ async function whisper(parentId){
 
 async function observe(h){
   if(observed[h]) return;
-  const r = await bridge('/mv/observe', {target:h});
+  const r = await bridge('/mv/observe', { target: h });
   if(!r.ok) return toast(r.error);
   observed[h] = r.status;
   await sync();
@@ -417,7 +465,7 @@ async function genesis(){
   const persona = $('g-persona').value.trim();
   if(!name || !ch || !job || !persona) return toast('すべて埋めてください');
 
-  const r = await bridge('/mv/genesis', {name, char_handle: ch, job, persona});
+  const r = await bridge('/mv/genesis', { name, char_handle: ch, job, persona });
   if(!r.ok) return toast(r.error);
   $('ov').classList.remove('on');
   toast(`${name} を送り込んだ`);
@@ -429,27 +477,34 @@ async function genesis(){
 function openThread(id){
   threadId = id;
   ['home','search','items','shop'].forEach(x => $('v-'+x).classList.remove('on'));
-  $('v-thread').classList.add('on'); $('bk').style.display = '';
-  renderThread(); $('v-thread').scrollTop = 0;
+  $('v-thread').classList.add('on');
+  $('bk').style.display = '';
+  renderThread();
+  $('v-thread').scrollTop = 0;
 }
 function back(){
   threadId = null;
-  $('v-thread').classList.remove('on'); $('bk').style.display = 'none';
+  $('v-thread').classList.remove('on');
+  $('bk').style.display = 'none';
   tab(prevTab);
 }
 function tab(v){
   prevTab = v; threadId = null;
   ['home','search','items','shop'].forEach(x => $('v-'+x).classList.toggle('on', x === v));
-  $('v-thread').classList.remove('on'); $('bk').style.display = 'none';
+  $('v-thread').classList.remove('on');
+  $('bk').style.display = 'none';
   document.querySelectorAll('.nb').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   if(v === 'home')   renderHome();
   if(v === 'search') renderSearch();
   if(v === 'items')  renderItems();
-  if(v === 'shop')   { sync().then(renderShop); }
+  if(v === 'shop')   sync().then(renderShop);
 }
 function toast(m){
-  const t = $('toast'); t.textContent = m; t.classList.add('on');
-  clearTimeout(t._x); t._x = setTimeout(() => t.classList.remove('on'), 1900);
+  const t = $('toast');
+  t.textContent = m;
+  t.classList.add('on');
+  clearTimeout(t._x);
+  t._x = setTimeout(() => t.classList.remove('on'), 1900);
 }
 
 /* ── 世界は勝手に進む。30秒ごとに覗きに行く ── */

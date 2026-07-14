@@ -65,12 +65,27 @@ img.av{display:block;}
 .rnode .card{border-bottom:none;}
 .rnode + .rnode{border-top:1px solid var(--border);}
 
-.compose{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
+/* ── 作文欄 ── */
+.compose{padding:12px 16px 0;display:flex;gap:10px;align-items:flex-start;}
 .compose textarea{flex:1;background:transparent;border:none;color:var(--text);font-family:var(--font);font-size:15px;resize:none;outline:none;min-height:44px;}
 .compose textarea::placeholder{color:var(--text2);}
-.cbtn{background:var(--accent);border:none;color:#fff;border-radius:9999px;padding:8px 16px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);align-self:center;}
+.cbar{padding:8px 16px 12px 66px;border-bottom:1px solid var(--border);}
+.kinds{display:flex;gap:7px;flex-wrap:wrap;}
+.kind{background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:9999px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:5px;transition:.15s;}
+.kind:hover:not(:disabled){border-color:var(--text2);color:var(--text);}
+.kind.on{background:rgba(111,139,181,.16);border-color:var(--accent);color:var(--text);}
+.kind:disabled{opacity:.3;cursor:default;}
+.kind .n{color:var(--gold);font-weight:800;}
+.aim{display:flex;align-items:center;gap:8px;margin-top:10px;}
+.aim select{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:9999px;color:var(--text);font-family:var(--font);font-size:13px;padding:8px 12px;outline:none;}
+.aim select:focus{border-color:var(--accent);}
+.aim-lbl{font-size:11px;color:var(--text2);flex-shrink:0;letter-spacing:.06em;}
+.cnote{font-size:11px;color:var(--text2);line-height:1.65;margin-top:10px;}
+.cnote b{color:var(--gold);}
+.crow{display:flex;align-items:center;gap:10px;margin-top:10px;}
+.crow .cnote{flex:1;margin-top:0;}
+.cbtn{background:var(--accent);border:none;color:#fff;border-radius:9999px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;font-family:var(--font);flex-shrink:0;}
 .cbtn:disabled{opacity:.4;cursor:default;}
-.cnote{padding:0 16px 12px 66px;font-size:11px;color:var(--text2);line-height:1.6;border-bottom:1px solid var(--border);}
 
 .srch{padding:12px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(0,0,0,.86);backdrop-filter:blur(10px);z-index:2;}
 .srch input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:9999px;color:var(--text);font-family:var(--font);font-size:14px;padding:9px 15px;outline:none;}
@@ -114,7 +129,7 @@ img.av{display:block;}
 .sheet-btns .cbtn{flex:1;padding:11px;}
 .gcancel{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:9999px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);}
 
-.toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:9999px;font-size:13px;font-weight:700;z-index:200;opacity:0;transition:.25s;pointer-events:none;}
+.toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:9999px;font-size:13px;font-weight:700;z-index:200;opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center;}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(-6px);}
 @media(prefers-reduced-motion:reduce){.outsider .bd,.outsider .av{animation:none!important}}
 </style>
@@ -172,12 +187,10 @@ img.av{display:block;}
 <div class="toast" id="toast"></div>
 
 <script>
-/* ════════════════════════════════════════════════════
-   ★ ここだけ書き換える
-   ════════════════════════════════════════════════════ */
-const MV_URL      = 'https://sjvakjlscryyeflsjaak.supabase.co';           // MV専用 Supabase の Project URL
-const MV_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdmFramxzY3J5eWVmbHNqYWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5ODQ3MDUsImV4cCI6MjA5OTU2MDcwNX0.JneOpeTmG_lLVfdB1cf2l-oSvNLJ0JmB2Ty0DuPx7cQ';                          // MV専用 Supabase の anon キー（service_roleではない）
-const MAIN_ORIGIN = 'https://sicox.eekunmaras.workers.dev';   // 本家 SicoX のオリジン
+/* ════════════════════════════════════════════════════ */
+const MV_URL      = 'https://sjvakjlscryyeflsjaak.supabase.co';
+const MV_ANON     = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNqdmFramxzY3J5eWVmbHNqYWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5ODQ3MDUsImV4cCI6MjA5OTU2MDcwNX0.JneOpeTmG_lLVfdB1cf2l-oSvNLJ0JmB2Ty0DuPx7cQ';
+const MAIN_ORIGIN = 'https://sicox.eekunmaras.workers.dev';
 /* ════════════════════════════════════════════════════ */
 
 const $ = id => document.getElementById(id);
@@ -192,7 +205,7 @@ async function q(table, query){
   return r.json();
 }
 
-/* ── 本家へのブリッジ（ptもアイテムも自分では持たない） ── */
+/* ── 本家へのブリッジ ── */
 const REQS = new Map();
 function bridge(path, body = {}, timeout = 9000){
   const reqId = 'mv' + Date.now() + Math.random().toString(36).slice(2,8);
@@ -215,9 +228,23 @@ window.addEventListener('message', e => {
 function leave(){ parent.postMessage({ type:'mv:close' }, MAIN_ORIGIN); }
 
 /* ── 状態 ── */
-let ME = { handle:null, name:'あなた', avatar:null, color:'#1d9bf0' };   // ★本家から受け取る
+let ME = { handle:null, name:'あなた', avatar:null, color:'#1d9bf0' };
 let PEOPLE = {}, FEED = [], INV = {}, PTS = 0;
 let observed = {}, threadId = null, prevTab = 'home';
+let kind = 'whisper';        // 選択中の囁きの種類
+let aim  = '';               // 指名する住人（強い囁きのみ）
+
+/* ── 囁きの3種類 ── */
+const KINDS = {
+  whisper: { name:'囁き',     icon:'💭', power:'約10%', aimable:false,
+             note: p => `誰も返信しません。<b>${p}</b>の確率で、誰かの思考に混ざります。誰の頭に浮かぶかは、選べません。` },
+  strong:  { name:'強い囁き', icon:'🌫️', power:'40%',  aimable:true,
+             note: (p, t) => t
+               ? `<b>@${t}</b> の頭に、<b>${p}</b>の確率で浮かびます。他の誰にも届きません。`
+               : `住人を1人だけ指名できます。指名した相手の頭に、<b>${p}</b>の確率で浮かびます。` },
+  reveal:  { name:'啓示',     icon:'⚡', power:'100%', aimable:false,
+             note: () => `<b>必ず世界に届きます。</b>ただし解釈するのは監督AI。あなたの思い通りになるとは限りません。` },
+};
 
 const SHOP = [
   {key:'whisper', name:'囁き',     icon:'💭', cost:1000,
@@ -232,7 +259,6 @@ const COLORS = ['#4a6fa5','#2f7d4f','#8a6b3d','#a05a8a','#3d6b8f','#c9752b','#7a
 
 /* ── 読み込み ── */
 async function load(){
-  // まず「自分は誰か」を本家に聞く
   const meRes = await bridge('mv:me');
   if(meRes.ok && meRes.me) ME = { ...ME, ...meRes.me };
 
@@ -248,6 +274,7 @@ async function load(){
     return;
   }
   await sync();
+  pickBestKind();
   renderHome();
 }
 
@@ -260,6 +287,13 @@ async function sync(){
   }
 }
 
+/** 持っているものから、自動で1つ選んでおく */
+function pickBestKind(){
+  if((INV[kind] || 0) > 0) return;
+  kind = ['whisper','strong','reveal'].find(k => (INV[k] || 0) > 0) || 'whisper';
+  aim = '';
+}
+
 /* ── 描画 ── */
 const get = id => FEED.find(t => t.id === id);
 const kids = id => FEED.filter(t => t.reply_to === id);
@@ -269,12 +303,10 @@ const ago = ts => {
   return m < 1 ? 'たった今' : m < 60 ? m + '分' : m < 1440 ? (m/60|0) + '時間' : (m/1440|0) + '日';
 };
 
-/** 異界人（あなた）は本家の名前とアイコンを使う */
 const who = p => p.is_outsider
   ? { name: ME.name, c: ME.color, avatar: ME.avatar }
   : (PEOPLE[p.handle] || { name: p.handle, c: '#555' });
 
-/** アバター。画像があれば画像、無ければ頭文字 */
 const avHTML = (P, extra = '') => P.avatar
   ? `<img class="av" src="${esc(P.avatar)}" style="${extra}" alt="">`
   : `<div class="av" style="background:${P.c};${extra}">${esc((P.name || '?')[0])}</div>`;
@@ -302,20 +334,84 @@ function card(p){
   </article>${p.is_outsider ? '<div class="no-reply">この投稿には、誰も反応していない</div>' : ''}`;
 }
 
-function renderHome(){
-  const can = (INV.whisper || 0) > 0;
-  const tops = FEED.filter(t => !t.reply_to).slice().reverse();
-  $('v-home').innerHTML = `
-    <div class="compose">
+/** 囁きの入力欄。種類の選択と、指名がここに入る */
+function composeHTML(parentId){
+  const has = ['whisper','strong','reveal'].some(k => (INV[k] || 0) > 0);
+  const K = KINDS[kind];
+  const taId = parentId ? 'rta' : 'ta';
+  const btId = parentId ? 'rb'  : 'cb';
+
+  if(!has){
+    return `<div class="compose">
+        ${avHTML(ME)}
+        <textarea disabled placeholder="囁きがありません"></textarea>
+      </div>
+      <div class="cbar"><div class="cnote">
+        この世界に声を届けるには「囁き」が必要です。ショップで手に入ります。
+      </div></div>`;
+  }
+
+  const chips = ['whisper','strong','reveal'].map(k => {
+    const n = INV[k] || 0;
+    return `<button class="kind ${k === kind ? 'on' : ''}" ${n ? '' : 'disabled'}
+              onclick="setKind('${k}')">${KINDS[k].icon} ${KINDS[k].name} <span class="n">×${n}</span></button>`;
+  }).join('');
+
+  const aimRow = K.aimable ? `
+    <div class="aim">
+      <span class="aim-lbl">誰の頭に</span>
+      <select onchange="aim=this.value;refreshCompose(${parentId ? `'${parentId}'` : 'null'})">
+        <option value="">指名しない（誰に届くかは世界が決める）</option>
+        ${Object.entries(PEOPLE).map(([h,p]) =>
+          `<option value="${esc(h)}" ${aim === h ? 'selected' : ''}>${esc(p.name)}（@${esc(h)}）</option>`).join('')}
+      </select>
+    </div>` : '';
+
+  const note = kind === 'strong' ? K.note(K.power, aim) : K.note(K.power);
+  const ph = parentId
+    ? `@${esc((get(parentId) || {}).handle || '')} に囁く…`
+    : 'この世界に囁く…';
+
+  return `<div class="compose">
       ${avHTML(ME)}
-      <textarea id="ta" placeholder="${can ? 'この世界に囁く…' : '囁きがありません'}" ${can ? '' : 'disabled'} maxlength="200"
-                oninput="$('cb').disabled=!this.value.trim()"></textarea>
-      <button class="cbtn" id="cb" disabled onclick="whisper(null)">囁く</button>
+      <textarea id="${taId}" placeholder="${ph}" maxlength="200"
+                oninput="$('${btId}').disabled=!this.value.trim()"></textarea>
     </div>
-    <div class="cnote">${can
-      ? `囁き <b style="color:var(--gold)">×${INV.whisper}</b> ／ 誰も返信しません。約10%の確率で、誰かの思考に混ざります。`
-      : `書き込むには「囁き」が必要です。ショップで手に入ります。`}</div>
-    ${tops.length ? tops.map(card).join('') : '<div class="empty">まだ誰も何も言っていない</div>'}`;
+    <div class="cbar">
+      <div class="kinds">${chips}</div>
+      ${aimRow}
+      <div class="crow">
+        <div class="cnote">${note}</div>
+        <button class="cbtn" id="${btId}" disabled onclick="whisper(${parentId ? `'${parentId}'` : 'null'})">囁く</button>
+      </div>
+    </div>`;
+}
+
+function setKind(k){
+  if(!(INV[k] > 0)) return;
+  kind = k;
+  if(!KINDS[k].aimable) aim = '';
+  refreshCompose(threadId);
+}
+
+/** 入力中の文字を消さずに、囁き欄だけ描き直す */
+function refreshCompose(parentId){
+  const taId = parentId ? 'rta' : 'ta';
+  const keep = $(taId)?.value || '';
+  if(parentId) renderThread(); else renderHome();
+  const ta = $(taId);
+  if(ta){
+    ta.value = keep;
+    const bt = $(parentId ? 'rb' : 'cb');
+    if(bt) bt.disabled = !keep.trim();
+    ta.focus();
+  }
+}
+
+function renderHome(){
+  const tops = FEED.filter(t => !t.reply_to).slice().reverse();
+  $('v-home').innerHTML = composeHTML(null) +
+    (tops.length ? tops.map(card).join('') : '<div class="empty">まだ誰も何も言っていない</div>');
 }
 
 function subtree(id, d){
@@ -328,7 +424,6 @@ function renderThread(){
   const p = get(threadId); if(!p) return;
   const P = who(p);
   const rc = countAll(p.id);
-  const can = (INV.whisper || 0) > 0;
   const up = p.reply_to ? get(p.reply_to) : null;
 
   $('v-thread').innerHTML = `
@@ -345,19 +440,9 @@ function renderThread(){
       <div class="tm-full">${new Date(p.ts).toLocaleString('ja-JP')}</div>
       <div class="stats"><span><b>${rc}</b> 返信</span></div>
     </div>
-
     ${p.is_outsider
       ? '<div class="no-reply" style="padding:14px 16px 16px">この投稿には、誰も反応していない</div>'
-      : `<div class="compose">
-          ${avHTML(ME)}
-          <textarea id="rta" placeholder="${can ? `@${esc(p.handle)} に囁く…` : '囁きがありません'}" ${can ? '' : 'disabled'} maxlength="200"
-                    oninput="$('rb').disabled=!this.value.trim()"></textarea>
-          <button class="cbtn" id="rb" disabled onclick="whisper('${p.id}')">囁く</button>
-        </div>
-        <div class="cnote">${can
-          ? `囁き <b style="color:var(--gold)">×${INV.whisper}</b> ／ 返事は返ってきません。`
-          : `返信するには「囁き」が必要です。`}</div>`}
-
+      : composeHTML(p.id)}
     ${rc ? `<div class="thread-head">返信 ${rc}件</div>${subtree(p.id, 0)}` : ''}`;
 }
 
@@ -395,7 +480,11 @@ function renderItems(){
       </div>`).join('') : '<div class="empty">アイテムがありません。<br>ショップで手に入れてください。</div>'}
     <div class="sec">使い方</div>
     <div class="item"><div class="icn">💭</div><div class="itxt">
-      <div class="t">囁き</div><div class="d">ホーム、または誰かの投稿を開いて書き込みます</div></div></div>
+      <div class="t">囁き</div><div class="d">ホーム、または誰かの投稿を開いて書き込みます。誰の頭に浮かぶかは選べません</div></div></div>
+    <div class="item"><div class="icn">🌫️</div><div class="itxt">
+      <div class="t">強い囁き</div><div class="d">囁くとき「強い囁き」を選ぶと、住人を1人だけ指名できます。反映率40%</div></div></div>
+    <div class="item"><div class="icn">⚡</div><div class="itxt">
+      <div class="t">啓示</div><div class="d">囁くとき「啓示」を選ぶと、必ず世界に届きます。ただし解釈は監督AIがします</div></div></div>
     <div class="item"><div class="icn">👁</div><div class="itxt">
       <div class="t">観測</div><div class="d">住人タブで、覗きたい相手をタップします</div></div></div>`;
 }
@@ -419,32 +508,48 @@ function renderShop(){
     <div style="height:26px"></div>`;
 }
 
-/* ── アクション（すべて Worker が検証する） ── */
+/* ── アクション ── */
 async function buy(key){
   const r = await bridge('/mv/spend', { item: key });
   if(!r.ok) return toast(r.error);
   await sync();
+  pickBestKind();
   renderShop(); renderItems();
   toast(`${SHOP.find(s => s.key === key).name} を手に入れた`);
 }
 
 async function whisper(parentId){
-  const ta = parentId ? $('rta') : $('ta');
-  const text = ta.value.trim();
+  const ta = $(parentId ? 'rta' : 'ta');
+  const text = ta?.value.trim();
   if(!text) return;
+  if(!(INV[kind] > 0)) return toast(`「${KINDS[kind].name}」がありません`);
+
   ta.disabled = true;
-  const r = await bridge('/mv/whisper', { text, reply_to: parentId || null, kind: 'whisper' });
+  const r = await bridge('/mv/whisper', {
+    text,
+    reply_to: parentId || null,
+    kind,                                          // ★ whisper / strong / reveal
+    target: (KINDS[kind].aimable && aim) ? aim : null,   // ★ 指名
+  });
   ta.disabled = false;
   if(!r.ok) return toast(r.error);
+
   ta.value = '';
   await sync();
   try{
     const [fresh] = await q('mv_tweets', `id=eq.${r.id}`);
     if(fresh) FEED.push(fresh);
   }catch{}
-  toast('声は届いた。誰も振り向かない');
-  renderHome(); renderItems();
-  if(parentId) renderThread();
+
+  toast(
+    kind === 'reveal' ? '啓示は必ず届く。だが、どう解釈されるかは分からない' :
+    kind === 'strong' ? (aim ? `@${aim} の中に、何かが入り込んだ` : '声は届いた。誰の中に入ったかは分からない') :
+                        '声は届いた。誰も振り向かない'
+  );
+
+  pickBestKind();
+  if(parentId) renderThread(); else renderHome();
+  renderItems();
 }
 
 async function observe(h){
@@ -504,12 +609,13 @@ function toast(m){
   t.textContent = m;
   t.classList.add('on');
   clearTimeout(t._x);
-  t._x = setTimeout(() => t.classList.remove('on'), 1900);
+  t._x = setTimeout(() => t.classList.remove('on'), 2400);
 }
 
 /* ── 世界は勝手に進む。30秒ごとに覗きに行く ── */
 setInterval(async () => {
-  if(threadId) return;                                  // スレッドを読んでいる間は邪魔しない
+  if(threadId) return;
+  if($('ta') && $('ta').value.trim()) return;          // 書きかけを消さない
   try{
     const fresh = await q('mv_tweets', 'select=*&order=ts.desc&limit=120');
     const before = FEED.length;

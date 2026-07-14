@@ -7351,7 +7351,7 @@ const APPS={
 
 // ══════════════════════════════════════
 
-const MV_WORKER = 'https://mv-sicox.mvsicox.workers.dev';   // ★ wrangler deploy で出たURLに書き換える
+const MV_WORKER = 'https://mv-sicox.mvsicox.workers.dev';
 
 const MV_ORIGIN = location.origin;
 
@@ -7400,6 +7400,20 @@ window.addEventListener('message', async (e) => {
   const m = e.data || {};
 
   if(m.type === 'mv:close'){ await mvStatic(); closeGame(); return; }
+
+  // 向こうが「自分は誰？」と聞いてきたら答える（異界人の顔と名前）
+  if(m.type === 'mv:me'){
+    e.source.postMessage({
+      type:'mv:response', reqId:m.reqId, ok:true,
+      me:{
+        handle: currentUser?.handle || null,
+        name:   currentUser?.name   || 'あなた',
+        avatar: currentUser?.avatarUrl || null,
+        color:  currentUser?.color  || '#1d9bf0'
+      }
+    }, MV_ORIGIN);
+    return;
+  }
 
   if(m.type !== 'mv:call') return;
 

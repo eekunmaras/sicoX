@@ -4145,7 +4145,7 @@ function onThreadInput(){
 
   const cc=document.getElementById('thread-reply-char'); if(cc){cc.textContent=rem;cc.className='char-count'+(rem<20?(rem<0?' danger':' warn'):'');}
 
-  const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=!v.trim()&&replyImages.length===0;
+  const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=(!v.trim()&&replyImages.length===0)||replyImages.some(i=>i.uploading);
 
 }
 
@@ -4154,7 +4154,8 @@ async function submitReply(parentId){
   const ta=document.getElementById('thread-reply-ta'); if(!ta)return;
 
   const text=ta.value.trim(); if(!text&&replyImages.length===0)return;
-  const replyImgUrls=replyImages.map(img=>img.uploadedUrl||img.dataUrl);
+  if(replyImages.some(i=>i.uploading)){showToast('画像のアップロード完了までお待ちください');return;}
+  const replyImgUrls=replyImages.map(img=>img.uploadedUrl).filter(Boolean);
 
   const t={id:uid(),user:{...currentUser},text,imageUrl:replyImgUrls[0]||null,imageUrls:replyImgUrls,ts:Date.now(),likes:0,replyTo:parentId,quoteOf:null,isRepost:false,repostBy:null,poll:null,
 
@@ -4730,12 +4731,18 @@ function onCompose(){
 
   const cc=document.getElementById('char-count');cc.textContent=rem;cc.className='char-count'+(rem<20?(rem<0?' danger':' warn'):'');
 
-  document.getElementById('post-btn').disabled=!v.trim()&&selectedImages.length===0;
+  document.getElementById('post-btn').disabled=(!v.trim()&&selectedImages.length===0)||selectedImages.some(i=>i.uploading);
 
 }
 
 
 
+function updatePostBtnState(){
+  const ci=document.getElementById('compose-input');
+  const v=ci?ci.value:'';
+  const btn=document.getElementById('post-btn');
+  if(btn)btn.disabled=(!v.trim()&&selectedImages.length===0)||selectedImages.some(i=>i.uploading);
+}
 async function onImgSelect(e){
 
   const files=[...e.target.files];
@@ -4756,19 +4763,23 @@ async function onImgSelect(e){
 
     const dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.readAsDataURL(file);});
 
-    const entry={dataUrl,uploadedUrl:null};
+    const entry={dataUrl,uploadedUrl:null,uploading:true};
 
     selectedImages.push(entry);
 
     renderImgPreview();
 
-    document.getElementById('post-btn').disabled=false;
+    updatePostBtnState();
 
     try{entry.uploadedUrl=await uploadToImgur(file);}catch(err){}
 
+    entry.uploading=false;
+
+    updatePostBtnState();
+
   }
 
-  st.textContent=selectedImages.length+'枚選択中';
+  st.textContent=selectedImages.some(i=>i.uploading)?'📤 アップロード中…':'✅ アップロード完了';
 
   e.target.value='';
 
@@ -4820,6 +4831,12 @@ function removeImg(idx){
 
 
 
+function updateReplyBtnState(){
+  const ta=document.getElementById('thread-reply-ta');
+  const v=ta?ta.value:'';
+  const btn=document.getElementById('thread-reply-btn');
+  if(btn)btn.disabled=(!v.trim()&&replyImages.length===0)||replyImages.some(i=>i.uploading);
+}
 async function onReplyImgSelect(e){
   const files=[...e.target.files];
   if(!files.length)return;
@@ -4831,14 +4848,16 @@ async function onReplyImgSelect(e){
   if(st){st.style.display='block';st.textContent='📤 アップロード中…';}
   for(const file of toAdd){
     const dataUrl=await new Promise(res=>{const r=new FileReader();r.onload=ev=>res(ev.target.result);r.readAsDataURL(file);});
-    const entry={dataUrl,uploadedUrl:null};
+    const entry={dataUrl,uploadedUrl:null,uploading:true};
     replyImages.push(entry);
     renderReplyImgPreview();
-    const btn=document.getElementById('thread-reply-btn'); if(btn)btn.disabled=false;
+    updateReplyBtnState();
     try{entry.uploadedUrl=await uploadToImgur(file);}catch(err){}
+    entry.uploading=false;
+    updateReplyBtnState();
   }
   const st2=document.getElementById('reply-up-status');
-  if(st2)st2.textContent=replyImages.length+'枚選択中';
+  if(st2)st2.textContent=replyImages.some(i=>i.uploading)?'📤 アップロード中…':'✅ アップロード完了';
   e.target.value='';
 }
 
@@ -4910,7 +4929,8 @@ function postTweet(){
 
   const poll=buildPollData();
 
-  const imageUrls=selectedImages.map(img=>img.uploadedUrl||img.dataUrl);
+  if(selectedImages.some(i=>i.uploading)){showToast('画像のアップロード完了までお待ちください');return;}
+  const imageUrls=selectedImages.map(img=>img.uploadedUrl).filter(Boolean);
 
   const t={id:'t'+Date.now()+Math.random().toString(36).slice(2,6),
 

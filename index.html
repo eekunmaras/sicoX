@@ -7514,7 +7514,14 @@ window.addEventListener('message', async (e) => {
 
       // ★ handle は本家が入れる。iframe に名乗らせない（なりすまし防止）
 
-      body: JSON.stringify({ ...(m.body || {}), handle: currentUser?.handle })
+      // ★ handle と同様、本人の見た目も本家が付与する（iframe に名乗らせない）
+      body: JSON.stringify({
+        ...(m.body || {}),
+        handle:    currentUser?.handle,
+        me_name:   currentUser?.name || null,
+        me_avatar: currentUser?.avatarUrl || null,
+        me_color:  currentUser?.color || null
+      })
 
     });
 

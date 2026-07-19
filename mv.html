@@ -129,6 +129,26 @@ img.av{display:block;}
 .sheet-btns .cbtn{flex:1;padding:11px;}
 .gcancel{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:9999px;padding:11px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);}
 
+/* ── 世界タブ ── */
+.wtabs{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(0,0,0,.86);backdrop-filter:blur(10px);z-index:2;}
+.wtab{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text2);border-radius:9999px;padding:8px 0;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.wtab.on{background:rgba(111,139,181,.16);border-color:var(--accent);color:var(--text);}
+.wcard{padding:20px 16px;border-bottom:1px solid var(--border);}
+.wch{font-size:11px;color:var(--text2);letter-spacing:.14em;}
+.wtitle{font-size:26px;font-weight:900;margin-top:4px;letter-spacing:.02em;}
+.warc{font-size:13.5px;line-height:1.75;color:var(--text);margin-top:12px;opacity:.9;}
+.wsch{margin-top:16px;padding:13px 15px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;}
+.wsch-k{font-size:10.5px;color:var(--text2);letter-spacing:.1em;}
+.wsch-t{font-size:15px;font-weight:800;margin-top:4px;}
+.wsch-d{font-size:12.5px;color:var(--text2);margin-top:5px;}
+.wsch-d b{color:var(--gold);font-size:15px;}
+.wlatest{padding:0 16px 16px;font-size:13.5px;line-height:1.7;border-bottom:1px solid var(--border);}
+.wev{padding:13px 16px;border-bottom:1px solid var(--border);}
+.wev-meta{font-size:10.5px;color:var(--text2);letter-spacing:.06em;}
+.wev-txt{font-size:13.5px;line-height:1.7;margin-top:5px;}
+.wev-who{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.wev-tag{font-size:11px;color:var(--accent);background:rgba(111,139,181,.12);border:1px solid rgba(111,139,181,.3);border-radius:9999px;padding:3px 9px;}
+
 .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:9999px;font-size:13px;font-weight:700;z-index:200;opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center;}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(-6px);}
 @media(prefers-reduced-motion:reduce){.outsider .bd,.outsider .av{animation:none!important}}
@@ -230,6 +250,7 @@ function leave(){ parent.postMessage({ type:'mv:close' }, MAIN_ORIGIN); }
 /* ── 状態 ── */
 let ME = { handle:null, name:'あなた', avatar:null, color:'#1d9bf0' };
 let PEOPLE = {}, FEED = [], INV = {}, PTS = 0;
+let WORLD = null, CHRONICLE = [];   // 世界の状態と年表
 let observed = {}, threadId = null, prevTab = 'home';
 let kind = 'whisper';        // 選択中の囁きの種類
 let aim  = '';               // 指名する住人（強い囁きのみ）
@@ -263,12 +284,16 @@ async function load(){
   if(meRes.ok && meRes.me) ME = { ...ME, ...meRes.me };
 
   try{
-    const [chars, tweets] = await Promise.all([
+    const [chars, tweets, world, events] = await Promise.all([
       q('mv_characters', 'select=handle,name,age,job,color,status&order=created_at.asc'),
       q('mv_tweets', 'select=*&order=ts.desc&limit=120'),
+      q('mv_world', 'id=eq.1'),
+      q('mv_events', 'select=*&order=ts.desc&limit=30'),
     ]);
     PEOPLE = Object.fromEntries(chars.map((c,i) => [c.handle, { ...c, c: c.color || COLORS[i % COLORS.length] }]));
     FEED = tweets.slice().reverse();
+    WORLD = world[0] || null;
+    CHRONICLE = events || [];
   }catch(e){
     $('v-home').innerHTML = `<div class="empty">この世界に接続できませんでした。<br><span style="font-size:11px;opacity:.6">${esc(e.message)}</span></div>`;
     return;
@@ -452,10 +477,72 @@ function renderThread(){
     ${rc ? `<div class="thread-head">返信 ${rc}件</div>${subtree(p.id, 0)}` : ''}`;
 }
 
+let searchMode = 'people';   // 'people' | 'world'
+
+function setSearchMode(m){ searchMode = m; renderSearch(); }
+
+/** 世界の現在地と年表 */
+function worldHTML(){
+  if(!WORLD) return '<div class="empty">世界の情報を読み込めませんでした</div>';
+
+  // 予定された出来事までの残り日数
+  let sch = '';
+  if(WORLD.next_event_at){
+    const days = Math.ceil((Date.parse(WORLD.next_event_at) - Date.now()) / 86400000);
+    const phase = days > 30 ? 'まだ先の話'
+                : days > 14 ? 'そろそろ現実味を帯びてきた'
+                : days > 7  ? 'もう逃げられない'
+                : days > 1  ? '準備が始まっている'
+                : days === 1 ? '明日'
+                : days === 0 ? '今日、それが起きる'
+                : '終わった';
+    sch = `
+      <div class="wsch">
+        <div class="wsch-k">次に起きること</div>
+        <div class="wsch-t">${esc(WORLD.next_event_title || '（未定）')}</div>
+        <div class="wsch-d">${days >= 0 ? `あと <b>${days}</b> 日 ・ ${phase}` : phase}</div>
+      </div>`;
+  }
+
+  return `
+    <div class="wcard">
+      <div class="wch">第${WORLD.chapter || 1}章</div>
+      <div class="wtitle">${esc(WORLD.chapter_title || '')}</div>
+      <div class="warc">${esc(WORLD.arc_summary || '')}</div>
+      ${sch}
+    </div>
+
+    ${WORLD.latest_event ? `
+      <div class="sec">今日の出来事</div>
+      <div class="wlatest">${esc(WORLD.latest_event)}</div>` : ''}
+
+    <div class="sec">年表</div>
+    ${CHRONICLE.length ? CHRONICLE.map(e => `
+      <div class="wev">
+        <div class="wev-meta">第${e.chapter || 1}章 ・ ${new Date(e.ts).toLocaleDateString('ja-JP')}</div>
+        <div class="wev-txt">${esc(e.event)}</div>
+        ${(e.affected && e.affected.length) ? `<div class="wev-who">${e.affected.map(a =>
+          `<span class="wev-tag">${esc(PEOPLE[String(a).replace(/^@/,'')]?.name || a)}</span>`).join('')}</div>` : ''}
+      </div>`).join('')
+      : '<div class="empty">まだ何も起きていない</div>'}
+    <div style="height:20px"></div>`;
+}
+
 function renderSearch(qs = ''){
+  const tabs = `
+    <div class="wtabs">
+      <button class="wtab ${searchMode === 'people' ? 'on' : ''}" onclick="setSearchMode('people')">住人</button>
+      <button class="wtab ${searchMode === 'world'  ? 'on' : ''}" onclick="setSearchMode('world')">世界</button>
+    </div>`;
+
+  if(searchMode === 'world'){
+    $('v-search').innerHTML = tabs + worldHTML();
+    return;
+  }
+
   const list = Object.entries(PEOPLE).filter(([h,p]) =>
     !qs || h.includes(qs) || (p.name || '').includes(qs) || (p.job || '').includes(qs));
-  $('v-search').innerHTML = `
+  $('v-search').innerHTML = tabs + `
     <div class="srch"><input placeholder="名前・@ハンドル・職業で検索" value="${esc(qs)}"
       oninput="renderSearch(this.value);const i=document.querySelector('.srch input');i.focus();i.setSelectionRange(i.value.length,i.value.length)"></div>
     ${list.length ? list.map(([h,p]) => `
@@ -630,6 +717,18 @@ setInterval(async () => {
       const y = $('v-home').scrollTop;
       renderHome();
       $('v-home').scrollTop = y;
+    }
+    // 世界タブを開いている間は、年表も更新する
+    if($('v-search').classList.contains('on') && searchMode === 'world'){
+      const [w, ev] = await Promise.all([
+        q('mv_world', 'id=eq.1'),
+        q('mv_events', 'select=*&order=ts.desc&limit=30'),
+      ]);
+      WORLD = w[0] || WORLD;
+      CHRONICLE = ev || CHRONICLE;
+      const y = $('v-search').scrollTop;
+      renderSearch();
+      $('v-search').scrollTop = y;
     }
   }catch{}
 }, 30000);

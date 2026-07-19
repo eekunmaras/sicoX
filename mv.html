@@ -304,7 +304,13 @@ const ago = ts => {
 };
 
 const who = p => p.is_outsider
-  ? { name: ME.name, c: ME.color, avatar: ME.avatar }
+  // ★投稿に保存された「書いた本人」の見た目を使う。
+  //   古い投稿など保存が無い場合のみ、自分の情報で代用する
+  ? {
+      name:   p.outsider_name   || (p.handle === ME.handle ? ME.name   : p.handle),
+      c:      p.outsider_color  || (p.handle === ME.handle ? ME.color  : '#1d9bf0'),
+      avatar: p.outsider_avatar || (p.handle === ME.handle ? ME.avatar : null),
+    }
   : (PEOPLE[p.handle] || { name: p.handle, c: '#555' });
 
 const avHTML = (P, extra = '') => P.avatar

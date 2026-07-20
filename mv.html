@@ -149,6 +149,16 @@ img.av{display:block;}
 .wev-who{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
 .wev-tag{font-size:11px;color:var(--accent);background:rgba(111,139,181,.12);border:1px solid rgba(111,139,181,.3);border-radius:9999px;padding:3px 9px;}
 
+/* ── 章の順番待ち ── */
+.chq{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;}
+.chq-open{color:var(--text2);font-size:12.5px;line-height:1.6;}
+.chq-open b{color:var(--gold);}
+.chq-k{font-size:10.5px;color:var(--text2);letter-spacing:.1em;margin-bottom:8px;}
+.chq-row{font-size:12.5px;line-height:1.9;}
+.chq-row span{color:var(--text2);font-size:11px;}
+.chq-note{font-size:12px;color:var(--text2);margin-top:9px;padding-top:9px;border-top:1px solid var(--border);}
+.chq-note b{color:var(--gold);}
+
 .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:9999px;font-size:13px;font-weight:700;z-index:200;opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center;}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(-6px);}
 @media(prefers-reduced-motion:reduce){.outsider .bd,.outsider .av{animation:none!important}}
@@ -200,6 +210,28 @@ img.av{display:block;}
     <div class="sheet-btns">
       <button class="gcancel" onclick="$('ov').classList.remove('on')">やめる</button>
       <button class="cbtn" onclick="genesis()">この世界に送り込む</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ov-ch">
+  <div class="sheet">
+    <div class="sheet-t">📖 章を決める</div>
+    <div class="sheet-d">
+      次の章の筋書きを、あなたが決めます。<br>
+      前の章での関係の変化と出来事は、そのまま引き継がれます。<br>
+      章の締めとなる出来事は、開始から<b>1週間後</b>に起きます。
+    </div>
+    <div id="ch-queue"></div>
+    <label>章のタイトル</label>
+    <input id="ch-title" maxlength="40" placeholder="例：夏の終わりに">
+    <label>この章で何が起きようとしているか</label>
+    <textarea id="ch-summary" rows="4" maxlength="300" placeholder="例：同窓会で顔を合わせた数人が、それぞれの理由で連絡を取り合うようになる。誰も本当のことは言わない。"></textarea>
+    <label>締めとなる出来事（任意）</label>
+    <input id="ch-event" maxlength="40" placeholder="例：花火大会の夜">
+    <div class="sheet-btns">
+      <button class="gcancel" onclick="$('ov-ch').classList.remove('on')">やめる</button>
+      <button class="cbtn" onclick="submitChapter()">この章を始める</button>
     </div>
   </div>
 </div>
@@ -274,6 +306,7 @@ const SHOP = [
   {key:'reveal',  name:'啓示',     icon:'⚡', cost:100000, d:'必ず世界に届く。ただし解釈するのは監督AI。思い通りになるとは限らない'},
   {key:'observe', name:'観測',     icon:'👁', cost:100,   d:'住人1人の「いま抱えていること」を覗く'},
   {key:'genesis', name:'創世',     icon:'🌱', cost:10000000, d:'新しい住人を1人、この世界に送り込む。性格はあなたが書く。以後、彼らは勝手に生きる'},
+  {key:'chapter', name:'章',       icon:'📖', cost:10000000, d:'次の章の筋書きを、あなたが決める。前の章の関係と出来事は引き継がれる。締めの出来事は1週間後。複数あれば先着順'},
 ];
 
 const COLORS = ['#4a6fa5','#2f7d4f','#8a6b3d','#a05a8a','#3d6b8f','#c9752b','#7a5b8f','#b0446e','#c98fa0','#5b7a5b','#6b8f8f'];
@@ -569,6 +602,7 @@ function renderItems(){
         <div class="icn">${s.icon}</div>
         <div class="itxt"><div class="t">${s.name}</div><div class="d">${s.d}</div></div>
         ${s.key === 'genesis' ? `<button class="use" onclick="$('ov').classList.add('on')">使う</button>` : ''}
+        ${s.key === 'chapter' ? `<button class="use" onclick="$('ov-ch').classList.add('on');loadQueue()">使う</button>` : ''}
         <div class="qty">×${INV[s.key]}</div>
       </div>`).join('') : '<div class="empty">アイテムがありません。<br>ショップで手に入れてください。</div>'}
     <div class="sec">使い方</div>
@@ -654,6 +688,41 @@ async function observe(h){
   toast(`@${h} の内側を覗いた`);
   renderSearch(document.querySelector('.srch input')?.value || '');
   renderItems();
+}
+
+/** 章の待ち行列を表示する */
+async function loadQueue(){
+  const box = $('ch-queue');
+  if(!box) return;
+  box.innerHTML = '<div style="font-size:12px;color:var(--text2)">確認中…</div>';
+  const r = await bridge('/mv/chapter/queue');
+  if(!r.ok || !r.queue || !r.queue.length){
+    box.innerHTML = `<div class="chq chq-open">いま予約はありません。<b>あなたの章が次に始まります。</b></div>`;
+    return;
+  }
+  box.innerHTML = `<div class="chq">
+    <div class="chq-k">順番待ち ${r.queue.length}件</div>
+    ${r.queue.map((q,i) => `<div class="chq-row"><b>${i+1}.</b> ${esc(q.title)}　<span>@${esc(q.handle)}</span></div>`).join('')}
+    <div class="chq-note">あなたの章は <b>${r.queue.length + 1}番目</b> に始まります</div>
+  </div>`;
+}
+
+async function submitChapter(){
+  const title   = $('ch-title').value.trim();
+  const summary = $('ch-summary').value.trim();
+  const evTitle = $('ch-event').value.trim();
+  if(!title || !summary) return toast('タイトルと概要を入れてください');
+
+  const r = await bridge('/mv/chapter', { title, summary, event_title: evTitle });
+  if(!r.ok) return toast(r.error);
+
+  $('ov-ch').classList.remove('on');
+  $('ch-title').value = ''; $('ch-summary').value = ''; $('ch-event').value = '';
+  await sync();
+  renderItems();
+  toast(r.position === 1
+    ? `第${r.chapter_no}章として、次に始まります`
+    : `第${r.chapter_no}章として予約しました（${r.position}番目）`);
 }
 
 async function genesis(){

@@ -150,6 +150,18 @@ img.av{display:block;}
 .wev-tag{font-size:11px;color:var(--accent);background:rgba(111,139,181,.12);border:1px solid rgba(111,139,181,.3);border-radius:9999px;padding:3px 9px;}
 
 /* ── 章の順番待ち ── */
+/* ── 創世：アイコン ── */
+.g-av{display:flex;align-items:center;gap:12px;margin-top:4px;}
+.g-av-pw{width:58px;height:58px;border-radius:50%;flex-shrink:0;background:var(--bg3);border:1px dashed var(--border);
+         display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;color:var(--text2);font-size:20px;}
+.g-av-pw:hover{border-color:var(--accent);color:var(--text);}
+.g-av-pw img{width:100%;height:100%;object-fit:cover;display:block;}
+.g-av-txt{flex:1;min-width:0;}
+.g-av-btn{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:9999px;
+          padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);}
+.g-av-btn:hover{border-color:var(--accent);color:var(--text);}
+.g-av-st{font-size:11px;color:var(--text2);margin-top:6px;}
+
 .chq{background:var(--bg3);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:6px;}
 .chq-open{color:var(--text2);font-size:12.5px;line-height:1.6;}
 .chq-open b{color:var(--gold);}
@@ -207,6 +219,17 @@ img.av{display:block;}
     <label>@ハンドル</label><input id="g-handle" placeholder="rei">
     <label>職業・立場</label><input id="g-job" placeholder="例：中高の1つ下。今は都内で編集者">
     <label>性格・口調</label><textarea id="g-persona" rows="3" placeholder="例：物静か。だが核心を突く。誰にも本心を見せない"></textarea>
+    <label>アイコン（任意）</label>
+    <div class="g-av">
+      <div class="g-av-pw" id="g-av-pw" onclick="document.getElementById('g-av-file').click()">
+        <span id="g-av-ph">＋</span>
+      </div>
+      <div class="g-av-txt">
+        <button class="g-av-btn" onclick="document.getElementById('g-av-file').click()">画像を選ぶ</button>
+        <div class="g-av-st" id="g-av-st"></div>
+      </div>
+      <input type="file" id="g-av-file" accept="image/*" style="display:none" onchange="onGenesisAvatar(event)">
+    </div>
     <div class="sheet-btns">
       <button class="gcancel" onclick="$('ov').classList.remove('on')">やめる</button>
       <button class="cbtn" onclick="genesis()">この世界に送り込む</button>
@@ -318,7 +341,7 @@ async function load(){
 
   try{
     const [chars, tweets, world, events] = await Promise.all([
-      q('mv_characters', 'select=handle,name,age,job,color,status&order=created_at.asc'),
+      q('mv_characters', 'select=handle,name,age,job,color,status,avatar&order=created_at.asc'),
       q('mv_tweets', 'select=*&order=ts.desc&limit=120'),
       q('mv_world', 'id=eq.1'),
       q('mv_events', 'select=*&order=ts.desc&limit=30'),
@@ -725,6 +748,49 @@ async function submitChapter(){
     : `第${r.chapter_no}章として予約しました（${r.position}番目）`);
 }
 
+/* ── 創世：アイコンのアップロード（本家と同じ Imgur を使う）── */
+const IMGUR_CID = 'e484a9032da395e';
+let genesisAvatar = null;      // アップロード済みURL
+let genesisUploading = false;
+
+async function uploadToImgur(file){
+  const fd = new FormData();
+  fd.append('image', file);
+  const res = await fetch('https://api.imgur.com/3/image', {
+    method: 'POST',
+    headers: { Authorization: 'Client-ID ' + IMGUR_CID },
+    body: fd,
+  });
+  const j = await res.json();
+  if(!j || !j.success || !j.data || !j.data.link) throw new Error('アップロードに失敗しました');
+  return j.data.link;
+}
+
+async function onGenesisAvatar(e){
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  const pw = $('g-av-pw'), st = $('g-av-st');
+
+  // まず手元のプレビューを出す
+  const dataUrl = await new Promise(res => {
+    const r = new FileReader(); r.onload = ev => res(ev.target.result); r.readAsDataURL(file);
+  });
+  pw.innerHTML = `<img src="${dataUrl}" alt="">`;
+
+  genesisUploading = true;
+  genesisAvatar = null;
+  st.textContent = '📤 アップロード中…';
+  try{
+    genesisAvatar = await uploadToImgur(file);
+    st.textContent = '✅ アップロード完了';
+  }catch(err){
+    st.textContent = '⚠ 失敗しました。もう一度お試しください';
+    pw.innerHTML = '<span id="g-av-ph">＋</span>';
+  }
+  genesisUploading = false;
+  e.target.value = '';
+}
+
 async function genesis(){
   const name = $('g-name').value.trim();
   const ch   = $('g-handle').value.trim().replace(/^@/,'').replace(/[^a-zA-Z0-9_]/g,'');
@@ -732,9 +798,14 @@ async function genesis(){
   const persona = $('g-persona').value.trim();
   if(!name || !ch || !job || !persona) return toast('すべて埋めてください');
 
-  const r = await bridge('/mv/genesis', { name, char_handle: ch, job, persona });
+  if(genesisUploading) return toast('画像のアップロード完了までお待ちください');
+
+  const r = await bridge('/mv/genesis', { name, char_handle: ch, job, persona, avatar: genesisAvatar });
   if(!r.ok) return toast(r.error);
   $('ov').classList.remove('on');
+  genesisAvatar = null;
+  $('g-av-pw').innerHTML = '<span id="g-av-ph">＋</span>';
+  $('g-av-st').textContent = '';
   toast(`${name} を送り込んだ`);
   await load();
   tab('search');

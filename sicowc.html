@@ -821,7 +821,15 @@ async function syncRoundsWithParent(rounds){
     return;
   }
   const payload = rounds.map(roundToSyncPayload);
-  const res = await wcReq('wcbet:sync:matches', {matches:payload}, 15000);
+  // 月間王の自動精算用：各銘柄の「月初始値」と「現在価格」を同送（日次と同じ信頼モデル）
+  const ms = monthStartStr();
+  const prices = COINS.map(c=>{
+    const bnd = G.boundaries[c.id] || {};
+    let mo = bnd[ms];
+    if(mo==null){ const ks=Object.keys(bnd).filter(d=>d>=ms).sort(); if(ks.length) mo=bnd[ks[0]]; }
+    return {coinId:c.id, monthOpen: (mo!=null?mo:null), current: (G.now[c.id]!=null?G.now[c.id]:null)};
+  }).filter(p=>p.current!=null);
+  const res = await wcReq('wcbet:sync:matches', {matches:payload, prices}, 15000);
   if(!res.ok) return;
   applyServerState(res);
 }

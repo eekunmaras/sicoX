@@ -272,8 +272,8 @@ button{font-family:inherit;}
     <!-- ===== MATCHES TAB ===== -->
     <div class="wc-panel" id="panel-matches">
       <div class="rules-strip">
-        <div class="rules-pill">上がる <b>×1.9</b></div>
-        <div class="rules-pill">下がる <b>×1.9</b></div>
+        <div class="rules-pill">上がる <b>×3</b></div>
+        <div class="rules-pill">下がる <b>×3</b></div>
         <div class="rules-pill">判定は日次(UTC 0:00始値)</div>
         <div class="rules-pill">結果確定で自動払出</div>
       </div>
@@ -387,7 +387,7 @@ const CG_BASE = 'https://api.coingecko.com/api/v3';
 const CG_DAYS = 120;
 
 // ══ オッズ ══
-const ODDS_UP = 1.9, ODDS_DOWN = 1.9;
+const ODDS_UP = 3, ODDS_DOWN = 3;
 function pickOdds(pick){ return pick==='home'?ODDS_UP:ODDS_DOWN; } // home=上がる / away=下がる
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

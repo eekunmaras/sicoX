@@ -3,20 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>SicoWC — ワールドカップ予想</title>
+<title>SicoCrypto — 暗号資産 上がる/下がる予想</title>
 <style>
 :root{
-  --pitch:#0c1410;--pitch2:#0f1a14;--line:#1f2e24;--line2:#2a3d30;
-  --paper:#f4efe1;--paper-dim:#cfc6ab;
-  --gold:#d4af37;--gold-dim:#8a7330;
-  --win:#3ecf8e;--draw:#e8c44d;--lose:#e0566a;
-  --ink:#0c1410;--text:#eef2ec;--text2:#7c8c81;
+  --bg:#0b0e14;--bg2:#111621;--line:#1e2635;--line2:#2b3547;
+  --paper:#eef2f8;--paper-dim:#aeb8c8;
+  --gold:#e3b341;--gold-dim:#8a7330;
+  --up:#26d07c;--down:#f2555a;
+  --ink:#0b0e14;--text:#e7ecf3;--text2:#76829a;
   --font-display:'Oswald','Arial Narrow',sans-serif;
   --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   --font-mono:'SF Mono',Consolas,monospace;
+  /* 旧テーマ互換エイリアス（既存クラスがwin/loseを参照するため残す） */
+  --win:var(--up);--lose:var(--down);--draw:#e8c44d;
+  --pitch:var(--bg);--pitch2:var(--bg2);
 }
 *{box-sizing:border-box;margin:0;padding:0;}
-html,body{background:var(--pitch);color:var(--text);font-family:var(--font-body);min-height:100%;}
+html,body{background:var(--bg);color:var(--text);font-family:var(--font-body);min-height:100%;}
 .sr-only{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}
 button{font-family:inherit;}
 ::-webkit-scrollbar{width:0;height:0;}
@@ -24,14 +27,13 @@ button{font-family:inherit;}
 .wc-root{
   max-width:480px;margin:0 auto;min-height:100vh;position:relative;
   background:
-    repeating-linear-gradient(0deg,rgba(255,255,255,.018) 0 2px,transparent 2px 42px),
-    radial-gradient(ellipse at 50% -10%,rgba(212,175,55,.07),transparent 60%),
-    var(--pitch);
+    radial-gradient(ellipse at 50% -8%,rgba(227,179,65,.06),transparent 60%),
+    var(--bg);
 }
 
 /* ── header ── */
 .wc-hd{
-  position:sticky;top:0;z-index:30;background:rgba(12,20,16,.92);backdrop-filter:blur(8px);
+  position:sticky;top:0;z-index:30;background:rgba(11,14,20,.92);backdrop-filter:blur(8px);
   border-bottom:1px solid var(--line);padding:14px 16px 12px;
 }
 .wc-hd-top{display:flex;align-items:center;justify-content:space-between;}
@@ -39,7 +41,7 @@ button{font-family:inherit;}
 .wc-brand-mark{
   width:26px;height:26px;border-radius:50%;border:2px solid var(--gold);
   display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;
-  background:repeating-conic-gradient(var(--ink) 0deg 30deg, var(--paper) 30deg 60deg);
+  background:radial-gradient(circle at 35% 30%,#f4d67a,var(--gold-dim));color:var(--ink);font-weight:700;
 }
 .wc-brand-name{font-family:var(--font-display);font-size:17px;letter-spacing:.06em;font-weight:600;text-transform:uppercase;color:var(--paper);}
 .wc-brand-sub{font-size:9px;letter-spacing:.14em;color:var(--gold-dim);text-transform:uppercase;margin-top:1px;}
@@ -68,19 +70,17 @@ button{font-family:inherit;}
 }
 .wc-loading{text-align:center;padding:30px 0;color:var(--text2);font-size:13px;}
 .wc-error-box{
-  text-align:center;padding:24px 16px;color:var(--lose);font-size:12.5px;line-height:1.7;
-  background:rgba(224,86,106,.07);border:1px solid rgba(224,86,106,.25);border-radius:12px;
+  text-align:center;padding:24px 16px;color:var(--down);font-size:12.5px;line-height:1.7;
+  background:rgba(242,85,90,.07);border:1px solid rgba(242,85,90,.25);border-radius:12px;
 }
 
-/* ── match card (betting slip look) ── */
+/* ── round card ── */
 .match-card{
-  position:relative;background:var(--pitch2);border:1px solid var(--line);border-radius:14px;
+  position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:14px;
   padding:13px 14px 12px;margin-bottom:12px;overflow:hidden;
 }
-.match-card::before{
-  content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line2);
-}
-.match-card.live::before{background:var(--win);box-shadow:0 0 8px var(--win);}
+.match-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line2);}
+.match-card.live::before{background:var(--gold);box-shadow:0 0 8px var(--gold);}
 .match-card.settled::before{background:var(--gold-dim);}
 .match-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .match-stage{font-size:10px;color:var(--gold-dim);letter-spacing:.05em;text-transform:uppercase;}
@@ -88,34 +88,38 @@ button{font-family:inherit;}
   font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;letter-spacing:.03em;
   background:var(--line);color:var(--text2);
 }
-.match-status.live{background:rgba(62,207,142,.15);color:var(--win);}
+.match-status.live{background:rgba(227,179,65,.15);color:var(--gold);}
 .match-status.fin{background:rgba(255,255,255,.06);color:var(--paper-dim);}
-.match-time{font-size:10px;color:var(--text2);}
 
-.match-teams{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
-.team-block{flex:1;display:flex;align-items:center;gap:8px;min-width:0;}
-.team-block.away{flex-direction:row-reverse;text-align:right;}
-.team-flag{width:22px;height:22px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--line);}
-.team-name{font-size:14px;font-weight:600;color:var(--paper);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.match-score{
-  font-family:var(--font-mono);font-size:19px;font-weight:700;padding:0 8px;white-space:nowrap;color:var(--text);
-  min-width:54px;text-align:center;
+.coin-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.coin-badge{
+  width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-display);font-size:12px;font-weight:700;color:var(--ink);
+  background:radial-gradient(circle at 35% 30%,#f4d67a,var(--gold-dim));
 }
-.match-score.vs{font-size:13px;color:var(--text2);font-weight:500;}
+.coin-id{flex:1;min-width:0;}
+.coin-sym{font-size:15px;font-weight:700;color:var(--paper);}
+.coin-name{font-size:11px;color:var(--text2);}
+.coin-quote{text-align:right;font-family:var(--font-mono);}
+.coin-price{font-size:14px;font-weight:700;color:var(--paper);}
+.coin-delta{font-size:11px;font-weight:700;}
+.coin-delta.up{color:var(--up);}
+.coin-delta.down{color:var(--down);}
 
-/* odds buttons */
-.odds-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;}
+/* up / down buttons (2-outcome) */
+.odds-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .odds-btn{
-  display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px;border-radius:9px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;padding:11px 4px;border-radius:10px;
   border:1px solid var(--line2);background:rgba(255,255,255,.02);cursor:pointer;transition:all .12s;
 }
 .odds-btn:active{transform:scale(.97);}
-.odds-btn .ol{font-size:10px;color:var(--text2);letter-spacing:.02em;}
-.odds-btn .ov{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--paper);}
-.odds-btn.sel{background:rgba(212,175,55,.12);border-color:var(--gold);}
-.odds-btn.sel .ov{color:var(--gold);}
-.odds-btn.win .ov{color:var(--win);}
-.odds-btn.lose .ov{color:var(--lose);}
+.odds-btn .ol{font-size:12px;font-weight:700;letter-spacing:.02em;}
+.odds-btn .ov{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--paper-dim);}
+.odds-btn.up .ol{color:var(--up);}
+.odds-btn.down .ol{color:var(--down);}
+.odds-btn.up.sel{background:rgba(38,208,124,.14);border-color:var(--up);}
+.odds-btn.down.sel{background:rgba(242,85,90,.14);border-color:var(--down);}
+.odds-btn.sel .ov{color:var(--paper);}
 .odds-btn.disabled{opacity:.35;pointer-events:none;}
 
 .bet-row{display:none;margin-top:10px;}
@@ -125,22 +129,21 @@ button{font-family:inherit;}
   flex:1;font-family:var(--font-mono);font-size:11.5px;padding:7px 2px;border-radius:7px;
   border:1px solid var(--line2);background:rgba(255,255,255,.02);color:var(--paper-dim);cursor:pointer;
 }
-.bet-amt-btn.sel{background:rgba(212,175,55,.14);border-color:var(--gold);color:var(--gold);font-weight:700;}
+.bet-amt-btn.sel{background:rgba(227,179,65,.14);border-color:var(--gold);color:var(--gold);font-weight:700;}
 .bet-custom-wrap{display:flex;align-items:center;gap:5px;margin-top:6px;}
 .bet-custom-wrap .bcw-lbl{font-size:10.5px;color:var(--text2);white-space:nowrap;}
 .bet-custom-input{
   flex:1;min-width:0;font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--paper);
-  background:rgba(255,255,255,.03);border:1px solid var(--line2);border-radius:7px;padding:7px 9px;
-  text-align:right;
+  background:rgba(255,255,255,.03);border:1px solid var(--line2);border-radius:7px;padding:7px 9px;text-align:right;
 }
 .bet-custom-input:focus{outline:none;border-color:var(--gold);}
-.bet-custom-input.err{border-color:var(--lose);color:var(--lose);}
+.bet-custom-input.err{border-color:var(--down);color:var(--down);}
 .bet-custom-suffix{font-size:11px;color:var(--text2);}
 .bet-max-btn{
-  font-size:10.5px;font-weight:700;color:var(--gold);background:rgba(212,175,55,.1);
+  font-size:10.5px;font-weight:700;color:var(--gold);background:rgba(227,179,65,.1);
   border:1px solid var(--gold-dim);border-radius:7px;padding:7px 9px;cursor:pointer;white-space:nowrap;
 }
-.bet-custom-err{font-size:10.5px;color:var(--lose);margin-top:4px;display:none;}
+.bet-custom-err{font-size:10.5px;color:var(--down);margin-top:4px;display:none;}
 .bet-confirm{
   font-family:var(--font-mono);font-size:12px;font-weight:700;padding:8px 14px;border-radius:7px;
   border:none;background:var(--gold);color:var(--ink);cursor:pointer;white-space:nowrap;letter-spacing:.02em;
@@ -150,114 +153,82 @@ button{font-family:inherit;}
 .bet-potential b{color:var(--gold);}
 
 .already-bet{
-  margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(212,175,55,.08);
-  border:1px solid rgba(212,175,55,.25);font-size:11.5px;color:var(--paper-dim);display:flex;
+  margin-top:10px;padding:8px 10px;border-radius:8px;background:rgba(227,179,65,.08);
+  border:1px solid rgba(227,179,65,.25);font-size:11.5px;color:var(--paper-dim);display:flex;
   justify-content:space-between;align-items:center;
 }
 .already-bet b{color:var(--gold);}
-.already-bet .res-won{color:var(--win);font-weight:700;}
-.already-bet .res-lost{color:var(--lose);font-weight:700;}
+.already-bet .res-won{color:var(--up);font-weight:700;}
+.already-bet .res-lost{color:var(--down);font-weight:700;}
 
-.tweet-result-btn{
-  margin-top:10px;width:100%;padding:8px;border-radius:999px;border:1px solid var(--gold-dim);
-  background:transparent;color:var(--gold);font-size:11.5px;font-weight:700;cursor:pointer;
-}
-.tweet-result-btn:hover{background:rgba(212,175,55,.08);}
+.round-result{margin-top:10px;font-size:12.5px;font-weight:700;text-align:center;padding:8px;border-radius:8px;background:rgba(255,255,255,.03);}
+.round-result.up{color:var(--up);}
+.round-result.down{color:var(--down);}
 
 /* ── champion picks ── */
 .champ-intro{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:14px;}
-.champ-closed-notice{
-  text-align:center;font-size:12.5px;font-weight:700;color:var(--lose);
-  background:rgba(224,86,106,.08);border:1px solid rgba(224,86,106,.25);
-  border-radius:10px;padding:10px 12px;margin-bottom:12px;letter-spacing:.02em;
-}
+.champ-board{margin-bottom:14px;}
+.champ-board-row{display:flex;align-items:center;gap:8px;font-size:11.5px;padding:5px 2px;border-bottom:1px solid var(--line);}
+.champ-board-row .cbr-rank{width:18px;color:var(--text2);font-family:var(--font-mono);}
+.champ-board-row .cbr-name{flex:1;color:var(--paper-dim);}
+.champ-board-row .cbr-val{font-family:var(--font-mono);font-weight:700;}
 .champ-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .champ-card{
-  position:relative;background:var(--pitch2);border:1px solid var(--line);border-radius:12px;
+  position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:12px;
   padding:11px 10px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .12s;
 }
 .champ-card:active{transform:scale(.97);}
-.champ-card.sel{border-color:var(--gold);background:rgba(212,175,55,.1);}
+.champ-card.sel{border-color:var(--gold);background:rgba(227,179,65,.1);}
 .champ-card.disabled{opacity:.4;pointer-events:none;}
-.champ-flag{width:24px;height:24px;border-radius:50%;object-fit:cover;flex-shrink:0;background:var(--line);}
+.champ-flag{width:24px;height:24px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:9px;font-weight:700;color:var(--ink);background:radial-gradient(circle at 35% 30%,#f4d67a,var(--gold-dim));}
 .champ-name{font-size:12.5px;font-weight:600;color:var(--paper);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}
 .champ-odds{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--gold-dim);}
 .champ-card.sel .champ-odds{color:var(--gold);}
 
-.champ-slip{
-  position:sticky;bottom:0;margin:14px -16px -90px;padding:14px 16px calc(90px + 14px);
-  background:linear-gradient(to top,var(--pitch) 60%,transparent);
-}
-.champ-slip-inner{
-  background:var(--pitch2);border:1px solid var(--gold-dim);border-radius:14px;padding:12px 14px;
-}
+.champ-slip{position:sticky;bottom:0;margin:14px -16px -90px;padding:14px 16px calc(90px + 14px);background:linear-gradient(to top,var(--bg) 60%,transparent);}
+.champ-slip-inner{background:var(--bg2);border:1px solid var(--gold-dim);border-radius:14px;padding:12px 14px;}
 .champ-slip-pick{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px;}
 .champ-slip-pick b{color:var(--gold);}
 
-/* ── slips / my tickets ── */
-.ticket-card{
-  background:var(--pitch2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px;
-}
+/* ── my tickets ── */
+.ticket-card{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:9px;}
 .ticket-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
 .ticket-type{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:700;letter-spacing:.02em;}
-.ticket-type.match{background:rgba(212,175,55,.12);color:var(--gold);}
-.ticket-type.champ{background:rgba(212,175,55,.2);color:var(--gold);}
+.ticket-type.match{background:rgba(227,179,65,.12);color:var(--gold);}
+.ticket-type.champ{background:rgba(227,179,65,.2);color:var(--gold);}
 .ticket-status{font-size:10.5px;font-weight:700;}
 .ticket-status.pending{color:var(--text2);}
-.ticket-status.won{color:var(--win);}
-.ticket-status.lost{color:var(--lose);}
+.ticket-status.won{color:var(--up);}
+.ticket-status.lost{color:var(--down);}
 .ticket-desc{font-size:13px;color:var(--paper);margin-bottom:4px;}
 .ticket-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);font-family:var(--font-mono);}
-.ticket-foot .gain{color:var(--win);font-weight:700;}
-.ticket-foot .loss{color:var(--lose);font-weight:700;}
+.ticket-foot .gain{color:var(--up);font-weight:700;}
+.ticket-foot .loss{color:var(--down);font-weight:700;}
 
 /* ── how-it-works strip ── */
-.rules-strip{
-  display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px;
-}
-.rules-pill{
-  flex-shrink:0;font-size:10.5px;color:var(--text2);background:var(--pitch2);border:1px solid var(--line);
-  padding:6px 11px;border-radius:999px;white-space:nowrap;
-}
+.rules-strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:4px;}
+.rules-pill{flex-shrink:0;font-size:10.5px;color:var(--text2);background:var(--bg2);border:1px solid var(--line);padding:6px 11px;border-radius:999px;white-space:nowrap;}
 .rules-pill b{color:var(--gold);}
 
-/* ── bottom nav (standalone mode) ── */
-.wc-bottomnav{
-  position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:40;
-  background:rgba(12,20,16,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);
-  display:flex;padding:8px 8px calc(8px + env(safe-area-inset-bottom));
-}
+/* ── bottom nav (standalone) ── */
+.wc-bottomnav{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:40;background:rgba(11,14,20,.95);backdrop-filter:blur(8px);border-top:1px solid var(--line);display:flex;padding:8px 8px calc(8px + env(safe-area-inset-bottom));}
 .wc-bottomnav.hidden{display:none;}
-.wc-nav-item{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0;cursor:pointer;
-  color:var(--text2);font-size:10px;
-}
+.wc-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0;cursor:pointer;color:var(--text2);font-size:10px;}
 .wc-nav-item.on{color:var(--gold);}
 .wc-nav-icon{font-size:17px;}
 
 /* ── toast ── */
-.wc-toast-area{
-  position:fixed;left:0;right:0;top:14px;max-width:480px;margin:0 auto;z-index:60;padding:0 16px;
-  pointer-events:none;
-}
-.wc-toast{
-  background:var(--pitch2);border:1px solid var(--line2);border-radius:10px;padding:10px 14px;
-  font-size:12.5px;margin-bottom:6px;opacity:0;transform:translateY(-8px);transition:all .25s;color:var(--text);
-}
+.wc-toast-area{position:fixed;left:0;right:0;top:14px;max-width:480px;margin:0 auto;z-index:60;padding:0 16px;pointer-events:none;}
+.wc-toast{background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:10px 14px;font-size:12.5px;margin-bottom:6px;opacity:0;transform:translateY(-8px);transition:all .25s;color:var(--text);}
 .wc-toast.show{opacity:1;transform:translateY(0);}
-.wc-toast.win{border-color:var(--win);color:var(--win);}
-.wc-toast.lose{border-color:var(--lose);color:var(--lose);}
+.wc-toast.win{border-color:var(--up);color:var(--up);}
+.wc-toast.lose{border-color:var(--down);color:var(--down);}
 .wc-toast.gold{border-color:var(--gold);color:var(--gold);}
 
 /* ── confirm modal ── */
-.wc-modal-bg{
-  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:70;display:none;align-items:center;justify-content:center;
-  padding:20px;
-}
+.wc-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:70;display:none;align-items:center;justify-content:center;padding:20px;}
 .wc-modal-bg.open{display:flex;}
-.wc-modal{
-  width:100%;max-width:360px;background:var(--pitch2);border:1px solid var(--gold-dim);border-radius:16px;padding:20px;
-}
+.wc-modal{width:100%;max-width:360px;background:var(--bg2);border:1px solid var(--gold-dim);border-radius:16px;padding:20px;}
 .wc-modal h3{font-family:var(--font-display);font-size:16px;letter-spacing:.03em;color:var(--paper);margin-bottom:12px;text-transform:uppercase;}
 .wc-modal p{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px;}
 .wc-modal p b{color:var(--gold);}
@@ -266,23 +237,21 @@ button{font-family:inherit;}
 .wc-modal-btn.cancel{background:var(--line);color:var(--text2);}
 .wc-modal-btn.confirm{background:var(--gold);color:var(--ink);}
 
-@media (min-width:481px){
-  .wc-root{border-left:1px solid var(--line);border-right:1px solid var(--line);}
-}
+@media (min-width:481px){.wc-root{border-left:1px solid var(--line);border-right:1px solid var(--line);}}
 </style>
 </head>
 <body>
 
-<h1 class="sr-only">SicoWC — ワールドカップ予想ベッティング</h1>
+<h1 class="sr-only">SicoCrypto — 暗号資産 上がる/下がる予想</h1>
 <div class="wc-root" id="wcRoot">
 
   <div class="wc-hd">
     <div class="wc-hd-top">
       <div class="wc-brand">
-        <div class="wc-brand-mark">⚽</div>
+        <div class="wc-brand-mark">₿</div>
         <div>
-          <div class="wc-brand-name">SicoWC</div>
-          <div class="wc-brand-sub">World Cup Predictions</div>
+          <div class="wc-brand-name">SicoCrypto</div>
+          <div class="wc-brand-sub">Up / Down Predictions</div>
         </div>
       </div>
       <div class="wc-balance">
@@ -292,8 +261,8 @@ button{font-family:inherit;}
     </div>
     <div class="wc-sync-note" id="syncNote">sicoXポイントと同期中...</div>
     <div class="wc-tabs">
-      <div class="wc-tab on" data-tab="matches" onclick="switchTab('matches')">試合予想</div>
-      <div class="wc-tab" data-tab="champion" onclick="switchTab('champion')">優勝予想</div>
+      <div class="wc-tab on" data-tab="matches" onclick="switchTab('matches')">今日の予想</div>
+      <div class="wc-tab" data-tab="champion" onclick="switchTab('champion')">月間王</div>
       <div class="wc-tab" data-tab="tickets" onclick="switchTab('tickets')">マイ予想</div>
     </div>
   </div>
@@ -303,9 +272,9 @@ button{font-family:inherit;}
     <!-- ===== MATCHES TAB ===== -->
     <div class="wc-panel" id="panel-matches">
       <div class="rules-strip">
-        <div class="rules-pill">勝ち <b>×1.8</b></div>
-        <div class="rules-pill">引き分け <b>×3.0</b></div>
-        <div class="rules-pill">キックオフ後は受付終了</div>
+        <div class="rules-pill">上がる <b>×1.9</b></div>
+        <div class="rules-pill">下がる <b>×1.9</b></div>
+        <div class="rules-pill">判定は日次(UTC 0:00始値)</div>
         <div class="rules-pill">結果確定で自動払出</div>
       </div>
       <div class="wc-loading" id="matchesLoading">読み込み中…</div>
@@ -316,7 +285,7 @@ button{font-family:inherit;}
 
     <!-- ===== CHAMPION TAB ===== -->
     <div class="wc-panel" id="panel-champion" style="display:none;">
-      <div class="champ-intro">優勝すると思う1チームに賭けます。オッズはFIFA世界ランキング（大会開幕時点）を基準に算出した固定倍率で、大会中の試合結果が出ても変動しません。<b style="color:var(--gold);">優勝予想の受付は7/2(木) 23:59まで。</b>受付後は大会終了まで予想の変更はできません。的中すれば賭けptがオッズ倍になって戻ってきます。</div>
+      <div class="champ-intro">今月「値上がり率」が最も大きくなると思う1銘柄に賭けます。オッズは固定倍率で、月末に自動集計された結果で1回だけ確定します。<b style="color:var(--gold);">受付は毎月末まで。</b>受付後は月末まで変更できません。的中すれば賭けptがオッズ倍で戻ります。</div>
       <div class="wc-loading" id="champLoading">読み込み中…</div>
       <div id="champGrid"></div>
       <div id="champSlipWrap"></div>
@@ -334,8 +303,8 @@ button{font-family:inherit;}
 </div>
 
 <div class="wc-bottomnav" id="standaloneNav">
-  <div class="wc-nav-item on" data-tab="matches" onclick="switchTab('matches')"><span class="wc-nav-icon">⚽</span>試合</div>
-  <div class="wc-nav-item" data-tab="champion" onclick="switchTab('champion')"><span class="wc-nav-icon">🏆</span>優勝</div>
+  <div class="wc-nav-item on" data-tab="matches" onclick="switchTab('matches')"><span class="wc-nav-icon">📈</span>今日</div>
+  <div class="wc-nav-item" data-tab="champion" onclick="switchTab('champion')"><span class="wc-nav-icon">👑</span>月間</div>
   <div class="wc-nav-item" data-tab="tickets" onclick="switchTab('tickets')"><span class="wc-nav-icon">🎫</span>予想</div>
 </div>
 
@@ -354,9 +323,15 @@ button{font-family:inherit;}
 
 <script>
 // ══════════════════════════════════════════════════════════
-// SicoWC — ワールドカップ予想ベッティングゲーム
-// SicoFXと同じpostMessage設計でsicoX本体とpt連携する。
-// 単体で開いた場合はスタンドアロンpt(10,000pt初期)で動作。
+// SicoCrypto — 暗号資産 上がる/下がる予想
+// 既存 SicoWC(sicowc.html) と「完全に同じ」postMessage設計・同じSupabase RPCを使う。
+// すなわち index.html 側のメッセージハンドラも DB(SQL) も一切変更せずに動く。
+//   ・1コインの1日(UTC) = 1「試合」
+//   ・home=上がる / away=下がる（引き分けは使わない）
+//   ・判定 = その日の 00:00 UTC 始値 と 翌 00:00 UTC 始値 の比較
+//     → 合成スコア（上=1-0 / 下=0-1）にして既存 toto_sync_matches に渡す
+//   ・優勝予想(toto_champion_bets) = 今月の「値上がり率トップ」銘柄予想に転用
+// 単体で開いた場合はスタンドアロンpt(10,000pt)で動作する。
 // ══════════════════════════════════════════════════════════
 
 const WC_EMBEDDED = window.parent && window.parent !== window;
@@ -381,106 +356,74 @@ window.addEventListener('message', e=>{
   }
 });
 
-function setSyncNote(text){
-  const el=document.getElementById('syncNote'); if(el) el.textContent=text;
-}
+function setSyncNote(text){ const el=document.getElementById('syncNote'); if(el) el.textContent=text; }
 
-// ── データ取得（sicoX本体と同じWorkerプロキシ） ──
-const WC_COMPETITION = 'WC';
-const WC_PROXY_BASE = 'https://sicox.eekunmaras.workers.dev/wc-proxy';
+// ══ 銘柄設定（10種）══
+// id は CoinGecko のコインID。champOdds は「月間値上がり率トップ」予想の固定オッズ。
+// 大型で安定した銘柄ほどトップになりにくい想定でオッズ高め、値動きが荒い銘柄ほど低めに設定。必要に応じて調整可。
+const COINS = [
+  {id:'bitcoin',     sym:'BTC',  ja:'ビットコイン',   champOdds:14},
+  {id:'ethereum',    sym:'ETH',  ja:'イーサリアム',   champOdds:11},
+  {id:'binancecoin', sym:'BNB',  ja:'BNB',            champOdds:9},
+  {id:'ripple',      sym:'XRP',  ja:'リップル',       champOdds:9},
+  {id:'solana',      sym:'SOL',  ja:'ソラナ',         champOdds:7},
+  {id:'cardano',     sym:'ADA',  ja:'カルダノ',       champOdds:8},
+  {id:'dogecoin',    sym:'DOGE', ja:'ドージコイン',   champOdds:6},
+  {id:'tron',        sym:'TRX',  ja:'トロン',         champOdds:10},
+  {id:'chainlink',   sym:'LINK', ja:'チェーンリンク', champOdds:7},
+  {id:'avalanche-2', sym:'AVAX', ja:'アバランチ',     champOdds:6},
+];
+const COIN_BY_ID = Object.fromEntries(COINS.map(c=>[c.id,c]));
 
-async function wcApiFetch(path){
-  const res = await fetch(WC_PROXY_BASE+'?path='+encodeURIComponent(path));
-  if(!res.ok){
-    if(res.status===403||res.status===401) throw new Error('INVALID_KEY');
-    if(res.status===429) throw new Error('RATE_LIMIT');
-    throw new Error('FETCH_ERROR');
-  }
-  return res.json();
-}
+// ══ データ取得元 ══
+// 既定は CoinGecko の公開エンドポイント（APIキー不要・CORS許可あり）でそのまま動く。
+// 同時アクセスが増えたら、既存の Cloudflare Worker と同じ要領で /cg-proxy を立て、
+//   ・60秒程度キャッシュ  ・(任意で)Demoキーを付与
+// して CG_BASE をそのプロキシに差し替えると、レート制限を気にせず運用できる。
+const CG_BASE = 'https://api.coingecko.com/api/v3';
+// 例: const CG_BASE = 'https://sicox.eekunmaras.workers.dev/cg-proxy';
 
-const WC_TEAM_NAME_JA={
-  'Japan':'日本','Brazil':'ブラジル','Argentina':'アルゼンチン','Germany':'ドイツ',
-  'France':'フランス','Spain':'スペイン','England':'イングランド','Portugal':'ポルトガル',
-  'Netherlands':'オランダ','Belgium':'ベルギー','Italy':'イタリア','Croatia':'クロアチア',
-  'Uruguay':'ウルグアイ','Colombia':'コロンビア','Mexico':'メキシコ','United States':'アメリカ',
-  'Canada':'カナダ','Korea Republic':'韓国','South Korea':'韓国','Morocco':'モロッコ',
-  'Senegal':'セネガル','Switzerland':'スイス','Denmark':'デンマーク','Poland':'ポーランド',
-  'Ghana':'ガーナ','Cameroon':'カメルーン','Tunisia':'チュニジア','Ecuador':'エクアドル',
-  'Wales':'ウェールズ','Iran':'イラン','Saudi Arabia':'サウジアラビア','Qatar':'カタール',
-  'Australia':'オーストラリア','Serbia':'セルビア','Costa Rica':'コスタリカ',
-  'New Zealand':'ニュージーランド','Jordan':'ヨルダン','Uzbekistan':'ウズベキスタン',
-  'Egypt':'エジプト','Algeria':'アルジェリア','Ivory Coast':'コートジボワール',
-  'Cape Verde':'カーボベルデ','South Africa':'南アフリカ','Curacao':'キュラソー',
-  'Haiti':'ハイチ','Panama':'パナマ','Paraguay':'パラグアイ','Bolivia':'ボリビア',
-  'Norway':'ノルウェー','Scotland':'スコットランド','Austria':'オーストリア',
-  'Czech Republic':'チェコ','Slovakia':'スロバキア','Ukraine':'ウクライナ',
-  'Turkey':'トルコ','Greece':'ギリシャ','Sweden':'スウェーデン','Finland':'フィンランド'
-};
-function teamJa(name){ return WC_TEAM_NAME_JA[name]||name||''; }
+// >90日を要求すると CoinGecko は日次(00:00 UTC)粒度で返す。直近の日次始値と月初来を両方カバーするため120日取得。
+const CG_DAYS = 120;
+
+// ══ オッズ ══
+const ODDS_UP = 1.9, ODDS_DOWN = 1.9;
+function pickOdds(pick){ return pick==='home'?ODDS_UP:ODDS_DOWN; } // home=上がる / away=下がる
+
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-// ── 固定オッズ ──
-const ODDS_HOME=1.8, ODDS_DRAW=3.0, ODDS_AWAY=1.8;
-// 優勝オッズ：FIFAランキング的な強さの仮の階層。実データのstandings(grupo順位)から強さスコアを出して割り当てる。
-// FIFA男子ランキングのレーティングポイント参考値（2026年6月時点・実装時の参考値として固定）
-// 大会中に結果が出ても更新しない（一貫性重視）。出典: FIFA/Coca-Cola Men's World Ranking, ESPN (2026年6月11日)
-const FIFA_RATING = {
-  'Argentina': 1880, 'Spain': 1875, 'France': 1872, 'England': 1834,
-  'Portugal': 1764, 'Brazil': 1762, 'Morocco': 1756, 'Netherlands': 1750,
-  'Belgium': 1735, 'Germany': 1730, 'Croatia': 1717, 'Italy': 1702,
-  'Colombia': 1701, 'Mexico': 1683, 'Senegal': 1680, 'Uruguay': 1673,
-  'USA': 1665, 'United States': 1665, 'Japan': 1652, 'Switzerland': 1649, 'Iran': 1620,
-  'Denmark': 1610, 'Turkey': 1600, 'Türkiye': 1600, 'Ecuador': 1590, 'Austria': 1580,
-  'South Korea': 1570, 'Korea Republic': 1570, 'Nigeria': 1560, 'Australia': 1550, 'Algeria': 1540,
-  'Egypt': 1530, 'Canada': 1520,
-  'Norway': 1510, 'Ukraine': 1500, 'Ivory Coast': 1492, 'Côte d\'Ivoire': 1492, 'Panama': 1484,
-  'Russia': 1476, 'Poland': 1468, 'Wales': 1460, 'Sweden': 1452, 'Hungary': 1444, 'Paraguay': 1436,
-  'Czechia': 1412, 'Czech Republic': 1412, 'Scotland': 1428, 'Serbia': 1420, 'Cameroon': 1412, 'Tunisia': 1404,
-  'Congo DR': 1396, 'DR Congo': 1396, 'Slovakia': 1388, 'Greece': 1380, 'Venezuela': 1372, 'Uzbekistan': 1364,
-  'Qatar': 1330, 'Iraq': 1322, 'South Africa': 1306, 'Saudi Arabia': 1298,
-  'Jordan': 1282, 'Bosnia and Herzegovina': 1270, 'Cape Verde': 1258, 'Ghana': 1226, 'Curacao': 1178, 'Curaçao': 1178,
-  'Haiti': 1170, 'New Zealand': 1146,
-};
-const FIFA_RATING_BASE = 1880; // 1位チームの参考レーティング（オッズ計算の基準点）
-const FIFA_ODDS_MIN = 4.2;     // 最有力候補の優勝オッズ下限
-const FIFA_ODDS_SCALE = 130;   // レーティング差に対するオッズの上がり方（大きいほど緩やか）
-const FIFA_ODDS_MAX = 999;     // 最低評価チームでもこの倍率でクランプ
-
-function fifaChampOdds(teamName){
-  const r = FIFA_RATING[teamName];
-  const rating = (r!=null) ? r : 1150; // ランキング表に無いチームは最弱クラス相当を仮定
-  const diff = Math.max(0, FIFA_RATING_BASE - rating);
-  const odds = FIFA_ODDS_MIN * Math.exp(diff / FIFA_ODDS_SCALE);
-  return Math.min(Math.round(Math.min(odds, FIFA_ODDS_MAX) * 10) / 10, FIFA_ODDS_MAX);
+function fmtPt(n){ return Math.round(n).toLocaleString(); }
+function fmtUsd(p){
+  if(p==null||isNaN(p)) return '—';
+  if(p>=100)  return '$'+p.toLocaleString(undefined,{maximumFractionDigits:0});
+  if(p>=1)    return '$'+p.toFixed(2);
+  return '$'+p.toFixed(4);
 }
+function fmtPct(x){ const s=x>=0?'+':''; return s+x.toFixed(2)+'%'; }
 
-// ══ 優勝予想の受付締め切り ══
-// 2026-07-02 23:59:59 (JST, UTC+9) = 2026-07-02T14:59:59Z
-const CHAMP_PICK_DEADLINE = new Date('2026-07-02T14:59:59Z').getTime();
-function isChampPickClosed(){
-  return Date.now() > CHAMP_PICK_DEADLINE;
+// ══ 日付ユーティリティ（UTC基準）══
+function utcDateStr(ts){ const d=new Date(ts); return d.toISOString().slice(0,10); } // 'YYYY-MM-DD'
+function startOfUtcDay(dateStr){ return Date.parse(dateStr+'T00:00:00Z'); }
+function addDaysStr(dateStr, n){ return utcDateStr(startOfUtcDay(dateStr)+n*86400000); }
+function todayUtc(){ return utcDateStr(Date.now()); }
+// 表示用：ロック(受付締切) / 判定時刻を日本時間で
+function fmtJst(ts){ return new Date(ts).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+function jaDayLabel(dateStr){
+  const ts=startOfUtcDay(dateStr);
+  return new Date(ts).toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',weekday:'short'});
 }
 
 // ══ アプリ状態 ══
 let G={
   balance: WC_EMBEDDED ? 0 : 10000,
-  matchesData:null, standingsData:null,
-  myMatchBets:{},     // matchId -> {pick:'home'|'draw'|'away', amount, odds, status:'pending'|'won'|'lost', payout}
-  myChampPick:null,   // {team, odds, amount, status}
-  ticketLog:[],        // 履歴表示用（試合確定分）
+  boundaries:{},   // coinId -> { 'YYYY-MM-DD': openPrice(00:00 UTC) }
+  now:{},          // coinId -> 現在価格
+  rounds:[],       // 生成した全ラウンド（＝「試合」）
+  myMatchBets:{},  // matchId -> {pick, amount, odds, status, payout, home, away}
+  myChampPick:null,// {team(coinId), odds, amount, status, payout}
   curTab:'matches',
   selectedMatch:null, selectedPick:null, selectedAmt:0,
   selectedChamp:null,
 };
-
-const STORAGE_KEY='sicowc:state:v1';
-
-function saveLocal(){
-  if(WC_EMBEDDED) return; // embedded時はsicoX側のストレージに委ねる(将来拡張)。standaloneはlocalStateのみメモリ保持。
-}
-
-function fmtPt(n){ return Math.round(n).toLocaleString(); }
 
 function addToast(msg, cls=''){
   const area=document.getElementById('toastArea');
@@ -499,9 +442,12 @@ function switchTab(tab){
   document.querySelectorAll('.wc-panel').forEach(p=>p.style.display='none');
   document.getElementById('panel-'+tab).style.display='block';
   if(tab==='tickets') renderTickets();
+  if(tab==='champion') renderChampionPicks();
 }
 
-// ══ ポイント・予想状態の同期（サーバー＝Supabaseが正） ══
+function updateBalanceUI(){ document.getElementById('balVal').textContent = fmtPt(G.balance); }
+
+// ══ ポイント・予想状態の初期同期（Supabaseが正）══
 async function loadParentBalance(){
   if(!WC_EMBEDDED){ setSyncNote('スタンドアロン残高でプレイ中'); updateBalanceUI(); return; }
   setSyncNote('sicoXポイントと同期中...');
@@ -519,190 +465,236 @@ async function loadParentBalance(){
   updateBalanceUI();
 }
 
-// スタンドアロン（非埋め込み）デモ用のローカル残高調整のみに使用。
-// 埋め込みモードでの賭けの確定・決済は専用のRPC経由メッセージ（wcbet:bet:*, wcbet:sync:matches）で行うため、
-// このsyncPointDeltaは賭けの確定処理からは呼ばれない（互換用に残置）。
-async function syncPointDelta(delta, reason, refId){
+// スタンドアロン用の簡易残高調整（埋め込み時は使わない）
+async function syncPointDelta(delta){
   const cleanDelta = Math.round(Number(delta)||0);
   if(cleanDelta===0) return {ok:true, balance:G.balance};
-  if(!WC_EMBEDDED){
-    G.balance = Math.max(0, Math.round(G.balance + cleanDelta));
-    updateBalanceUI();
-    return {ok:true, balance:G.balance};
-  }
-  const res = await wcReq('wcbet:points:update', {delta:cleanDelta, reason, refId}, 9000);
-  if(!res.ok){ addToast(res.error || 'ポイント反映に失敗しました','lose'); return res; }
-  G.balance = Math.max(0, Math.round(Number(res.balance)||0));
+  G.balance = Math.max(0, Math.round(G.balance + cleanDelta));
   updateBalanceUI();
-  return res;
+  return {ok:true, balance:G.balance};
 }
 
-function updateBalanceUI(){
-  document.getElementById('balVal').textContent = fmtPt(G.balance);
+// ══ 価格取得（CoinGecko 日次始値）══
+async function fetchCoinDaily(id){
+  const url = CG_BASE+'/coins/'+encodeURIComponent(id)+'/market_chart?vs_currency=usd&days='+CG_DAYS;
+  const res = await fetch(url);
+  if(!res.ok){
+    if(res.status===429) throw new Error('RATE_LIMIT');
+    throw new Error('FETCH_ERROR');
+  }
+  const j = await res.json();
+  const prices = (j&&j.prices)?j.prices:[];
+  // 日付(UTC)ごとの最初の点＝その日の 00:00 UTC 始値
+  const bnd={};
+  prices.forEach(pt=>{ const d=utcDateStr(pt[0]); if(!(d in bnd)) bnd[d]=pt[1]; });
+  const now = prices.length? prices[prices.length-1][1] : null;
+  return {bnd, now};
 }
 
-// ══ 試合データ取得 ══
-async function loadMatchData(){
+async function loadMarketData(){
   const loadingEl=document.getElementById('matchesLoading');
   loadingEl.style.display='block'; loadingEl.textContent='読み込み中…';
-  try{
-    const standings = await wcApiFetch('/competitions/'+WC_COMPETITION+'/standings');
-    const matches = await wcApiFetch('/competitions/'+WC_COMPETITION+'/matches');
-    G.standingsData=standings; G.matchesData=matches;
-    loadingEl.style.display='none';
-    renderMatches();
-    renderChampionPicks();
-  }catch(e){
-    loadingEl.style.display='none';
-    let msg='⚽ 試合データの取得に失敗しました。少し時間を置いてから開いてみてください。';
-    if(e.message==='INVALID_KEY') msg='⚽ ワールドカップ情報は現在準備中です。';
-    if(e.message==='RATE_LIMIT') msg='⚽ APIへのアクセスが集中しています。少し時間を置いてから開いてください。';
-    document.getElementById('liveMatchesWrap').innerHTML='';
-    document.getElementById('upcomingMatchesWrap').innerHTML='<div class="wc-error-box">'+esc(msg)+'</div>';
-    document.getElementById('finishedMatchesWrap').innerHTML='';
-    document.getElementById('champGrid').innerHTML='<div class="wc-error-box">'+esc(msg)+'</div>';
-    document.getElementById('champLoading').style.display='none';
+  let got=0, failed=0;
+  for(const c of COINS){
+    try{
+      const {bnd, now} = await fetchCoinDaily(c.id);
+      G.boundaries[c.id]=bnd; G.now[c.id]=now; got++;
+    }catch(e){
+      failed++;
+      if(e.message==='RATE_LIMIT'){ /* 直近取得分を保持したまま続行 */ }
+    }
+    await new Promise(r=>setTimeout(r,180)); // レート制限に配慮して軽く間隔を空ける
   }
+  loadingEl.style.display='none';
+  if(got===0){
+    const msg='📉 価格データの取得に失敗しました。少し時間を置いてから開いてみてください。';
+    document.getElementById('upcomingMatchesWrap').innerHTML='<div class="wc-error-box">'+esc(msg)+'</div>';
+    document.getElementById('liveMatchesWrap').innerHTML='';
+    document.getElementById('finishedMatchesWrap').innerHTML='';
+    return;
+  }
+  buildRounds();
+  renderMatches();
+  renderChampionPicks();
 }
 
-function matchStatusJa(status){
-  const map={SCHEDULED:'試合前',TIMED:'試合前',IN_PLAY:'試合中',PAUSED:'試合中（HT）',
-    FINISHED:'試合終了',POSTPONED:'延期',SUSPENDED:'中断',CANCELLED:'中止'};
-  return map[status]||status;
+// ══ ラウンド生成：1コインの各UTC日 = 1「試合」══
+// day Di の向き = sign( open(Di+1) - open(Di) )  （open(Di)= Di の 00:00 UTC 始値）
+//   ・now < 00:00UTC(Di)              → TIMED   受付中（＝翌日ぶんを賭ける。フェア：その日はまだ始まっていない）
+//   ・00:00UTC(Di) <= now < 00:00UTC(Di+1) → IN_PLAY  当日ぶん（受付終了・判定待ち）
+//   ・now >= 00:00UTC(Di+1) かつ両始値あり  → FINISHED 判定確定
+function buildRounds(){
+  const T = todayUtc();
+  const rounds=[];
+  for(const c of COINS){
+    const bnd = G.boundaries[c.id]; if(!bnd) continue;
+    // 受付中(T+1)・当日(T)・過去7日を生成
+    const days=[];
+    days.push(addDaysStr(T,1)); // 受付中
+    for(let k=0;k<=7;k++) days.push(addDaysStr(T,-k)); // 当日〜過去
+    days.forEach(Di=>{
+      const Dn = addDaysStr(Di,1);
+      const openStart = bnd[Di];      // Di の始値
+      const openEnd   = bnd[Dn];      // Di+1 の始値 = Di の終値
+      const lockTs = startOfUtcDay(Di);
+      const endTs  = startOfUtcDay(Dn);
+      const now = Date.now();
+      let status;
+      if(now < lockTs) status='TIMED';
+      else if(now < endTs) status='IN_PLAY';
+      else if(openStart!=null && openEnd!=null) status='FINISHED';
+      else return; // データ欠損の確定日はスキップ
+      let dir=null;
+      if(status==='FINISHED') dir = (openEnd>openStart)?'up':'down'; // 同値は下扱い
+      rounds.push({
+        matchId: c.id+'-'+Di.replace(/-/g,''),
+        coinId:c.id, day:Di, status, dir,
+        openStart, openEnd, lockTs, endTs,
+      });
+    });
+  }
+  G.rounds = rounds;
 }
 
-function isBettable(status){
-  return status==='SCHEDULED' || status==='TIMED';
+function findRound(matchId){ return G.rounds.find(r=>r.matchId===matchId); }
+function coinNowDelta(coinId, openStart){
+  const now=G.now[coinId];
+  if(now==null||openStart==null) return null;
+  return (now/openStart - 1)*100;
 }
 
-// ══ 試合一覧の描画 ══
+// ══ 一覧描画 ══
 function renderMatchCards(){
-  const data=G.matchesData;
-  const all=(data&&data.matches)?data.matches.slice():[];
-  const upcoming = all.filter(m=>isBettable(m.status))
-    .sort((a,b)=>new Date(a.utcDate)-new Date(b.utcDate));
-  const live = all.filter(m=>m.status==='IN_PLAY'||m.status==='PAUSED');
-  const finished = all.filter(m=>m.status==='FINISHED')
-    .sort((a,b)=>new Date(b.utcDate)-new Date(a.utcDate));
+  const bettable = G.rounds.filter(r=>r.status==='TIMED').sort(sortBySym);
+  const live     = G.rounds.filter(r=>r.status==='IN_PLAY').sort(sortBySym);
+  const finished = G.rounds.filter(r=>r.status==='FINISHED').sort((a,b)=> b.endTs-a.endTs || sortBySym(a,b));
 
+  document.getElementById('upcomingMatchesWrap').innerHTML = bettable.length
+    ? '<div class="wc-section-title">受付中（翌日ぶん）</div>' + bettable.map(roundCardHtml).join('')
+    : '<div class="wc-empty">現在受付中のラウンドがありません。</div>';
   document.getElementById('liveMatchesWrap').innerHTML = live.length
-    ? '<div class="wc-section-title">試合中</div>' + live.map(m=>matchCardHtml(m)).join('')
+    ? '<div class="wc-section-title">本日ぶん（判定待ち）</div>' + live.map(roundCardHtml).join('')
     : '';
-
-  document.getElementById('upcomingMatchesWrap').innerHTML = upcoming.length
-    ? '<div class="wc-section-title">予想受付中</div>' + upcoming.slice(0,30).map(m=>matchCardHtml(m)).join('')
-    : (live.length || finished.length ? '' : '<div class="wc-empty">現在受付中の試合がありません。<br>大会が始まると表示されます。</div>');
-
   document.getElementById('finishedMatchesWrap').innerHTML = finished.length
-    ? '<div class="wc-section-title">結果確定済み</div>' + finished.slice(0,20).map(m=>matchCardHtml(m)).join('')
+    ? '<div class="wc-section-title">結果確定済み</div>' + finished.slice(0,30).map(roundCardHtml).join('')
     : '';
-
-  attachMatchCardHandlers();
-  return all;
+  return G.rounds;
 }
+function sortBySym(a,b){ return COINS.findIndex(c=>c.id===a.coinId) - COINS.findIndex(c=>c.id===b.coinId); }
 
-// renderMatches()はカード描画＋親(sicoX本体)との同期を1回行う「入口」関数。
-// 同期完了後に呼ばれるapplyServerState()は再描画にrenderMatchCards()のみを使うため
-// （renderMatches()を呼ばない）、描画→同期→描画→同期…の無限ループは起きない。
 function renderMatches(){
   const all=renderMatchCards();
-  syncMatchesWithParent(all);
+  syncRoundsWithParent(all);
 }
 
-function matchCardHtml(m){
-  const home=teamJa(m.homeTeam?m.homeTeam.name:'未定');
-  const away=teamJa(m.awayTeam?m.awayTeam.name:'未定');
-  const homeCrest=m.homeTeam&&m.homeTeam.crest?m.homeTeam.crest:'';
-  const awayCrest=m.awayTeam&&m.awayTeam.crest?m.awayTeam.crest:'';
-  const hs=(m.score&&m.score.fullTime&&m.score.fullTime.home!=null)?m.score.fullTime.home:null;
-  const as=(m.score&&m.score.fullTime&&m.score.fullTime.away!=null)?m.score.fullTime.away:null;
-  const hasScore = hs!=null && as!=null;
-  const dateStr=m.utcDate?new Date(m.utcDate).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
-  const stageLabel=m.stage?m.stage.replace(/_/g,' '):'';
-  const bettable=isBettable(m.status);
-  const cardCls = m.status==='IN_PLAY'||m.status==='PAUSED' ? 'live' : (m.status==='FINISHED'?'settled':'');
-  const matchId=String(m.id);
-  const existingBet=G.myMatchBets[matchId];
-
-  let resultPick=null;
-  if(hasScore){ resultPick = hs===as ? 'draw' : (hs>as ? 'home' : 'away'); }
-
-  let oddsHtml='';
-  if(bettable){
-    oddsHtml = '<div class="odds-row">'+
-      oddsBtnHtml(matchId,'home','勝ち '+home,ODDS_HOME,existingBet)+
-      oddsBtnHtml(matchId,'draw','引き分け',ODDS_DRAW,existingBet)+
-      oddsBtnHtml(matchId,'away','勝ち '+away,ODDS_AWAY,existingBet)+
-      '</div>'+
-      '<div class="bet-row" id="betRow-'+matchId+'">'+
-        '<div style="flex:1;">'+
-          '<div class="bet-amt-grid">'+
-            [100,300,500,1000].map(a=>'<button class="bet-amt-btn" data-amt="'+a+'" onclick="selectBetAmt(\''+matchId+'\','+a+',this)">'+a+'</button>').join('')+
-          '</div>'+
-          '<div class="bet-custom-wrap">'+
-            '<span class="bcw-lbl">自由入力</span>'+
-            '<input type="number" class="bet-custom-input" id="betCustom-'+matchId+'" min="1" step="1" placeholder="pt" inputmode="numeric" oninput="onCustomBetInput(\''+matchId+'\',this.value)">'+
-            '<span class="bet-custom-suffix">pt</span>'+
-            '<button class="bet-max-btn" onclick="setMaxBet(\''+matchId+'\')">MAX</button>'+
-          '</div>'+
-          '<div class="bet-custom-err" id="betCustomErr-'+matchId+'"></div>'+
-        '</div>'+
-      '</div>'+
-      '<div class="bet-potential" id="betPotential-'+matchId+'" style="display:none;"></div>'+
-      '<button class="bet-confirm" id="betConfirm-'+matchId+'" disabled style="width:100%;margin-top:8px;padding:10px;" onclick="openMatchBetModal(\''+matchId+'\')">予想する</button>';
-  } else if(existingBet){
-    let statusHtml;
-    if(existingBet.status==='pending'){
-      statusHtml = '保留中（結果待ち）';
-    } else if(existingBet.status==='won'){
-      statusHtml = '<span class="res-won">的中！ +'+fmtPt(existingBet.payout)+'pt</span>';
-    } else {
-      statusHtml = '<span class="res-lost">不的中</span>';
-    }
-    const pickLabel = existingBet.pick==='home'?(home+'勝ち'):existingBet.pick==='away'?(away+'勝ち'):'引き分け';
-    oddsHtml = '<div class="already-bet"><span>あなたの予想: <b>'+esc(pickLabel)+'</b>（'+fmtPt(existingBet.amount)+'pt）</span>'+statusHtml+'</div>';
-  } else if(m.status==='FINISHED'){
-    oddsHtml = '<div class="wc-empty" style="padding:10px 0;border:none;">この試合には予想していません</div>';
+function coinHeadHtml(r, showLiveDelta){
+  const c=COIN_BY_ID[r.coinId];
+  const now=G.now[r.coinId];
+  let quote='';
+  if(showLiveDelta){
+    const d=coinNowDelta(r.coinId, r.openStart);
+    const dCls = d!=null && d<0 ? 'down':'up';
+    quote = '<div class="coin-quote"><div class="coin-price">'+esc(fmtUsd(now))+'</div>'+
+      (d!=null?'<div class="coin-delta '+dCls+'">暫定 '+esc(fmtPct(d))+'</div>':'')+'</div>';
+  } else {
+    quote = '<div class="coin-quote"><div class="coin-price">'+esc(fmtUsd(now))+'</div></div>';
   }
-
-  const tweetBtn = (m.status==='FINISHED')
-    ? '<button class="tweet-result-btn" onclick="tweetWcMatch(\''+esc(home).replace(/'/g,"\\'")+'\',\''+esc(away).replace(/'/g,"\\'")+'\','+(hs!=null?hs:0)+','+(as!=null?as:0)+',\''+esc(stageLabel).replace(/'/g,"\\'")+'\')">📢 この結果をsicoXでポストする</button>'
-    : '';
-
-  return '<div class="match-card '+cardCls+'" data-match-id="'+matchId+'">'+
-    '<div class="match-meta"><span class="match-stage">'+esc(stageLabel)+'</span>'+
-      '<span class="match-status '+(m.status==='IN_PLAY'||m.status==='PAUSED'?'live':(m.status==='FINISHED'?'fin':''))+'">'+esc(matchStatusJa(m.status))+'</span></div>'+
-    '<div class="match-teams">'+
-      '<div class="team-block">'+(homeCrest?'<img class="team-flag" src="'+esc(homeCrest)+'" alt="">':'')+'<span class="team-name">'+esc(home)+'</span></div>'+
-      '<div class="match-score'+(hasScore?'':' vs')+'">'+(hasScore?(hs+' - '+as):dateStr)+'</div>'+
-      '<div class="team-block away">'+(awayCrest?'<img class="team-flag" src="'+esc(awayCrest)+'" alt="">':'')+'<span class="team-name">'+esc(away)+'</span></div>'+
-    '</div>'+
-    oddsHtml+
-    tweetBtn+
+  return '<div class="coin-head">'+
+    '<div class="coin-badge">'+esc(c.sym.slice(0,4))+'</div>'+
+    '<div class="coin-id"><div class="coin-sym">'+esc(c.sym)+'</div><div class="coin-name">'+esc(c.ja)+'</div></div>'+
+    quote+
   '</div>';
 }
 
-function oddsBtnHtml(matchId,pick,label,odds,existingBet){
-  const sel = existingBet ? '' : '';
-  return '<div class="odds-btn" data-pick="'+pick+'" onclick="selectMatchPick(\''+matchId+'\',\''+pick+'\',this)">'+
+function roundCardHtml(r){
+  const c=COIN_BY_ID[r.coinId];
+  const existingBet=G.myMatchBets[r.matchId];
+  const statusJa = r.status==='TIMED'?'受付中':r.status==='IN_PLAY'?'判定待ち':'確定';
+  const statusCls = r.status==='IN_PLAY'?'live':(r.status==='FINISHED'?'fin':'');
+  const cardCls = r.status==='IN_PLAY'?'live':(r.status==='FINISHED'?'settled':'');
+  const dayLbl = jaDayLabel(r.day)+' ぶん';
+
+  let body='';
+  if(r.status==='TIMED'){
+    const closeStr='受付〆 '+fmtJst(r.lockTs);
+    body =
+      '<div class="odds-row">'+
+        oddsBtnHtml(r.matchId,'home','📈 上がる',ODDS_UP,'up')+
+        oddsBtnHtml(r.matchId,'away','📉 下がる',ODDS_DOWN,'down')+
+      '</div>'+
+      '<div class="bet-row" id="betRow-'+r.matchId+'">'+
+        '<div style="flex:1;">'+
+          '<div class="bet-amt-grid">'+
+            [100,300,500,1000].map(a=>'<button class="bet-amt-btn" data-amt="'+a+'" onclick="selectBetAmt(\''+r.matchId+'\','+a+',this)">'+a+'</button>').join('')+
+          '</div>'+
+          '<div class="bet-custom-wrap">'+
+            '<span class="bcw-lbl">自由入力</span>'+
+            '<input type="number" class="bet-custom-input" id="betCustom-'+r.matchId+'" min="1" step="1" placeholder="pt" inputmode="numeric" oninput="onCustomBetInput(\''+r.matchId+'\',this.value)">'+
+            '<span class="bet-custom-suffix">pt</span>'+
+            '<button class="bet-max-btn" onclick="setMaxBet(\''+r.matchId+'\')">MAX</button>'+
+          '</div>'+
+          '<div class="bet-custom-err" id="betCustomErr-'+r.matchId+'"></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="bet-potential" id="betPotential-'+r.matchId+'" style="display:none;"></div>'+
+      '<button class="bet-confirm" id="betConfirm-'+r.matchId+'" disabled style="width:100%;margin-top:8px;padding:10px;" onclick="openMatchBetModal(\''+r.matchId+'\')">この予想で確定</button>'+
+      '<div style="font-size:10px;color:var(--text2);text-align:right;margin-top:6px;">'+esc(closeStr)+'</div>';
+    if(existingBet){
+      body = alreadyBetHtml(existingBet) + body_disabledNote();
+    }
+  } else if(existingBet){
+    body = alreadyBetHtml(existingBet);
+    if(r.status==='FINISHED') body += resultLine(r);
+  } else if(r.status==='FINISHED'){
+    body = resultLine(r) + '<div class="wc-empty" style="padding:10px 0;border:none;">このラウンドには予想していません</div>';
+  } else {
+    body = '<div class="wc-empty" style="padding:10px 0;border:none;">受付は終了しました（判定待ち）</div>';
+  }
+
+  const showLive = (r.status==='IN_PLAY');
+  return '<div class="match-card '+cardCls+'" data-match-id="'+r.matchId+'">'+
+    '<div class="match-meta"><span class="match-stage">'+esc(dayLbl)+'</span>'+
+      '<span class="match-status '+statusCls+'">'+esc(statusJa)+'</span></div>'+
+    coinHeadHtml(r, showLive)+
+    body+
+  '</div>';
+}
+function body_disabledNote(){ return '<div style="font-size:10px;color:var(--text2);text-align:center;margin-top:6px;">※この銘柄は予想済みのため変更できません</div>'; }
+
+function resultLine(r){
+  if(r.openStart==null||r.openEnd==null) return '';
+  const pct=(r.openEnd/r.openStart-1)*100;
+  const up = r.dir==='up';
+  return '<div class="round-result '+(up?'up':'down')+'">'+(up?'📈 上昇':'📉 下落')+' '+esc(fmtPct(pct))+'</div>';
+}
+
+function alreadyBetHtml(bet){
+  let statusHtml;
+  if(bet.status==='pending') statusHtml='判定待ち';
+  else if(bet.status==='won') statusHtml='<span class="res-won">的中！ +'+fmtPt(bet.payout)+'pt</span>';
+  else statusHtml='<span class="res-lost">不的中</span>';
+  const pickLabel = bet.pick==='home'?'上がる':'下がる';
+  return '<div class="already-bet"><span>あなたの予想: <b>'+esc(pickLabel)+'</b>（'+fmtPt(bet.amount)+'pt）</span>'+statusHtml+'</div>';
+}
+
+function oddsBtnHtml(matchId,pick,label,odds,dirCls){
+  return '<div class="odds-btn '+dirCls+'" data-pick="'+pick+'" onclick="selectMatchPick(\''+matchId+'\',\''+pick+'\',this)">'+
     '<div class="ol">'+esc(label)+'</div><div class="ov">×'+odds.toFixed(1)+'</div></div>';
 }
 
-function attachMatchCardHandlers(){ /* イベントはinline onclickで割当済み */ }
-
+// ══ 予想の選択・確定 ══
 function selectMatchPick(matchId, pick, btnEl){
-  if(G.myMatchBets[matchId]) return; // 既に予想済みなら変更不可
+  if(G.myMatchBets[matchId]) return;
   G.selectedMatch=matchId; G.selectedPick=pick;
   const card=btnEl.closest('.match-card');
   card.querySelectorAll('.odds-btn').forEach(b=>b.classList.remove('sel'));
   btnEl.classList.add('sel');
   const row=document.getElementById('betRow-'+matchId);
-  row.classList.add('open');
+  if(row) row.classList.add('open');
   const confirmBtn=document.getElementById('betConfirm-'+matchId);
   if(confirmBtn) confirmBtn.disabled = !(G.selectedAmt>0 && G.selectedAmt<=G.balance);
   updateBetPotential(matchId);
 }
-
 function selectBetAmt(matchId, amt, btnEl){
   G.selectedMatch=matchId; G.selectedAmt=amt;
   const row=document.getElementById('betRow-'+matchId);
@@ -715,14 +707,12 @@ function selectBetAmt(matchId, amt, btnEl){
   confirmBtn.disabled = !(G.selectedPick && amt>0 && amt<=G.balance);
   updateBetPotential(matchId);
 }
-
 function clearBetCustomErr(matchId){
   const errEl=document.getElementById('betCustomErr-'+matchId);
   const inputEl=document.getElementById('betCustom-'+matchId);
   if(errEl){ errEl.style.display='none'; errEl.textContent=''; }
   if(inputEl) inputEl.classList.remove('err');
 }
-
 function onCustomBetInput(matchId, rawVal){
   G.selectedMatch=matchId;
   const row=document.getElementById('betRow-'+matchId);
@@ -730,30 +720,18 @@ function onCustomBetInput(matchId, rawVal){
   const errEl=document.getElementById('betCustomErr-'+matchId);
   const inputEl=document.getElementById('betCustom-'+matchId);
   row.querySelectorAll('.bet-amt-btn').forEach(b=>b.classList.remove('sel'));
-
   const n=Math.floor(Number(rawVal));
   if(!rawVal || isNaN(n) || n<=0){
-    G.selectedAmt=0;
-    clearBetCustomErr(matchId);
-    confirmBtn.disabled=true;
-    updateBetPotential(matchId);
-    return;
+    G.selectedAmt=0; clearBetCustomErr(matchId); confirmBtn.disabled=true; updateBetPotential(matchId); return;
   }
   if(n>G.balance){
-    G.selectedAmt=G.balance;
-    inputEl.classList.add('err');
-    errEl.style.display='block';
+    G.selectedAmt=G.balance; inputEl.classList.add('err'); errEl.style.display='block';
     errEl.textContent='所持pt（'+fmtPt(G.balance)+'pt）を超えています。最大まで賭けるには「MAX」を使ってください。';
-    confirmBtn.disabled = !(G.selectedPick && G.balance>0);
-    updateBetPotential(matchId, n); // 入力値そのものは表示するが賭け可能額はクランプ済み
-    return;
+    confirmBtn.disabled = !(G.selectedPick && G.balance>0); updateBetPotential(matchId, n); return;
   }
   clearBetCustomErr(matchId);
-  G.selectedAmt=n;
-  confirmBtn.disabled = !(G.selectedPick && n>0);
-  updateBetPotential(matchId);
+  G.selectedAmt=n; confirmBtn.disabled = !(G.selectedPick && n>0); updateBetPotential(matchId);
 }
-
 function setMaxBet(matchId){
   const inputEl=document.getElementById('betCustom-'+matchId);
   const row=document.getElementById('betRow-'+matchId);
@@ -765,60 +743,42 @@ function setMaxBet(matchId){
   confirmBtn.disabled = !(G.selectedPick && G.balance>0);
   updateBetPotential(matchId);
 }
-
-function pickOdds(pick){
-  return pick==='home'?ODDS_HOME:pick==='draw'?ODDS_DRAW:ODDS_AWAY;
-}
-
 function updateBetPotential(matchId, displayAmtOverride){
   const el=document.getElementById('betPotential-'+matchId);
   if(!el) return;
   const amt = displayAmtOverride!=null ? displayAmtOverride : G.selectedAmt;
   if(G.selectedMatch===matchId && G.selectedPick && amt>0){
     const odds=pickOdds(G.selectedPick);
-    const potential=Math.round(amt*odds);
     el.style.display='block';
-    el.innerHTML='的中時の獲得: <b>+'+fmtPt(potential)+'pt</b>（×'+odds.toFixed(1)+'）';
-  } else {
-    el.style.display='none';
-  }
+    el.innerHTML='的中時の獲得: <b>+'+fmtPt(Math.round(amt*odds))+'pt</b>（×'+odds.toFixed(1)+'）';
+  } else el.style.display='none';
 }
-
 function openMatchBetModal(matchId){
   if(G.selectedMatch!==matchId || !G.selectedPick || !G.selectedAmt) return;
   if(G.selectedAmt>G.balance){ addToast('残高が不足しています','lose'); return; }
-  const m=findMatchById(matchId);
-  if(!m) return;
-  const home=teamJa(m.homeTeam?m.homeTeam.name:'未定');
-  const away=teamJa(m.awayTeam?m.awayTeam.name:'未定');
-  const pickLabel = G.selectedPick==='home'?(home+'の勝ち'):G.selectedPick==='away'?(away+'の勝ち'):'引き分け';
+  const r=findRound(matchId); if(!r) return;
+  const c=COIN_BY_ID[r.coinId];
+  const pickLabel = G.selectedPick==='home'?'上がる':'下がる';
   const odds=pickOdds(G.selectedPick);
-  const potential=Math.round(G.selectedAmt*odds);
-  document.getElementById('modalTitle').textContent='試合予想を確定';
+  document.getElementById('modalTitle').textContent='予想を確定';
   document.getElementById('modalBody').innerHTML=
-    home+' vs '+away+'<br><br>予想: <b>'+esc(pickLabel)+'</b>　賭けpt: <b>'+fmtPt(G.selectedAmt)+'pt</b><br>'+
-    '的中時の獲得: <b>+'+fmtPt(potential)+'pt</b>（×'+odds.toFixed(1)+'）';
+    esc(c.sym)+'（'+esc(jaDayLabel(r.day))+'ぶん）<br><br>予想: <b>'+esc(pickLabel)+'</b>　賭けpt: <b>'+fmtPt(G.selectedAmt)+'pt</b><br>'+
+    '的中時の獲得: <b>+'+fmtPt(Math.round(G.selectedAmt*odds))+'pt</b>（×'+odds.toFixed(1)+'）';
   document.getElementById('modalConfirmBtn').onclick=()=>confirmMatchBet(matchId);
   document.getElementById('confirmModal').classList.add('open');
 }
-
 async function confirmMatchBet(matchId){
   closeModal();
   const pick=G.selectedPick, amt=G.selectedAmt, odds=pickOdds(pick);
   if(amt>G.balance){ addToast('残高が不足しています','lose'); return; }
-  const m=findMatchById(matchId);
-  const home=teamJa(m.homeTeam?m.homeTeam.name:'');
-  const away=teamJa(m.awayTeam?m.awayTeam.name:'');
-  const stage=m.stage?m.stage.replace(/_/g,' '):'';
+  const r=findRound(matchId); const c=COIN_BY_ID[r.coinId];
+  const home='上がる', away='下がる', stage=c.sym;
   if(!WC_EMBEDDED){
-    const id='wcbet-match-'+matchId+'-'+Date.now();
-    const res=await syncPointDelta(-amt, 'SicoWC 試合予想 '+home+' vs '+away, id);
-    if(!res.ok) return;
+    await syncPointDelta(-amt);
     G.myMatchBets[matchId]={pick, amount:amt, odds, status:'pending', payout:0, home, away};
     addToast('予想を受け付けました（-'+fmtPt(amt)+'pt）','gold');
     G.selectedMatch=null; G.selectedPick=null; G.selectedAmt=0;
-    renderMatchCards();
-    return;
+    renderMatchCards(); return;
   }
   const res = await wcReq('wcbet:bet:match', {matchId, homeTeam:home, awayTeam:away, stage, pick, odds, amount:amt}, 9000);
   if(!res.ok){ addToast(res.error || '予想の登録に失敗しました','lose'); return; }
@@ -831,71 +791,54 @@ async function confirmMatchBet(matchId){
   renderMatchCards();
 }
 
-function findMatchById(matchId){
-  const all=(G.matchesData&&G.matchesData.matches)?G.matchesData.matches:[];
-  return all.find(m=>String(m.id)===String(matchId));
+// ══ 同期＆自動精算：合成スコアを既存 toto_sync_matches に渡す ══
+function roundToSyncPayload(r){
+  // 確定日のみスコアを付与（上=1-0 / 下=0-1）。判定待ち・受付中は null。
+  let hs=null, as=null;
+  if(r.status==='FINISHED'){ if(r.dir==='up'){ hs=1; as=0; } else { hs=0; as=1; } }
+  const c=COIN_BY_ID[r.coinId];
+  return {
+    id:r.matchId, homeTeam:'上がる', awayTeam:'下がる', stage:c.sym,
+    status:r.status, utcDate:new Date(r.lockTs).toISOString(),
+    homeScore:hs, awayScore:as,
+  };
 }
-
-// ══ 試合の同期＆決済（埋め込み時はSupabase RPC経由でサーバーが正として決済する） ══
-async function syncMatchesWithParent(allMatches){
+async function syncRoundsWithParent(rounds){
   if(!WC_EMBEDDED){
-    // スタンドアロン用：旧来のクライアント側ローカル決済シミュレーションを維持
-    const finished=allMatches.filter(m=>m.status==='FINISHED');
-    for(const m of finished){
-      const matchId=String(m.id);
-      const bet=G.myMatchBets[matchId];
+    // スタンドアロン：確定ラウンドをローカル精算
+    for(const r of rounds){
+      if(r.status!=='FINISHED') continue;
+      const bet=G.myMatchBets[r.matchId];
       if(!bet || bet.status!=='pending') continue;
-      const hs=(m.score&&m.score.fullTime&&m.score.fullTime.home!=null)?m.score.fullTime.home:null;
-      const as=(m.score&&m.score.fullTime&&m.score.fullTime.away!=null)?m.score.fullTime.away:null;
-      if(hs==null||as==null) continue;
-      const result = hs===as ? 'draw' : (hs>as ? 'home' : 'away');
+      const result = r.dir==='up' ? 'home' : 'away';
       const won = bet.pick===result;
-      bet.status = won ? 'won' : 'lost';
-      if(won){
-        const payout=Math.round(bet.amount*bet.odds);
-        bet.payout=payout;
-        const res=await syncPointDelta(payout, 'SicoWC 予想的中 '+bet.home+' vs '+bet.away, 'wcbet-payout-'+matchId);
-        if(res.ok) addToast(bet.home+' vs '+bet.away+' 的中！ +'+fmtPt(payout)+'pt','win');
-      } else {
-        addToast(bet.home+' vs '+bet.away+' の予想は不的中でした','lose');
-      }
+      bet.status = won?'won':'lost';
+      if(won){ bet.payout=Math.round(bet.amount*bet.odds); await syncPointDelta(bet.payout);
+        addToast(COIN_BY_ID[r.coinId].sym+' 的中！ +'+fmtPt(bet.payout)+'pt','win'); }
+      else addToast(COIN_BY_ID[r.coinId].sym+' は不的中でした','lose');
     }
     if(document.getElementById('panel-tickets').style.display!=='none') renderTickets();
     return;
   }
-  const payload = allMatches.map(m=>({
-    id:String(m.id), homeTeam:m.homeTeam?m.homeTeam.name:null, awayTeam:m.awayTeam?m.awayTeam.name:null,
-    stage:m.stage||null, status:m.status,
-    utcDate:m.utcDate||null,
-    homeScore:(m.score&&m.score.fullTime&&m.score.fullTime.home!=null)?m.score.fullTime.home:null,
-    awayScore:(m.score&&m.score.fullTime&&m.score.fullTime.away!=null)?m.score.fullTime.away:null
-  }));
+  const payload = rounds.map(roundToSyncPayload);
   const res = await wcReq('wcbet:sync:matches', {matches:payload}, 15000);
   if(!res.ok) return;
   applyServerState(res);
 }
-
 function applyServerState(res){
   G.balance = Math.max(0, Math.round(Number(res.balance)||0));
   const newBets = res.matchBets || {};
   Object.keys(newBets).forEach(matchId=>{
-    const before=G.myMatchBets[matchId];
-    const after=newBets[matchId];
-    if(before && before.status==='pending' && after.status==='won'){
-      addToast(after.home+' vs '+after.away+' 的中！ +'+fmtPt(after.payout)+'pt','win');
-    } else if(before && before.status==='pending' && after.status==='lost'){
-      addToast(after.home+' vs '+after.away+' の予想は不的中でした','lose');
-    }
+    const before=G.myMatchBets[matchId]; const after=newBets[matchId];
+    const cid=matchId.split('-').slice(0,-1).join('-'); const sym=(COIN_BY_ID[cid]||{}).sym||'';
+    if(before && before.status==='pending' && after.status==='won')  addToast(sym+' 的中！ +'+fmtPt(after.payout)+'pt','win');
+    else if(before && before.status==='pending' && after.status==='lost') addToast(sym+' は不的中でした','lose');
   });
   G.myMatchBets = newBets;
 
-  const newChamp = res.championBet || null;
-  const beforeChamp = G.myChampPick;
-  if(beforeChamp && beforeChamp.status==='pending' && newChamp && newChamp.status==='won'){
-    addToast('優勝予想的中！ +'+fmtPt(newChamp.payout)+'pt','win');
-  } else if(beforeChamp && beforeChamp.status==='pending' && newChamp && newChamp.status==='lost'){
-    addToast('優勝予想は不的中でした','lose');
-  }
+  const newChamp = res.championBet || null; const beforeChamp = G.myChampPick;
+  if(beforeChamp && beforeChamp.status==='pending' && newChamp && newChamp.status==='won')  addToast('月間王的中！ +'+fmtPt(newChamp.payout)+'pt','win');
+  else if(beforeChamp && beforeChamp.status==='pending' && newChamp && newChamp.status==='lost') addToast('月間王は不的中でした','lose');
   G.myChampPick = newChamp;
 
   updateBalanceUI();
@@ -904,88 +847,70 @@ function applyServerState(res){
   if(document.getElementById('panel-tickets').style.display!=='none') renderTickets();
 }
 
-// ══ 優勝予想（FIFAランキングのレーティングポイントに基づく固定オッズ） ══
-function getEntrantTeams(){
-  // standings(グループ表)と matches(対戦表) の両方から出場チーム一覧を集める（重複除去）
-  const seen={}; const teams=[];
-  const standings=G.standingsData;
-  const groups=(standings&&standings.standings)?standings.standings.filter(s=>s.type==='TOTAL'):[];
-  groups.forEach(g=>{
-    (g.table||[]).forEach(row=>{
-      if(row.team && row.team.name && !seen[row.team.name]){
-        seen[row.team.name]=true;
-        teams.push({name:row.team.name, crest:row.team.crest});
-      }
-    });
-  });
-  const all=(G.matchesData&&G.matchesData.matches)?G.matchesData.matches:[];
-  all.forEach(m=>{
-    [m.homeTeam,m.awayTeam].forEach(t=>{
-      if(t&&t.name&&!seen[t.name]){ seen[t.name]=true; teams.push({name:t.name,crest:t.crest}); }
-    });
-  });
-  // FIFAランキングのレーティングが高い順に並べる（ランキング外のチームは最後尾）
-  teams.sort((a,b)=>{
-    const ra = FIFA_RATING[a.name]!=null ? FIFA_RATING[a.name] : -1;
-    const rb = FIFA_RATING[b.name]!=null ? FIFA_RATING[b.name] : -1;
-    return rb-ra;
-  });
-  return teams;
+// ══ 月間王（値上がり率トップ）予想 = 既存 toto_champion_bets を転用 ══
+function monthStartStr(){ const d=new Date(); return utcDateStr(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); }
+function coinMtdPct(coinId){
+  const bnd=G.boundaries[coinId]; const now=G.now[coinId];
+  if(!bnd||now==null) return null;
+  // 月初(1日 00:00 UTC)の始値。無ければ最も近い直後の日を採用。
+  let ms=monthStartStr(); let base=bnd[ms];
+  if(base==null){ const keys=Object.keys(bnd).filter(d=>d>=ms).sort(); if(keys.length) base=bnd[keys[0]]; }
+  if(base==null) return null;
+  return (now/base-1)*100;
 }
-
 function renderChampionPicks(){
-  const loadingEl=document.getElementById('champLoading');
-  let teams=getEntrantTeams();
-  loadingEl.style.display='none';
-  const closed = isChampPickClosed();
-  const closedNotice = closed
-    ? '<div class="champ-closed-notice">⏱ 優勝予想の受付は締め切りました</div>'
-    : '';
-  if(!teams.length){
-    document.getElementById('champGrid').innerHTML=closedNotice+'<div class="wc-empty">出場チーム情報がまだありません。<br>大会が始まると表示されます。</div>';
-    return;
+  const loadingEl=document.getElementById('champLoading'); if(loadingEl) loadingEl.style.display='none';
+  // 月初来リーダーボード
+  const board = COINS.map(c=>({c, pct:coinMtdPct(c.id)}))
+    .filter(x=>x.pct!=null).sort((a,b)=>b.pct-a.pct);
+  let boardHtml='';
+  if(board.length){
+    boardHtml='<div class="champ-board"><div class="wc-section-title">今月の値上がり率（暫定）</div>'+
+      board.map((x,i)=>{
+        const cls=x.pct<0?'down':'up';
+        return '<div class="champ-board-row"><span class="cbr-rank">'+(i+1)+'</span>'+
+          '<span class="cbr-name">'+esc(x.c.sym)+' · '+esc(x.c.ja)+'</span>'+
+          '<span class="cbr-val" style="color:var(--'+cls+')">'+esc(fmtPct(x.pct))+'</span></div>';
+      }).join('')+'</div>';
   }
-  const html = teams.slice(0,48).map((t)=>{
-    const odds = fifaChampOdds(t.name);
-    const sel = G.myChampPick && G.myChampPick.team===t.name;
-    const disabled = (G.myChampPick && G.myChampPick.team!==t.name) || (!G.myChampPick && closed);
-    return '<div class="champ-card'+(sel?' sel':'')+(disabled?' disabled':'')+'" data-team="'+esc(t.name)+'" data-odds="'+odds+'" onclick="selectChampPick(this)">'+
-      (t.crest?'<img class="champ-flag" src="'+esc(t.crest)+'" alt="">':'<div class="champ-flag"></div>')+
-      '<span class="champ-name">'+esc(teamJa(t.name))+'</span>'+
+  const html = COINS.map(c=>{
+    const odds=c.champOdds;
+    const sel = G.myChampPick && G.myChampPick.team===c.id;
+    const disabled = (G.myChampPick && G.myChampPick.team!==c.id);
+    return '<div class="champ-card'+(sel?' sel':'')+(disabled?' disabled':'')+'" data-team="'+esc(c.id)+'" data-odds="'+odds+'" onclick="selectChampPick(this)">'+
+      '<div class="champ-flag">'+esc(c.sym.slice(0,4))+'</div>'+
+      '<span class="champ-name">'+esc(c.sym)+' · '+esc(c.ja)+'</span>'+
       '<span class="champ-odds">×'+odds+'</span>'+
     '</div>';
   }).join('');
-  document.getElementById('champGrid').innerHTML = closedNotice+'<div class="champ-grid">'+html+'</div>';
+  document.getElementById('champGrid').innerHTML = boardHtml+'<div class="champ-grid">'+html+'</div>';
   renderChampSlip();
 }
-
 function selectChampPick(el){
-  if(G.myChampPick) return; // 既に確定済みなら変更不可
-  if(isChampPickClosed()){ addToast('優勝予想の受付は締め切りました','lose'); return; }
+  if(G.myChampPick) return;
   document.querySelectorAll('.champ-card').forEach(c=>c.classList.remove('sel'));
   el.classList.add('sel');
   G.selectedChamp={team:el.dataset.team, odds:parseFloat(el.dataset.odds)};
   renderChampSlip();
 }
-
+let champSelectedAmt=0;
 function renderChampSlip(){
   const wrap=document.getElementById('champSlipWrap');
   if(G.myChampPick){
-    const p=G.myChampPick;
-    let statusLine='保留中（大会終了後に確定）';
-    if(p.status==='won') statusLine='<span class="res-won">優勝的中！ +'+fmtPt(p.payout)+'pt</span>';
+    const p=G.myChampPick; const c=COIN_BY_ID[p.team]||{sym:p.team};
+    let statusLine='判定待ち（月末に確定）';
+    if(p.status==='won') statusLine='<span class="res-won">月間王的中！ +'+fmtPt(p.payout)+'pt</span>';
     if(p.status==='lost') statusLine='<span class="res-lost">不的中</span>';
-    wrap.innerHTML = '<div class="champ-slip"><div class="champ-slip-inner">'+
-      '<div class="champ-slip-pick">優勝予想: <b>'+esc(teamJa(p.team))+'</b>（'+fmtPt(p.amount)+'pt ×'+p.odds+'）</div>'+
+    wrap.innerHTML='<div class="champ-slip"><div class="champ-slip-inner">'+
+      '<div class="champ-slip-pick">月間王予想: <b>'+esc(c.sym)+'</b>（'+fmtPt(p.amount)+'pt ×'+p.odds+'）</div>'+
       '<div style="font-size:12px;color:var(--text2);">'+statusLine+'</div>'+
     '</div></div>';
     return;
   }
   if(!G.selectedChamp){ wrap.innerHTML=''; return; }
-  if(isChampPickClosed()){ wrap.innerHTML=''; return; }
-  const t=G.selectedChamp;
-  wrap.innerHTML = '<div class="champ-slip"><div class="champ-slip-inner">'+
-    '<div class="champ-slip-pick">優勝予想: <b>'+esc(teamJa(t.team))+'</b>（オッズ ×'+t.odds+'）</div>'+
+  const c=COIN_BY_ID[G.selectedChamp.team]||{sym:G.selectedChamp.team};
+  wrap.innerHTML='<div class="champ-slip"><div class="champ-slip-inner">'+
+    '<div class="champ-slip-pick">月間王予想: <b>'+esc(c.sym)+'</b>（オッズ ×'+G.selectedChamp.odds+'）</div>'+
     '<div class="bet-amt-grid" style="margin-bottom:6px;">'+
       [500,1000,3000,5000].map(a=>'<button class="bet-amt-btn" data-amt="'+a+'" onclick="selectChampAmt('+a+',this)">'+a+'</button>').join('')+
     '</div>'+
@@ -997,190 +922,123 @@ function renderChampSlip(){
     '</div>'+
     '<div class="bet-custom-err" id="champCustomErr"></div>'+
     '<div class="bet-potential" id="champPotential" style="display:none;margin:8px 0;"></div>'+
-    '<button class="bet-confirm" id="champConfirmBtn" disabled style="width:100%;padding:11px;" onclick="openChampBetModal()">優勝予想を確定する</button>'+
+    '<button class="bet-confirm" id="champConfirmBtn" disabled style="width:100%;padding:11px;" onclick="openChampBetModal()">月間王予想を確定する</button>'+
   '</div></div>';
 }
-
-let champSelectedAmt=0;
 function selectChampAmt(amt, btnEl){
   champSelectedAmt=amt;
   document.querySelectorAll('#champSlipWrap .bet-amt-btn').forEach(b=>b.classList.remove('sel'));
   btnEl.classList.add('sel');
-  const customInput=document.getElementById('champCustomInput');
-  if(customInput) customInput.value='';
+  const ci=document.getElementById('champCustomInput'); if(ci) ci.value='';
   clearChampCustomErr();
   document.getElementById('champConfirmBtn').disabled = !(amt>0 && amt<=G.balance);
   updateChampPotential();
 }
-
 function clearChampCustomErr(){
-  const errEl=document.getElementById('champCustomErr');
-  const inputEl=document.getElementById('champCustomInput');
-  if(errEl){ errEl.style.display='none'; errEl.textContent=''; }
-  if(inputEl) inputEl.classList.remove('err');
+  const errEl=document.getElementById('champCustomErr'); const inputEl=document.getElementById('champCustomInput');
+  if(errEl){ errEl.style.display='none'; errEl.textContent=''; } if(inputEl) inputEl.classList.remove('err');
 }
-
 function onCustomChampInput(rawVal){
   document.querySelectorAll('#champSlipWrap .bet-amt-btn').forEach(b=>b.classList.remove('sel'));
-  const confirmBtn=document.getElementById('champConfirmBtn');
-  const errEl=document.getElementById('champCustomErr');
-  const inputEl=document.getElementById('champCustomInput');
-
+  const confirmBtn=document.getElementById('champConfirmBtn'); const errEl=document.getElementById('champCustomErr'); const inputEl=document.getElementById('champCustomInput');
   const n=Math.floor(Number(rawVal));
-  if(!rawVal || isNaN(n) || n<=0){
-    champSelectedAmt=0;
-    clearChampCustomErr();
-    confirmBtn.disabled=true;
-    updateChampPotential();
-    return;
-  }
-  if(n>G.balance){
-    champSelectedAmt=G.balance;
-    inputEl.classList.add('err');
-    errEl.style.display='block';
+  if(!rawVal || isNaN(n) || n<=0){ champSelectedAmt=0; clearChampCustomErr(); confirmBtn.disabled=true; updateChampPotential(); return; }
+  if(n>G.balance){ champSelectedAmt=G.balance; inputEl.classList.add('err'); errEl.style.display='block';
     errEl.textContent='所持pt（'+fmtPt(G.balance)+'pt）を超えています。最大まで賭けるには「MAX」を使ってください。';
-    confirmBtn.disabled = !(G.balance>0);
-    updateChampPotential(n);
-    return;
-  }
-  clearChampCustomErr();
-  champSelectedAmt=n;
-  confirmBtn.disabled = !(n>0);
-  updateChampPotential();
+    confirmBtn.disabled=!(G.balance>0); updateChampPotential(n); return; }
+  clearChampCustomErr(); champSelectedAmt=n; confirmBtn.disabled=!(n>0); updateChampPotential();
 }
-
 function setMaxChampBet(){
   const inputEl=document.getElementById('champCustomInput');
   document.querySelectorAll('#champSlipWrap .bet-amt-btn').forEach(b=>b.classList.remove('sel'));
   if(inputEl) inputEl.value = G.balance>0 ? G.balance : '';
-  clearChampCustomErr();
-  champSelectedAmt=G.balance;
-  document.getElementById('champConfirmBtn').disabled = !(G.balance>0);
-  updateChampPotential();
+  clearChampCustomErr(); champSelectedAmt=G.balance;
+  document.getElementById('champConfirmBtn').disabled=!(G.balance>0); updateChampPotential();
 }
-
 function updateChampPotential(displayAmtOverride){
-  const potEl=document.getElementById('champPotential');
-  if(!potEl) return;
+  const potEl=document.getElementById('champPotential'); if(!potEl) return;
   const amt = displayAmtOverride!=null ? displayAmtOverride : champSelectedAmt;
   if(amt>0 && G.selectedChamp){
-    const potential=Math.round(amt*G.selectedChamp.odds);
     potEl.style.display='block';
-    potEl.innerHTML='優勝的中時の獲得: <b>+'+fmtPt(potential)+'pt</b>';
-  } else {
-    potEl.style.display='none';
-  }
+    potEl.innerHTML='月間王的中時の獲得: <b>+'+fmtPt(Math.round(amt*G.selectedChamp.odds))+'pt</b>';
+  } else potEl.style.display='none';
 }
-
 function openChampBetModal(){
   if(!G.selectedChamp || champSelectedAmt<=0) return;
-  if(isChampPickClosed()){ addToast('優勝予想の受付は締め切りました','lose'); renderChampionPicks(); return; }
   if(champSelectedAmt>G.balance){ addToast('残高が不足しています','lose'); return; }
-  const t=G.selectedChamp;
-  const potential=Math.round(champSelectedAmt*t.odds);
-  document.getElementById('modalTitle').textContent='優勝予想を確定';
+  const c=COIN_BY_ID[G.selectedChamp.team]||{sym:G.selectedChamp.team};
+  document.getElementById('modalTitle').textContent='月間王予想を確定';
   document.getElementById('modalBody').innerHTML=
-    '優勝予想: <b>'+esc(teamJa(t.team))+'</b>（オッズ ×'+t.odds+'）<br>賭けpt: <b>'+fmtPt(champSelectedAmt)+'pt</b><br><br>'+
-    '優勝的中時の獲得: <b>+'+fmtPt(potential)+'pt</b><br><br>'+
-    '<span style="color:var(--lose);">※大会終了まで予想の変更はできません。</span>';
+    '月間王予想: <b>'+esc(c.sym)+'</b>（オッズ ×'+G.selectedChamp.odds+'）<br>賭けpt: <b>'+fmtPt(champSelectedAmt)+'pt</b><br><br>'+
+    '的中時の獲得: <b>+'+fmtPt(Math.round(champSelectedAmt*G.selectedChamp.odds))+'pt</b><br><br>'+
+    '<span style="color:var(--down);">※月末まで予想の変更はできません。</span>';
   document.getElementById('modalConfirmBtn').onclick=confirmChampBet;
   document.getElementById('confirmModal').classList.add('open');
 }
-
 async function confirmChampBet(){
   closeModal();
   const t=G.selectedChamp, amt=champSelectedAmt;
   if(amt>G.balance){ addToast('残高が不足しています','lose'); return; }
   if(!WC_EMBEDDED){
-    const id='wcbet-champ-'+Date.now();
-    const res=await syncPointDelta(-amt, 'SicoWC 優勝予想 '+t.team, id);
-    if(!res.ok) return;
+    await syncPointDelta(-amt);
     G.myChampPick={team:t.team, odds:t.odds, amount:amt, status:'pending', payout:0};
-    addToast('優勝予想を受け付けました（-'+fmtPt(amt)+'pt）','gold');
-    renderChampionPicks();
-    return;
+    addToast('月間王予想を受け付けました（-'+fmtPt(amt)+'pt）','gold'); renderChampionPicks(); return;
   }
   const res = await wcReq('wcbet:bet:champion', {team:t.team, odds:t.odds, amount:amt}, 9000);
-  if(!res.ok){ addToast(res.error || '優勝予想の登録に失敗しました','lose'); return; }
+  if(!res.ok){ addToast(res.error || '月間王予想の登録に失敗しました','lose'); return; }
   G.balance = Math.max(0, Math.round(Number(res.balance)||0));
   const b=res.bet||{};
   G.myChampPick={team:b.team||t.team, odds:b.odds!=null?b.odds:t.odds, amount:b.amount!=null?b.amount:amt, status:b.status||'pending', payout:b.payout||0};
   updateBalanceUI();
-  addToast('優勝予想を受け付けました（-'+fmtPt(amt)+'pt）','gold');
-  renderChampionPicks();
+  addToast('月間王予想を受け付けました（-'+fmtPt(amt)+'pt）','gold'); renderChampionPicks();
 }
-
 function closeModal(){ document.getElementById('confirmModal').classList.remove('open'); }
 
-// ══ マイ予想（履歴）タブ ══
+// ══ マイ予想（履歴）══
 function renderTickets(){
   const pendingWrap=document.getElementById('pendingTicketsWrap');
   const settledWrap=document.getElementById('settledTicketsWrap');
   const pending=[], settled=[];
-
   Object.keys(G.myMatchBets).forEach(matchId=>{
     const b=G.myMatchBets[matchId];
-    const pickLabel=b.pick==='home'?(b.home+'の勝ち'):b.pick==='away'?(b.away+'の勝ち'):'引き分け';
-    const ticket={type:'match', label:b.home+' vs '+b.away, desc:pickLabel, amount:b.amount, odds:b.odds, status:b.status, payout:b.payout};
+    const cid=matchId.split('-').slice(0,-1).join('-'); const c=COIN_BY_ID[cid]||{sym:cid};
+    const day=matchId.split('-').slice(-1)[0]; // YYYYMMDD
+    const dayStr=day.length===8?(day.slice(4,6)+'/'+day.slice(6,8)):'';
+    const pickLabel=b.pick==='home'?'上がる':'下がる';
+    const ticket={type:'match', label:c.sym+(dayStr?(' '+dayStr):''), desc:pickLabel, amount:b.amount, odds:b.odds, status:b.status, payout:b.payout};
     (b.status==='pending'?pending:settled).push(ticket);
   });
   if(G.myChampPick){
-    const p=G.myChampPick;
-    const ticket={type:'champ', label:'優勝予想', desc:teamJa(p.team)+' の優勝', amount:p.amount, odds:p.odds, status:p.status, payout:p.payout};
+    const p=G.myChampPick; const c=COIN_BY_ID[p.team]||{sym:p.team};
+    const ticket={type:'champ', label:'月間王予想', desc:c.sym+' が値上がり率トップ', amount:p.amount, odds:p.odds, status:p.status, payout:p.payout};
     (p.status==='pending'?pending:settled).push(ticket);
   }
-
-  pendingWrap.innerHTML = pending.length
-    ? pending.map(ticketCardHtml).join('')
-    : '<div class="wc-empty">まだ予想がありません</div>';
-  settledWrap.innerHTML = settled.length
-    ? settled.map(ticketCardHtml).join('')
-    : '<div class="wc-empty">まだ確定した予想がありません</div>';
+  pendingWrap.innerHTML = pending.length ? pending.map(ticketCardHtml).join('') : '<div class="wc-empty">まだ予想がありません</div>';
+  settledWrap.innerHTML = settled.length ? settled.map(ticketCardHtml).join('') : '<div class="wc-empty">まだ確定した予想がありません</div>';
 }
-
 function ticketCardHtml(t){
   const statusCls = t.status==='pending'?'pending':t.status==='won'?'won':'lost';
-  const statusLabel = t.status==='pending'?'保留中':t.status==='won'?'的中':'不的中';
-  const footRight = t.status==='won'
-    ? '<span class="gain">+'+fmtPt(t.payout)+'pt</span>'
-    : t.status==='lost' ? '<span class="loss">-'+fmtPt(t.amount)+'pt</span>'
-    : '賭け '+fmtPt(t.amount)+'pt';
+  const statusLabel = t.status==='pending'?'判定待ち':t.status==='won'?'的中':'不的中';
+  const footRight = t.status==='won' ? '<span class="gain">+'+fmtPt(t.payout)+'pt</span>'
+    : t.status==='lost' ? '<span class="loss">-'+fmtPt(t.amount)+'pt</span>' : '賭け '+fmtPt(t.amount)+'pt';
   return '<div class="ticket-card">'+
-    '<div class="ticket-top"><span class="ticket-type '+(t.type==='champ'?'champ':'match')+'">'+(t.type==='champ'?'優勝予想':'試合予想')+'</span>'+
+    '<div class="ticket-top"><span class="ticket-type '+(t.type==='champ'?'champ':'match')+'">'+(t.type==='champ'?'月間王':'日次')+'</span>'+
       '<span class="ticket-status '+statusCls+'">'+statusLabel+'</span></div>'+
     '<div class="ticket-desc">'+esc(t.label)+' — '+esc(t.desc)+'</div>'+
     '<div class="ticket-foot"><span>オッズ ×'+t.odds+'</span>'+footRight+'</div>'+
   '</div>';
 }
 
-// ══ 試合結果をsicoXへポスト ══
-async function tweetWcMatch(home,away,hs,as,stage){
-  const winner = hs===as ? '引き分け' : (hs>as ? home+'の勝利' : away+'の勝利');
-  const stageText = stage ? ('【'+stage+'】') : '';
-  const text = '⚽SicoWC予想結果\n'+stageText+home+' '+hs+' - '+as+' '+away+'\n'+winner+'！ #ワールドカップ #SicoWC';
-  if(!WC_EMBEDDED){ addToast('sicoX内から起動するとポストできます','gold'); return; }
-  const res = await wcReq('wcbet:tweet', {text, home, away, hs, as, stage}, 7000);
-  if(res.ok) addToast('sicoXにポストしました','win');
-  else addToast(res.error || 'ポストに失敗しました','lose');
-}
-window.tweetWcMatch=tweetWcMatch;
-
-// ══ 離脱時：保留中の賭けは没収しない（ステータスはpendingのまま保持） ══
-// SicoFXのような強制決済は行わない。試合は外部要因で結果が出るまで保留が正しい。
-
-// ══ 自動更新（5分おきに試合データを再取得） ══
+// ══ 自動更新（5分おきに再取得・再同期）══
 let pollTimer=null;
-function startPolling(){
-  if(pollTimer) clearInterval(pollTimer);
-  pollTimer=setInterval(()=>{ loadMatchData(); }, 5*60*1000);
-}
+function startPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer=setInterval(()=>{ loadMarketData(); }, 5*60*1000); }
 
 // ══ 初期化 ══
 (async function init(){
   if(!WC_EMBEDDED) document.getElementById('standaloneNav').classList.remove('hidden');
   else document.getElementById('standaloneNav').classList.add('hidden');
   await loadParentBalance();
-  await loadMatchData();
+  await loadMarketData();
   startPolling();
 })();
 </script>

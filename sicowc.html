@@ -64,6 +64,11 @@ button{font-family:inherit;}
   margin:18px 0 10px;display:flex;align-items:center;gap:8px;
 }
 .wc-section-title::after{content:'';flex:1;height:1px;background:var(--line);}
+.sec{margin:22px 0 12px;display:flex;align-items:center;gap:9px;}
+.sec-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.sec-name{font-size:13.5px;font-weight:800;letter-spacing:.01em;}
+.sec-count{font-size:11px;font-family:var(--font-mono);color:var(--text2);background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:1px 9px;}
+.sec-line{flex:1;height:1px;background:var(--line);}
 .wc-empty{
   text-align:center;padding:34px 16px;color:var(--text2);font-size:13px;line-height:1.7;
   border:1px dashed var(--line2);border-radius:14px;
@@ -79,17 +84,23 @@ button{font-family:inherit;}
   position:relative;background:var(--bg2);border:1px solid var(--line);border-radius:14px;
   padding:13px 14px 12px;margin-bottom:12px;overflow:hidden;
 }
-.match-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--line2);}
-.match-card.live::before{background:var(--gold);box-shadow:0 0 8px var(--gold);}
-.match-card.settled::before{background:var(--gold-dim);}
+.match-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--line2);}
+.match-card.bettable{border-color:rgba(227,179,65,.38);background:rgba(227,179,65,.05);}
+.match-card.bettable::before{background:var(--gold);box-shadow:0 0 10px rgba(227,179,65,.7);}
+.match-card.live{border-color:rgba(90,169,230,.35);background:rgba(90,169,230,.05);}
+.match-card.live::before{background:#5aa9e6;box-shadow:0 0 10px rgba(90,169,230,.6);}
+.match-card.settled{opacity:.6;padding:10px 14px 9px;margin-bottom:8px;}
+.match-card.settled::before{background:var(--line2);}
+.match-card.settled:hover{opacity:1;}
 .match-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .match-stage{font-size:10px;color:var(--gold-dim);letter-spacing:.05em;text-transform:uppercase;}
 .match-status{
   font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;letter-spacing:.03em;
   background:var(--line);color:var(--text2);
 }
-.match-status.live{background:rgba(227,179,65,.15);color:var(--gold);}
-.match-status.fin{background:rgba(255,255,255,.06);color:var(--paper-dim);}
+.match-status.bet{background:rgba(227,179,65,.18);color:var(--gold);}
+.match-status.wait{background:rgba(90,169,230,.18);color:#7bc0f5;}
+.match-status.fin{background:rgba(255,255,255,.05);color:var(--paper-dim);}
 
 .coin-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
 .coin-badge{
@@ -278,8 +289,8 @@ button{font-family:inherit;}
         <div class="rules-pill">結果確定で自動払出</div>
       </div>
       <div class="wc-loading" id="matchesLoading">読み込み中…</div>
-      <div id="liveMatchesWrap"></div>
       <div id="upcomingMatchesWrap"></div>
+      <div id="liveMatchesWrap"></div>
       <div id="finishedMatchesWrap"></div>
     </div>
 
@@ -575,19 +586,26 @@ function coinNowDelta(coinId, openStart){
 }
 
 // ══ 一覧描画 ══
+function secHeader(kind, name, count){
+  const color = kind==='bet' ? 'var(--gold)' : kind==='wait' ? '#5aa9e6' : 'var(--text2)';
+  const glow  = kind==='fin' ? 'none' : '0 0 8px '+color;
+  return '<div class="sec"><span class="sec-dot" style="background:'+color+';box-shadow:'+glow+'"></span>'+
+    '<span class="sec-name" style="color:'+color+'">'+esc(name)+'</span>'+
+    '<span class="sec-count">'+count+'</span><span class="sec-line"></span></div>';
+}
 function renderMatchCards(){
   const bettable = G.rounds.filter(r=>r.status==='TIMED').sort(sortBySym);
   const live     = G.rounds.filter(r=>r.status==='IN_PLAY').sort(sortBySym);
   const finished = G.rounds.filter(r=>r.status==='FINISHED').sort((a,b)=> b.endTs-a.endTs || sortBySym(a,b));
 
   document.getElementById('upcomingMatchesWrap').innerHTML = bettable.length
-    ? '<div class="wc-section-title">受付中（翌日ぶん）</div>' + bettable.map(roundCardHtml).join('')
+    ? secHeader('bet','受付中・賭けられます', bettable.length) + bettable.map(roundCardHtml).join('')
     : '<div class="wc-empty">現在受付中のラウンドがありません。</div>';
   document.getElementById('liveMatchesWrap').innerHTML = live.length
-    ? '<div class="wc-section-title">本日ぶん（判定待ち）</div>' + live.map(roundCardHtml).join('')
+    ? secHeader('wait','判定待ち（本日ぶん・締切済み）', live.length) + live.map(roundCardHtml).join('')
     : '';
   document.getElementById('finishedMatchesWrap').innerHTML = finished.length
-    ? '<div class="wc-section-title">結果確定済み</div>' + finished.slice(0,30).map(roundCardHtml).join('')
+    ? secHeader('fin','結果確定済み', finished.length) + finished.slice(0,20).map(roundCardHtml).join('')
     : '';
   return G.rounds;
 }
@@ -621,8 +639,8 @@ function roundCardHtml(r){
   const c=COIN_BY_ID[r.coinId];
   const existingBet=G.myMatchBets[r.matchId];
   const statusJa = r.status==='TIMED'?'受付中':r.status==='IN_PLAY'?'判定待ち':'確定';
-  const statusCls = r.status==='IN_PLAY'?'live':(r.status==='FINISHED'?'fin':'');
-  const cardCls = r.status==='IN_PLAY'?'live':(r.status==='FINISHED'?'settled':'');
+  const statusCls = r.status==='TIMED'?'bet':(r.status==='IN_PLAY'?'wait':'fin');
+  const cardCls = r.status==='TIMED'?'bettable':(r.status==='IN_PLAY'?'live':'settled');
   const dayLbl = jaDayLabel(r.day)+' ぶん';
 
   let body='';

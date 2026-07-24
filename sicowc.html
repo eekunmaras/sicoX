@@ -362,18 +362,29 @@ function setSyncNote(text){ const el=document.getElementById('syncNote'); if(el)
 // id は CoinGecko のコインID。champOdds は「月間値上がり率トップ」予想の固定オッズ。
 // 大型で安定した銘柄ほどトップになりにくい想定でオッズ高め、値動きが荒い銘柄ほど低めに設定。必要に応じて調整可。
 const COINS = [
-  {id:'bitcoin',     sym:'BTC',  ja:'ビットコイン',   champOdds:14},
-  {id:'ethereum',    sym:'ETH',  ja:'イーサリアム',   champOdds:11},
-  {id:'binancecoin', sym:'BNB',  ja:'BNB',            champOdds:9},
-  {id:'ripple',      sym:'XRP',  ja:'リップル',       champOdds:9},
-  {id:'solana',      sym:'SOL',  ja:'ソラナ',         champOdds:7},
-  {id:'cardano',     sym:'ADA',  ja:'カルダノ',       champOdds:8},
-  {id:'dogecoin',    sym:'DOGE', ja:'ドージコイン',   champOdds:6},
-  {id:'tron',        sym:'TRX',  ja:'トロン',         champOdds:10},
-  {id:'chainlink',   sym:'LINK', ja:'チェーンリンク', champOdds:7},
-  {id:'avalanche-2', sym:'AVAX', ja:'アバランチ',     champOdds:6},
+  {id:'bitcoin',     sym:'BTC',  ja:'ビットコイン',   champOdds:14, m:['#f0c04a','#8a6d1e','#0b0e14']}, // 金
+  {id:'ethereum',    sym:'ETH',  ja:'イーサリアム',   champOdds:11, m:['#c9d2df','#79828f','#0b0e14']}, // 銀
+  {id:'binancecoin', sym:'BNB',  ja:'BNB',            champOdds:9,  m:['#e6b02f','#7d5f12','#0b0e14']}, // 真鍮金
+  {id:'ripple',      sym:'XRP',  ja:'リップル',       champOdds:9,  m:['#8aa0c0','#3a4a66','#ffffff']}, // 鋼青（青金）
+  {id:'solana',      sym:'SOL',  ja:'ソラナ',         champOdds:7,  m:['#a05fd6','#5a2c80','#ffffff']}, // 紫金
+  {id:'cardano',     sym:'ADA',  ja:'カルダノ',       champOdds:8,  m:['#4f86d6','#22437f','#ffffff']}, // 青金
+  {id:'dogecoin',    sym:'DOGE', ja:'ドージコイン',   champOdds:6,  m:['#d19553','#79471d','#0b0e14']}, // 銅
+  {id:'tron',        sym:'TRX',  ja:'トロン',         champOdds:10, m:['#d64b42','#7c211c','#ffffff']}, // 赤金
+  {id:'chainlink',   sym:'LINK', ja:'チェーンリンク', champOdds:7,  m:['#3aa0e6','#1c5a86','#ffffff']}, // 空色鋼
+  {id:'avalanche-2', sym:'AVAX', ja:'アバランチ',     champOdds:6,  m:['#ef6a3c','#8a3312','#ffffff']}, // 朱赤金
 ];
 const COIN_BY_ID = Object.fromEntries(COINS.map(c=>[c.id,c]));
+
+// 銘柄アイコンの金属色（白いスペキュラを共通で乗せ、金の質感を保ったまま色だけ変える）
+function coinBadgeStyle(c){
+  const m=(c&&c.m)?c.m:['#f0c04a','#8a6d1e','#0b0e14'];
+  return 'background:'+
+      'radial-gradient(circle at 32% 26%,rgba(255,255,255,.9),rgba(255,255,255,0) 46%),'+
+      'radial-gradient(circle at 55% 62%,'+m[0]+','+m[1]+');'+
+    'color:'+m[2]+';'+
+    'box-shadow:inset 0 -2px 3px rgba(0,0,0,.30),inset 0 1px 2px rgba(255,255,255,.5);'+
+    (m[2]==='#ffffff'?'text-shadow:0 1px 1px rgba(0,0,0,.4);':'');
+}
 
 // ══ データ取得元 ══
 // 既定は CoinGecko の公開エンドポイント（APIキー不要・CORS許可あり）でそのまま動く。
@@ -600,7 +611,7 @@ function coinHeadHtml(r, showLiveDelta){
     quote = '<div class="coin-quote"><div class="coin-price">'+esc(fmtUsd(now))+'</div></div>';
   }
   return '<div class="coin-head">'+
-    '<div class="coin-badge">'+esc(c.sym.slice(0,4))+'</div>'+
+    '<div class="coin-badge" style="'+coinBadgeStyle(c)+'">'+esc(c.sym.slice(0,4))+'</div>'+
     '<div class="coin-id"><div class="coin-sym">'+esc(c.sym)+'</div><div class="coin-name">'+esc(c.ja)+'</div></div>'+
     quote+
   '</div>';
@@ -886,7 +897,7 @@ function renderChampionPicks(){
     const sel = G.myChampPick && G.myChampPick.team===c.id;
     const disabled = (G.myChampPick && G.myChampPick.team!==c.id);
     return '<div class="champ-card'+(sel?' sel':'')+(disabled?' disabled':'')+'" data-team="'+esc(c.id)+'" data-odds="'+odds+'" onclick="selectChampPick(this)">'+
-      '<div class="champ-flag">'+esc(c.sym.slice(0,4))+'</div>'+
+      '<div class="champ-flag" style="'+coinBadgeStyle(c)+'">'+esc(c.sym.slice(0,4))+'</div>'+
       '<span class="champ-name">'+esc(c.sym)+' · '+esc(c.ja)+'</span>'+
       '<span class="champ-odds">×'+odds+'</span>'+
     '</div>';

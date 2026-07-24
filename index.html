@@ -1566,33 +1566,19 @@ body.modal-open{overflow:hidden;}
 
     <div class="news-tabs">
 
-      <div class="news-tab active" id="news-tab-wc" onclick="showNewsTab('wc')">⚽ ワールドカップ</div>
+      <div class="news-tab active" id="news-tab-wc" onclick="showNewsTab('wc')">📊 データ</div>
 
-      <div class="news-tab" id="news-tab-toto" onclick="showNewsTab('toto')">🎟️ TOTO</div>
+      <div class="news-tab" id="news-tab-toto" onclick="showNewsTab('toto')">🎯 BET</div>
 
     </div>
 
     <div id="news-tab-panel-wc" class="news-tab-panel active">
 
-      <div class="wc-subtabs">
+      <div id="crypto-data-area" style="padding:12px 16px;">
 
-        <button class="wc-subtab active" id="wc-subtab-groups" onclick="showWcSubtab('groups')">グループ順位</button>
+        <div id="crypto-data-loading" style="text-align:center;color:var(--text2);font-size:13px;padding:30px 0;">読み込み中…</div>
 
-        <button class="wc-subtab" id="wc-subtab-matches" onclick="showWcSubtab('matches')">試合結果</button>
-
-        <button class="wc-subtab" id="wc-subtab-scorers" onclick="showWcSubtab('scorers')">得点王</button>
-
-      </div>
-
-      <div id="wc-content-area" style="padding:12px 16px;">
-
-        <div id="wc-loading" style="text-align:center;color:var(--text2);font-size:13px;padding:30px 0;">読み込み中…</div>
-
-        <div id="wc-groups-panel" class="wc-panel" style="display:none;"></div>
-
-        <div id="wc-matches-panel" class="wc-panel" style="display:none;"></div>
-
-        <div id="wc-scorers-panel" class="wc-panel" style="display:none;"></div>
+        <div id="crypto-data-body"></div>
 
       </div>
 
@@ -11817,8 +11803,7 @@ let wcCurrentSubtab = 'groups';
 
 // ニュースビューを開いたときの初期化
 function renderNewsView(){
-  showWcSubtab(wcCurrentSubtab);
-  if(!wcDataLoaded) loadWcData();
+  loadCryptoData();
 }
 
 function showNewsTab(tab){
@@ -11826,12 +11811,97 @@ function showNewsTab(tab){
   document.querySelectorAll('.news-tab-panel').forEach(p=>p.classList.remove('active'));
   document.getElementById('news-tab-'+tab).classList.add('active');
   document.getElementById('news-tab-panel-'+tab).classList.add('active');
+  if(tab==='wc'){ loadCryptoData(); }
   if(tab==='toto'){
     const frame=document.getElementById('toto-frame');
     if(frame && !frame.getAttribute('src')) frame.setAttribute('src','sicowc.html');
     const adminBar=document.getElementById('toto-admin-bar');
     if(adminBar) adminBar.style.display = isAdminUser() ? 'block' : 'none';
   }
+}
+
+// ══════════════════════════════════════
+// 「📊 データ」タブ：各銘柄の直近7日の上げ下げ（日次騰落率）
+// CoinGecko の公開API（キー不要・CORS許可）を直接使用。SQL/プロキシ不要。
+// ══════════════════════════════════════
+const CRYPTO_DATA_COINS = [
+  {id:'bitcoin',sym:'BTC',ja:'ビットコイン'},{id:'ethereum',sym:'ETH',ja:'イーサリアム'},
+  {id:'binancecoin',sym:'BNB',ja:'BNB'},{id:'ripple',sym:'XRP',ja:'リップル'},
+  {id:'solana',sym:'SOL',ja:'ソラナ'},{id:'cardano',sym:'ADA',ja:'カルダノ'},
+  {id:'dogecoin',sym:'DOGE',ja:'ドージコイン'},{id:'tron',sym:'TRX',ja:'トロン'},
+  {id:'chainlink',sym:'LINK',ja:'チェーンリンク'},{id:'avalanche-2',sym:'AVAX',ja:'アバランチ'},
+];
+const CRYPTO_CG_BASE = 'https://api.coingecko.com/api/v3'; // 例: 'https://sicox.eekunmaras.workers.dev/cg-proxy'
+let cryptoDataLoadedAt = 0;
+
+function cryptoUtcDateStr(ts){ return new Date(ts).toISOString().slice(0,10); }
+function cryptoFmtUsd(p){
+  if(p==null||isNaN(p)) return '—';
+  if(p>=100) return '$'+p.toLocaleString(undefined,{maximumFractionDigits:0});
+  if(p>=1)   return '$'+p.toFixed(2);
+  return '$'+p.toFixed(4);
+}
+
+async function loadCryptoData(){
+  const loadingEl=document.getElementById('crypto-data-loading');
+  const bodyEl=document.getElementById('crypto-data-body');
+  if(!loadingEl||!bodyEl) return;
+  // 3分以内の再表示はキャッシュを使う（無駄な再取得を避ける）
+  if(bodyEl.dataset.rendered==='1' && Date.now()-cryptoDataLoadedAt < 3*60*1000){ return; }
+  loadingEl.style.display='block'; loadingEl.textContent='読み込み中…';
+  const rows=[];
+  let ok=0;
+  for(const c of CRYPTO_DATA_COINS){
+    try{
+      const res=await fetch(CRYPTO_CG_BASE+'/coins/'+encodeURIComponent(c.id)+'/market_chart?vs_currency=usd&days=120');
+      if(!res.ok) throw new Error('http'+res.status);
+      const j=await res.json();
+      const prices=(j&&j.prices)?j.prices:[];
+      // 日付(UTC)ごとの最初の点＝その日の 00:00 UTC 始値
+      const bnd={};
+      prices.forEach(pt=>{ const d=cryptoUtcDateStr(pt[0]); if(!(d in bnd)) bnd[d]=pt[1]; });
+      const days=Object.keys(bnd).sort(); // 昇順
+      const now = prices.length?prices[prices.length-1][1]:null;
+      // 直近7日の日次騰落率：change(d)= (open(d+1)/open(d)-1)。確定している最後の7つ。
+      const changes=[];
+      for(let i=1;i<days.length;i++){
+        const a=bnd[days[i-1]], b=bnd[days[i]];
+        if(a!=null&&b!=null) changes.push({day:days[i-1], pct:(b/a-1)*100});
+      }
+      const last7=changes.slice(-7);
+      rows.push({c, now, last7});
+      ok++;
+    }catch(e){ rows.push({c, now:null, last7:[], err:true}); }
+    await new Promise(r=>setTimeout(r,150));
+  }
+  loadingEl.style.display='none';
+  if(ok===0){ bodyEl.innerHTML='<div class="wc-error-box">価格データの取得に失敗しました。少し時間を置いてから開いてください。</div>'; return; }
+  bodyEl.innerHTML = renderCryptoData(rows);
+  bodyEl.dataset.rendered='1';
+  cryptoDataLoadedAt=Date.now();
+}
+
+function renderCryptoData(rows){
+  const chip=(pct)=>{
+    const up=pct>=0;
+    const col=up?'#26d07c':'#f2555a';
+    const arrow=up?'▲':'▼';
+    return '<span style="display:inline-block;min-width:60px;text-align:center;font-size:11px;font-family:monospace;'+
+      'color:'+col+';background:rgba('+(up?'38,208,124':'242,85,90')+',.10);border-radius:5px;padding:2px 4px;margin:2px;">'+
+      arrow+Math.abs(pct).toFixed(1)+'%</span>';
+  };
+  let html='<div style="font-size:11px;color:var(--text2);margin-bottom:10px;">各銘柄の直近7日の日次騰落率（UTC 0:00始値ベース）。左が古い日。</div>';
+  rows.forEach(r=>{
+    const chips = r.last7.length ? r.last7.map(x=>chip(x.pct)).join('') : '<span style="font-size:11px;color:var(--text2);">データなし</span>';
+    html+='<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--card);">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'+
+        '<div><b style="font-size:14px;">'+esc(r.c.sym)+'</b> <span style="font-size:11px;color:var(--text2);">'+esc(r.c.ja)+'</span></div>'+
+        '<div style="font-family:monospace;font-size:13px;">'+esc(cryptoFmtUsd(r.now))+'</div>'+
+      '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;">'+chips+'</div>'+
+    '</div>';
+  });
+  return html;
 }
 
 function showWcSubtab(tab){

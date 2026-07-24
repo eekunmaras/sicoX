@@ -1588,7 +1588,7 @@ body.modal-open{overflow:hidden;}
 
       <div id="toto-admin-bar" style="display:none;padding:8px 16px;border-bottom:1px solid var(--border);">
 
-        <button onclick="adminSettleTotoChampion()" style="font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;">🏆 優勝チームを確定する（管理者）</button>
+        <span style="font-size:12px;color:var(--text2);">月間王は月替わりに自動精算されます</span>
 
       </div>
 
@@ -11207,7 +11207,7 @@ window.addEventListener('message',async e=>{
     try{
       const balance=await dbFetchAvailablePoints(currentUser.handle);
       const {data:matchRows}=await sb.from('toto_match_bets').select('*').eq('user_handle',currentUser.handle);
-      const {data:champRow}=await sb.from('toto_champion_bets').select('*').eq('user_handle',currentUser.handle).maybeSingle();
+      const {data:champRow}=await sb.from('toto_champion_bets').select('*').eq('user_handle',currentUser.handle).eq('period', new Date().toISOString().slice(0,7)).maybeSingle();
       sendTotoResponse(msg.reqId,{ok:true,balance,matchBets:shapeTotoMatchBets(matchRows),championBet:shapeTotoChampBet(champRow)});
     }catch(err){
       sendTotoResponse(msg.reqId,{ok:false,balance:0,error:'TOTOの状態取得に失敗しました'});
@@ -11253,9 +11253,10 @@ window.addEventListener('message',async e=>{
     if(!currentUser){ sendTotoResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
     try{
       await sb.rpc('toto_sync_matches',{p_matches:msg.matches||[]});
+      if(msg.prices && msg.prices.length){ try{ await sb.rpc('toto_settle_month_champions',{p_prices:msg.prices}); }catch(e){} }
       const balance=await dbFetchAvailablePoints(currentUser.handle);
       const {data:matchRows}=await sb.from('toto_match_bets').select('*').eq('user_handle',currentUser.handle);
-      const {data:champRow}=await sb.from('toto_champion_bets').select('*').eq('user_handle',currentUser.handle).maybeSingle();
+      const {data:champRow}=await sb.from('toto_champion_bets').select('*').eq('user_handle',currentUser.handle).eq('period', new Date().toISOString().slice(0,7)).maybeSingle();
       sendTotoResponse(msg.reqId,{ok:true,balance,matchBets:shapeTotoMatchBets(matchRows),championBet:shapeTotoChampBet(champRow)});
     }catch(err){
       sendTotoResponse(msg.reqId,{ok:false,error:'試合データの同期に失敗しました'});

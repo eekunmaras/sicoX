@@ -99,6 +99,7 @@ img.av{display:block;}
 .obs-v{font-size:13.5px;line-height:1.65;}
 .obs-rel{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;}
 .rel-tag{font-size:12px;background:var(--bg3);border:1px solid var(--gold);color:var(--gold);border-radius:9999px;padding:3px 11px;font-weight:700;}
+.cond-tag{font-size:12px;background:rgba(229,72,77,.12);border:1px solid #e5484d;color:#ff6b6f;border-radius:9999px;padding:3px 11px;font-weight:700;}
 .obs-v.blur{filter:blur(4.5px);user-select:none;opacity:.6;}
 
 .sec{padding:16px 16px 6px;font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.06em;}
@@ -344,6 +345,15 @@ img.av{display:block;}
       その日限りの出来事として起こります。<br>
       <span class="help-note">※「世界」＝続く現象／「出来事」＝一度きり。<br>
       解除したいときは、また日常の現象を上書きするか、運営に戻してもらってください。</span>
+    </div>
+
+    <div class="help-sec">🏥 住人を行動不能にする</div>
+    <div class="help-body">
+      逮捕・入院などで、しばらく動けなくできます。<br>
+      <span class="help-ex">例：佐藤が事故で怪我をした（文章でもOK）</span><br>
+      <span class="help-ex">例：[[状態:逮捕,船井]]（確実に指定）</span><br>
+      使える状態：<code>入院</code><code>逮捕</code><code>怪我</code><code>遠方</code><br>
+      <span class="help-note">拘留中は投稿できなくなり、期間が過ぎると自動で「釈放」「退院」します。</span>
     </div>
 
     <div class="sheet-btns">
@@ -706,6 +716,8 @@ function renderSearch(qs = ''){
       <div class="obs">
         <div class="obs-k">いま抱えていること</div>
         <div class="obs-v ${observed[h] ? '' : 'blur'}">${esc((observed[h] && observed[h].status) || p.status || '（まだ何も抱えていない）')}</div>
+        ${observed[h] && observed[h].condition ? `
+        <div class="obs-rel"><span class="cond-tag">🚑 ${esc(observed[h].condition)}</span></div>` : ''}
         ${observed[h] && observed[h].relations && observed[h].relations.length ? `
         <div class="obs-k" style="margin-top:10px">主な関係</div>
         <div class="obs-rel">${observed[h].relations.map(r => `<span class="rel-tag">${esc(r)}</span>`).join('')}</div>` : ''}
@@ -804,7 +816,7 @@ async function observe(h){
   if(observed[h]) return;
   const r = await bridge('/mv/observe', { target: h });
   if(!r.ok) return toast(r.error);
-  observed[h] = { status: r.status, relations: r.relations || [] };
+  observed[h] = { status: r.status, relations: r.relations || [], condition: r.condition || null };
   await sync();
   toast(`@${h} の内側を覗いた`);
   renderSearch(document.querySelector('.srch input')?.value || '');

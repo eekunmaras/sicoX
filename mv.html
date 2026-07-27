@@ -97,6 +97,8 @@ img.av{display:block;}
 .obs{padding:0 16px 14px 67px;border-bottom:1px solid var(--border);}
 .obs-k{font-size:10.5px;color:var(--text2);letter-spacing:.1em;margin-bottom:5px;}
 .obs-v{font-size:13.5px;line-height:1.65;}
+.obs-rel{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;}
+.rel-tag{font-size:12px;background:var(--bg3);border:1px solid var(--gold);color:var(--gold);border-radius:9999px;padding:3px 11px;font-weight:700;}
 .obs-v.blur{filter:blur(4.5px);user-select:none;opacity:.6;}
 
 .sec{padding:16px 16px 6px;font-size:12px;font-weight:800;color:var(--text2);letter-spacing:.06em;}
@@ -692,7 +694,10 @@ function renderSearch(qs = ''){
       </div>
       <div class="obs">
         <div class="obs-k">いま抱えていること</div>
-        <div class="obs-v ${observed[h] ? '' : 'blur'}">${esc(observed[h] || p.status || '（まだ何も抱えていない）')}</div>
+        <div class="obs-v ${observed[h] ? '' : 'blur'}">${esc((observed[h] && observed[h].status) || p.status || '（まだ何も抱えていない）')}</div>
+        ${observed[h] && observed[h].relations && observed[h].relations.length ? `
+        <div class="obs-k" style="margin-top:10px">主な関係</div>
+        <div class="obs-rel">${observed[h].relations.map(r => `<span class="rel-tag">${esc(r)}</span>`).join('')}</div>` : ''}
       </div>`).join('') : '<div class="empty">該当する住人はいません</div>'}`;
 }
 
@@ -788,7 +793,7 @@ async function observe(h){
   if(observed[h]) return;
   const r = await bridge('/mv/observe', { target: h });
   if(!r.ok) return toast(r.error);
-  observed[h] = r.status;
+  observed[h] = { status: r.status, relations: r.relations || [] };
   await sync();
   toast(`@${h} の内側を覗いた`);
   renderSearch(document.querySelector('.srch input')?.value || '');

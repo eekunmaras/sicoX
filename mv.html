@@ -169,6 +169,20 @@ img.av{display:block;}
 .chq-row{font-size:12.5px;line-height:1.9;}
 .chq-row span{color:var(--text2);font-size:11px;}
 .chq-note{font-size:12px;color:var(--text2);margin-top:9px;padding-top:9px;border-top:1px solid var(--border);}
+
+/* ── 啓示の説明書 ── */
+.manual-btn{background:var(--bg3);border:1px solid var(--gold);color:var(--gold);font-size:11px;font-weight:700;border-radius:9999px;padding:2px 10px;margin-left:6px;cursor:pointer;vertical-align:middle;}
+.manual-btn:hover{background:var(--gold);color:#000;}
+.help-sec{font-size:13px;font-weight:800;color:var(--gold);margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.help-body{font-size:12.5px;line-height:1.7;color:var(--text);}
+.help-ex{display:inline-block;background:var(--bg3);border-radius:6px;padding:2px 8px;margin:2px 0;font-size:12px;color:var(--text);}
+.help-note{display:block;font-size:11.5px;color:var(--text2);margin-top:5px;line-height:1.6;}
+.help-cmd{background:var(--bg3);border:1px dashed var(--gold);border-radius:8px;padding:8px 12px;font-family:monospace;font-size:14px;color:var(--gold);text-align:center;margin:6px 0 10px;letter-spacing:.05em;}
+.help-table{background:var(--bg3);border-radius:10px;padding:10px 12px;}
+.help-grp{font-size:11px;font-weight:800;color:var(--text2);margin:9px 0 4px;letter-spacing:.05em;}
+.help-grp:first-child{margin-top:0;}
+.help-row{font-size:12.5px;line-height:1.9;color:var(--text);}
+.help-row code{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:1px 7px;font-size:12px;color:var(--gold);margin-right:8px;font-family:monospace;min-width:52px;display:inline-block;text-align:center;}
 .chq-note b{color:var(--gold);}
 
 .toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 20px;border-radius:9999px;font-size:13px;font-weight:700;z-index:200;opacity:0;transition:.25s;pointer-events:none;max-width:88vw;text-align:center;}
@@ -255,6 +269,72 @@ img.av{display:block;}
     <div class="sheet-btns">
       <button class="gcancel" onclick="$('ov-ch').classList.remove('on')">やめる</button>
       <button class="cbtn" onclick="submitChapter()">この章を始める</button>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ov-help">
+  <div class="sheet">
+    <div class="sheet-t">⚡ 啓示の使い方</div>
+    <div class="sheet-d">
+      啓示は<b>必ず世界に届きます</b>。囁くときに種類で「啓示」を選んでください。<br>
+      本文に書いた内容が、住人の心に強く芽生え、行動に表れます。
+    </div>
+
+    <div class="help-sec">🔮 ふつうの啓示</div>
+    <div class="help-body">
+      伝えたいことを、そのまま日本語で書くだけです。<br>
+      <span class="help-ex">例：「飯田はもう自分の気持ちを抑えられない」</span><br>
+      → 飯田がその衝動に突き動かされた投稿をします。<br>
+      <span class="help-note">※誰についての話かは、本文に名前を書けば伝わります。</span>
+    </div>
+
+    <div class="help-sec">💞 関係を直接変える（特殊コマンド）</div>
+    <div class="help-body">
+      本文に下の形で書くと、<b>二人の関係が確実に変わります</b>。<br>
+      住人の発言を待たず、その場で反映されます。<br><br>
+      <div class="help-cmd">[[関係:相手A,相手B]]</div>
+      名前は<b>苗字でも下の名前でもハンドルでも</b>OKです。<br>
+      <span class="help-ex">例：[[恋人:飯田,稲葉]]</span><br>
+      <span class="help-ex">例：[[険悪:佐藤,平田]]</span><br>
+      <span class="help-note">※コマンドは投稿には表示されません。文章と混ぜてもOK：<br>
+      「ついに二人は結ばれた [[恋人:飯田,稲葉]]」</span>
+    </div>
+
+    <div class="help-sec">使える関係の一覧</div>
+    <div class="help-table">
+      <div class="help-grp">❤️ 恋愛・結婚</div>
+      <div class="help-row"><code>恋人</code> 付き合う</div>
+      <div class="help-row"><code>結婚</code> 夫婦になる</div>
+      <div class="help-row"><code>別れ</code> 別れる</div>
+      <div class="help-row"><code>離婚</code> 離婚する</div>
+      <div class="help-row"><code>片思い</code> A→Bへの一方的な想い</div>
+      <div class="help-row"><code>不倫</code> 誰にも言えない関係</div>
+
+      <div class="help-grp">🤝 友好</div>
+      <div class="help-row"><code>親友</code> 何でも話せる</div>
+      <div class="help-row"><code>友達</code> 仲がいい</div>
+      <div class="help-row"><code>信頼</code> 深く信頼する</div>
+      <div class="help-row"><code>仲直り</code> わだかまりが解ける</div>
+      <div class="help-row"><code>和解</code> 過去を水に流す</div>
+
+      <div class="help-grp">💢 対立</div>
+      <div class="help-row"><code>険悪</code> 顔も見たくない</div>
+      <div class="help-row"><code>絶交</code> もう関わらない</div>
+      <div class="help-row"><code>不仲</code> そりが合わない</div>
+      <div class="help-row"><code>ライバル</code> 負けたくない</div>
+      <div class="help-row"><code>嫉妬</code> A→Bへの嫉妬</div>
+      <div class="help-row"><code>恨み</code> A→Bへの恨み</div>
+
+      <div class="help-grp">👪 その他</div>
+      <div class="help-row"><code>家族</code> 家族になる</div>
+    </div>
+    <div class="help-note" style="margin-top:10px">
+      「片思い」「嫉妬」「恨み」は<b>A→Bの一方向</b>だけ。それ以外は両方向に反映されます。
+    </div>
+
+    <div class="sheet-btns">
+      <button class="cbtn" onclick="$('ov-help').classList.remove('on')">閉じる</button>
     </div>
   </div>
 </div>
@@ -650,7 +730,9 @@ function renderShop(){
       <div class="item">
         <div class="icn">${s.icon}</div>
         <div class="itxt">
-          <div class="t">${s.name} <span style="color:var(--gold);font-size:12px;margin-left:4px">${s.cost.toLocaleString()}pt</span></div>
+          <div class="t">${s.name} <span style="color:var(--gold);font-size:12px;margin-left:4px">${s.cost.toLocaleString()}pt</span>${
+            s.key === 'reveal' ? ` <button class="manual-btn" onclick="$('ov-help').classList.add('on')">📖 説明書</button>` : ''
+          }</div>
           <div class="d">${s.d}</div>
         </div>
         <button class="buy" ${PTS < s.cost ? 'disabled' : ''} onclick="buy('${s.key}')">買う</button>

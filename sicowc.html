@@ -402,8 +402,8 @@ function coinBadgeStyle(c){
 // 同時アクセスが増えたら、既存の Cloudflare Worker と同じ要領で /cg-proxy を立て、
 //   ・60秒程度キャッシュ  ・(任意で)Demoキーを付与
 // して CG_BASE をそのプロキシに差し替えると、レート制限を気にせず運用できる。
-const CG_BASE = 'https://api.coingecko.com/api/v3';
-// 例: const CG_BASE = 'https://sicox.eekunmaras.workers.dev/cg-proxy';
+const CG_BASE = 'https://sicox.eekunmaras.workers.dev/cg-proxy';
+// 直叩き（レート制限に注意）: 'https://api.coingecko.com/api/v3'
 
 // >90日を要求すると CoinGecko は日次(00:00 UTC)粒度で返す。直近の日次始値と月初来を両方カバーするため120日取得。
 const CG_DAYS = 120;
@@ -561,17 +561,21 @@ function buildRounds(){
       const lockTs = startOfUtcDay(Di);
       const endTs  = startOfUtcDay(Dn);
       const now = Date.now();
-      let status;
+      let status, closePrice = openEnd;
       if(now < lockTs) status='TIMED';
       else if(now < endTs) status='IN_PLAY';
-      else if(openStart!=null && openEnd!=null) status='FINISHED';
-      else return; // データ欠損の確定日はスキップ
+      else {
+        // 枠終了：翌0:00UTC始値が未反映でも最新価格で確定させ、取りこぼし/停滞を防ぐ
+        if(closePrice==null) closePrice = G.now[c.id];
+        if(openStart!=null && closePrice!=null) status='FINISHED';
+        else return;
+      }
       let dir=null;
-      if(status==='FINISHED') dir = (openEnd>openStart)?'up':'down'; // 同値は下扱い
+      if(status==='FINISHED') dir = (closePrice>openStart)?'up':'down'; // 同値は下扱い
       rounds.push({
         matchId: c.id+'-'+Di.replace(/-/g,''),
         coinId:c.id, day:Di, status, dir,
-        openStart, openEnd, lockTs, endTs,
+        openStart, openEnd:closePrice, lockTs, endTs,
       });
     });
   }
@@ -677,7 +681,10 @@ function roundCardHtml(r){
   } else if(r.status==='FINISHED'){
     body = resultLine(r) + '<div class="wc-empty" style="padding:10px 0;border:none;">このラウンドには予想していません</div>';
   } else {
-    body = '<div class="wc-empty" style="padding:10px 0;border:none;">受付は終了しました（判定待ち）</div>';
+    body = '';
+  }
+  if(r.status==='IN_PLAY'){
+    body += '<div style="font-size:10.5px;color:#7bc0f5;text-align:center;margin-top:8px;">🔒 受付終了 ・ '+esc(fmtJst(r.endTs))+'（JST）に確定</div>';
   }
 
   const showLive = (r.status==='IN_PLAY');

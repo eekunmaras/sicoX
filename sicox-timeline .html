@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SicoX Timeline — 軌跡</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --void:#05060b;
+    --panel:#0d1019;
+    --panel-2:#11141f;
+    --hairline:rgba(255,255,255,.09);
+    --ink:#edf0f8;
+    --mist:#8991a8;
+    --mist-dim:#5a6178;
+    --nebula-1:#5b6ef5;
+    --nebula-2:#33d6c4;
+    --star:#f5c56c;
+    --danger:#f5716c;
+    --font-display:'Unbounded', sans-serif;
+    --font-body:'Manrope', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--void);
+    color:var(--ink);
+    font-family:var(--font-body);
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+  }
+  ::selection{background:var(--nebula-1);color:#fff;}
+
+  canvas#starfield{
+    position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;
+  }
+  .vignette{
+    position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 0%, rgba(91,110,245,.10), transparent 55%),
+               radial-gradient(ellipse at 50% 100%, rgba(5,6,11,.9), transparent 60%),
+               linear-gradient(180deg, rgba(5,6,11,.2), rgba(5,6,11,.75) 90%);
+  }
+
+  .content{position:relative;z-index:2;}
+
+  /* ── Hero ── */
+  .hero{
+    min-height:92vh;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:40px 20px;position:relative;
+  }
+  .eyebrow{
+    font-family:var(--font-mono);font-size:12px;letter-spacing:.28em;
+    color:var(--nebula-2);text-transform:uppercase;margin-bottom:22px;
+    display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before,.eyebrow::after{content:'';width:26px;height:1px;background:var(--nebula-2);opacity:.5;}
+  .hero h1{
+    font-family:var(--font-display);font-weight:800;
+    font-size:clamp(38px, 8vw, 84px);line-height:1.08;letter-spacing:-.01em;
+    background:linear-gradient(135deg,#ffffff 20%, var(--nebula-1) 65%, var(--nebula-2) 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    margin-bottom:22px;
+  }
+  .hero p{
+    font-size:clamp(14px,2vw,17px);color:var(--mist);max-width:560px;line-height:1.85;
+    font-weight:500;
+  }
+  .hero p b{color:var(--ink);font-weight:700;}
+  .scroll-cue{
+    position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    color:var(--mist-dim);font-family:var(--font-mono);font-size:10px;letter-spacing:.2em;
+    animation:floaty 2.4s ease-in-out infinite;
+  }
+  .scroll-cue .line{width:1px;height:36px;background:linear-gradient(180deg,var(--nebula-2),transparent);}
+  @keyframes floaty{0%,100%{transform:translate(-50%,0);}50%{transform:translate(-50%,8px);}}
+
+  /* ── Timeline ── */
+  .timeline-section{position:relative;padding:40px 20px 160px;}
+  .section-head{max-width:640px;margin:0 auto 90px;text-align:center;}
+  .section-head .eyebrow{justify-content:center;}
+  .section-head h2{font-family:var(--font-display);font-weight:700;font-size:clamp(24px,4vw,34px);}
+
+  .timeline{
+    position:relative;max-width:980px;margin:0 auto;
+  }
+  .spine{
+    position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);
+    background:linear-gradient(180deg, transparent, var(--hairline) 4%, var(--hairline) 96%, transparent);
+  }
+  .event{
+    position:relative;width:calc(50% - 46px);margin-bottom:96px;
+    opacity:0;transform:translateY(36px);
+    transition:opacity .8s cubic-bezier(.16,.9,.3,1), transform .8s cubic-bezier(.16,.9,.3,1);
+  }
+  .event.in-view{opacity:1;transform:translateY(0);}
+  .event:nth-child(odd){margin-left:0;text-align:right;}
+  .event:nth-child(even){margin-left:calc(50% + 46px);text-align:left;}
+
+  .event-node{
+    position:absolute;top:6px;width:11px;height:11px;border-radius:50%;
+    background:var(--panel-2);border:2px solid var(--nebula-1);
+    box-shadow:0 0 0 4px var(--void), 0 0 16px rgba(91,110,245,.5);
+    transition:background .3s, border-color .3s;
+  }
+  .event:nth-child(odd) .event-node{right:-52px;}
+  .event:nth-child(even) .event-node{left:-52px;}
+  .event.in-view .event-node{background:var(--nebula-2);border-color:var(--nebula-2);}
+
+  .event-date{
+    font-family:var(--font-mono);font-size:12px;letter-spacing:.14em;color:var(--nebula-2);
+    margin-bottom:10px;display:block;
+  }
+  .event-card{
+    background:linear-gradient(160deg, rgba(255,255,255,.035), rgba(255,255,255,.01));
+    border:1px solid var(--hairline);border-radius:16px;padding:22px 24px;
+    backdrop-filter:blur(6px);
+    position:relative;
+  }
+  .event:nth-child(odd) .event-card{border-top-right-radius:4px;}
+  .event:nth-child(even) .event-card{border-top-left-radius:4px;}
+  .event-tag{
+    display:inline-block;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;
+    color:var(--star);background:rgba(245,197,108,.1);border:1px solid rgba(245,197,108,.25);
+    border-radius:999px;padding:3px 10px;margin-bottom:12px;
+  }
+  .event h3{font-family:var(--font-display);font-weight:700;font-size:19px;line-height:1.4;margin-bottom:10px;}
+  .event p{font-size:14px;color:var(--mist);line-height:1.8;white-space:pre-wrap;}
+
+  .event-del{
+    position:absolute;top:14px;width:22px;height:22px;border-radius:50%;
+    background:rgba(245,113,108,.12);border:1px solid rgba(245,113,108,.3);color:var(--danger);
+    font-size:12px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;
+  }
+  .event:nth-child(odd) .event-del{left:14px;}
+  .event:nth-child(even) .event-del{right:14px;}
+  body.admin-mode .event-del{display:flex;}
+
+  .empty-state{
+    text-align:center;color:var(--mist-dim);font-family:var(--font-mono);font-size:13px;
+    padding:60px 20px;letter-spacing:.05em;
+  }
+
+  @media(max-width:780px){
+    .spine{left:18px;}
+    .event,.event:nth-child(odd),.event:nth-child(even){
+      width:calc(100% - 54px);margin-left:54px;text-align:left;
+    }
+    .event:nth-child(odd) .event-node,.event:nth-child(even) .event-node{left:-42px;right:auto;}
+    .event:nth-child(odd) .event-del,.event:nth-child(even) .event-del{left:auto;right:14px;}
+    .event:nth-child(odd) .event-card,.event:nth-child(even) .event-card{border-top-right-radius:16px;border-top-left-radius:4px;}
+  }
+
+  /* ── Admin FAB ── */
+  .admin-fab{
+    position:fixed;right:24px;bottom:24px;z-index:20;
+    display:flex;align-items:center;gap:9px;
+    background:var(--panel);border:1px solid var(--hairline);color:var(--ink);
+    font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;
+    padding:13px 20px 13px 16px;border-radius:999px;cursor:pointer;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);
+    transition:border-color .2s, transform .2s;
+  }
+  .admin-fab:hover{border-color:var(--nebula-1);transform:translateY(-2px);}
+  .admin-fab .dot{width:7px;height:7px;border-radius:50%;background:var(--nebula-2);box-shadow:0 0 8px var(--nebula-2);}
+
+  /* ── Admin modal ── */
+  .modal-overlay{
+    position:fixed;inset:0;z-index:50;display:none;
+    background:rgba(3,4,8,.72);backdrop-filter:blur(6px);
+    align-items:flex-start;justify-content:center;padding:6vh 18px;overflow-y:auto;
+  }
+  .modal-overlay.open{display:flex;}
+  .admin-modal{
+    width:100%;max-width:560px;background:var(--panel);
+    border:1px solid var(--hairline);border-radius:20px;padding:30px 28px 26px;
+    position:relative;margin-bottom:40px;
+    box-shadow:0 30px 80px rgba(0,0,0,.55);
+    animation:modal-in .35s cubic-bezier(.16,.9,.3,1);
+  }
+  @keyframes modal-in{from{opacity:0;transform:translateY(14px) scale(.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+  .modal-close{
+    position:absolute;top:20px;right:20px;background:transparent;border:none;
+    color:var(--mist);font-size:18px;cursor:pointer;line-height:1;padding:4px;
+  }
+  .modal-close:hover{color:var(--ink);}
+  .admin-modal .eyebrow{margin-bottom:6px;}
+  .admin-modal h2{font-family:var(--font-display);font-weight:700;font-size:22px;margin-bottom:22px;}
+
+  .field{margin-bottom:16px;}
+  .field label{
+    display:block;font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;
+    color:var(--mist);margin-bottom:7px;text-transform:uppercase;
+  }
+  .field input, .field textarea{
+    width:100%;background:rgba(255,255,255,.04);border:1px solid var(--hairline);
+    border-radius:10px;padding:11px 13px;color:var(--ink);font-family:var(--font-body);
+    font-size:14px;outline:none;transition:border-color .2s, background .2s;
+  }
+  .field input::placeholder,.field textarea::placeholder{color:var(--mist-dim);}
+  .field input:focus,.field textarea:focus{border-color:var(--nebula-1);background:rgba(255,255,255,.06);}
+  .field textarea{resize:vertical;min-height:78px;line-height:1.6;}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+
+  .submit-btn{
+    width:100%;padding:13px;margin-top:6px;border:none;border-radius:10px;
+    background:linear-gradient(135deg, var(--nebula-1), var(--nebula-2));
+    color:#04070d;font-weight:700;font-size:14px;cursor:pointer;font-family:var(--font-body);
+    transition:opacity .2s, transform .2s;
+  }
+  .submit-btn:hover{opacity:.92;transform:translateY(-1px);}
+  .submit-btn:active{transform:translateY(0);}
+  .form-msg{font-size:12px;color:var(--nebula-2);margin-top:10px;min-height:16px;font-family:var(--font-mono);}
+  .shake{animation:shake .35s;}
+  @keyframes shake{
+    20%,60%{transform:translateX(-6px);}
+    40%,80%{transform:translateX(6px);}
+    100%{transform:translateX(0);}
+  }
+
+  .admin-list{margin-top:28px;padding-top:22px;border-top:1px solid var(--hairline);}
+  .admin-list-title{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--mist);text-transform:uppercase;margin-bottom:12px;}
+  .admin-row{
+    display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);
+  }
+  .admin-row:last-child{border-bottom:none;}
+  .admin-row .adate{font-family:var(--font-mono);font-size:11px;color:var(--nebula-2);flex-shrink:0;width:64px;}
+  .admin-row .atitle{flex:1;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .admin-row .arm{
+    flex-shrink:0;width:24px;height:24px;border-radius:50%;background:rgba(245,113,108,.1);
+    border:1px solid rgba(245,113,108,.28);color:var(--danger);font-size:12px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .admin-row .arm:hover{background:rgba(245,113,108,.2);}
+  .admin-empty{font-size:12px;color:var(--mist-dim);padding:8px 0;font-family:var(--font-mono);}
+
+  @media(prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto;}
+    .event{transition:none;opacity:1;transform:none;}
+    .scroll-cue{animation:none;}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="starfield"></canvas>
+<div class="vignette"></div>
+
+<div class="content">
+
+  <section class="hero">
+    <div class="eyebrow">SICOX &mdash; SYSTEM LOG</div>
+    <h1>SicoXの軌跡</h1>
+    <p>ひとつの投稿から始まった小さな宇宙は、<br class="br-desktop">今日も新しい<b>星</b>を増やしながら広がり続けている。</p>
+    <div class="scroll-cue"><span>SCROLL</span><span class="line"></span></div>
+  </section>
+
+  <section class="timeline-section">
+    <div class="section-head">
+      <div class="eyebrow">MISSION TIMELINE</div>
+      <h2>これまでに刻まれた出来事</h2>
+    </div>
+
+    <div class="timeline" id="timeline">
+      <div class="spine"></div>
+      <div id="eventList"></div>
+    </div>
+  </section>
+
+</div>
+
+<button class="admin-fab" onclick="openAdmin()"><span class="dot"></span>管理者ツール</button>
+
+<div class="modal-overlay" id="adminOverlay">
+  <div class="admin-modal">
+    <button class="modal-close" onclick="closeAdmin()">✕</button>
+    <div class="eyebrow" style="justify-content:flex-start;">ADMIN CONSOLE</div>
+
+    <div id="adminGate">
+      <h2>パスワードを入力</h2>
+      <form id="gateForm">
+        <div class="field">
+          <label for="fPass">パスワード</label>
+          <input type="password" id="fPass" placeholder="••••••" autocomplete="off" inputmode="numeric" required>
+        </div>
+        <button type="submit" class="submit-btn">解除する</button>
+        <div class="form-msg" id="gateMsg"></div>
+      </form>
+    </div>
+
+    <div id="adminPanel" style="display:none;">
+      <h2>出来事を追加</h2>
+
+      <form id="eventForm">
+        <div class="field-row">
+          <div class="field">
+            <label for="fDate">年月</label>
+            <input type="month" id="fDate" required>
+          </div>
+          <div class="field">
+            <label for="fTag">タグ（任意）</label>
+            <input type="text" id="fTag" placeholder="例：新機能" maxlength="16">
+          </div>
+        </div>
+        <div class="field">
+          <label for="fTitle">題名</label>
+          <input type="text" id="fTitle" placeholder="例：マルチバース機能を追加" maxlength="60" required>
+        </div>
+        <div class="field">
+          <label for="fDesc">起こった出来事</label>
+          <textarea id="fDesc" placeholder="詳しい内容を書いてください（任意）" maxlength="300"></textarea>
+        </div>
+        <button type="submit" class="submit-btn">タイムラインに追加する</button>
+        <div class="form-msg" id="formMsg"></div>
+      </form>
+
+      <div class="admin-list">
+        <div class="admin-list-title">登録済みの出来事（クリックで削除）</div>
+        <div id="adminList"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════
+   星空キャンバス
+   ══════════════════════════════════════ */
+(function(){
+ try{
+  const canvas=document.getElementById('starfield');
+  const ctx=canvas.getContext('2d');
+  const reduceMotion=(typeof window.matchMedia==='function') && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W,H,dpr;
+  let stars=[];
+  let shooters=[];
+
+  function resize(){
+    dpr=Math.min(window.devicePixelRatio||1,2);
+    W=window.innerWidth;H=window.innerHeight;
+    canvas.width=W*dpr;canvas.height=H*dpr;
+    canvas.style.width=W+'px';canvas.style.height=H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    seedStars();
+  }
+
+  function seedStars(){
+    const count=Math.round((W*H)/7500);
+    stars=[];
+    for(let i=0;i<count;i++){
+      const sparkle=Math.random()<0.14;
+      stars.push({
+        x:Math.random()*W, y:Math.random()*H,
+        r:sparkle?(Math.random()*0.9+1.1):(Math.random()*1.1+0.3),
+        baseA:sparkle?(Math.random()*.2+.15):(Math.random()*.45+.2),
+        amp:sparkle?(Math.random()*.35+.55):(Math.random()*.3+.15),
+        speed:sparkle?(Math.random()*.5+.4):(Math.random()*.5+.12),
+        phase:Math.random()*Math.PI*2,
+        drift:(Math.random()-.5)*0.008,
+        sparkle
+      });
+    }
+  }
+
+  function maybeSpawnShooter(){
+    if(reduceMotion)return;
+    if(Math.random()<0.006 && shooters.length<2){
+      const startX=Math.random()*W*0.6+W*0.2;
+      shooters.push({
+        x:startX, y:-20, vx:2.4+Math.random()*1.6, vy:3.2+Math.random()*1.8,
+        life:1, len:Math.random()*70+60
+      });
+    }
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const t=Date.now()/1000;
+    for(const s of stars){
+      const raw=reduceMotion?0:Math.sin(t*s.speed+s.phase);
+      const a=Math.max(0,Math.min(1, s.baseA + raw*s.amp));
+
+      if(s.sparkle){
+        ctx.beginPath();
+        ctx.fillStyle='rgba(237,240,248,'+Math.min(1,a+0.15).toFixed(3)+')';
+        ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+        ctx.fill();
+
+        const boost=Math.max(0,(a-0.55)/0.45);
+        if(boost>0.04){
+          const len=s.r*(1.8+boost*2.6);
+          ctx.save();
+          ctx.strokeStyle='rgba(237,240,248,'+(boost*0.7).toFixed(3)+')';
+          ctx.lineWidth=0.6;
+          ctx.beginPath();
+          ctx.moveTo(s.x-len,s.y); ctx.lineTo(s.x+len,s.y);
+          ctx.moveTo(s.x,s.y-len); ctx.lineTo(s.x,s.y+len);
+          ctx.stroke();
+          const grad=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,len*0.85);
+          grad.addColorStop(0,'rgba(190,205,255,'+(boost*0.3).toFixed(3)+')');
+          grad.addColorStop(1,'rgba(190,205,255,0)');
+          ctx.fillStyle=grad;
+          ctx.beginPath();
+          ctx.arc(s.x,s.y,len*0.85,0,Math.PI*2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }else{
+        ctx.beginPath();
+        ctx.fillStyle='rgba(237,240,248,'+a.toFixed(3)+')';
+        ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+        ctx.fill();
+      }
+
+      if(!reduceMotion){
+        s.x+=s.drift;
+        if(s.x<0)s.x=W; if(s.x>W)s.x=0;
+      }
+    }
+    maybeSpawnShooter();
+    shooters.forEach(sh=>{
+      const grad=ctx.createLinearGradient(sh.x,sh.y,sh.x-sh.vx*sh.len/6,sh.y-sh.vy*sh.len/6);
+      grad.addColorStop(0,'rgba(255,255,255,'+sh.life+')');
+      grad.addColorStop(1,'rgba(91,110,245,0)');
+      ctx.strokeStyle=grad;ctx.lineWidth=1.6;
+      ctx.beginPath();
+      ctx.moveTo(sh.x,sh.y);
+      ctx.lineTo(sh.x-sh.vx*sh.len/6, sh.y-sh.vy*sh.len/6);
+      ctx.stroke();
+      sh.x+=sh.vx;sh.y+=sh.vy;sh.life-=0.012;
+    });
+    shooters=shooters.filter(sh=>sh.life>0 && sh.y<H+30);
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize',resize);
+  resize();
+  draw();
+ }catch(err){
+   console.error('starfield init failed', err);
+ }
+})();
+
+/* ══════════════════════════════════════
+   Supabase 接続
+   ══════════════════════════════════════ */
+const SUPABASE_URL = 'https://lbulatinwtsqgudgdhpe.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxidWxhdGlud3RzcWd1ZGdkaHBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyNTc3NDgsImV4cCI6MjA5NDgzMzc0OH0.4pNE5vxC2Z3OdXcj6MDUuMZpHhUZMRdyxhSipsZyEUU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ══════════════════════════════════════
+   タイムラインデータ
+   ══════════════════════════════════════ */
+let timelineEvents=[];
+let usingSampleData=false;
+
+// timeline_events テーブルが未作成、または通信に失敗した場合だけ表示するサンプル
+const SAMPLE_EVENTS=[
+  {id:'e1', date:'2024-11', tag:'ローンチ', title:'SicoX、始動', desc:'最初のポストが投稿され、この宇宙にひとつめの星が灯った。'},
+  {id:'e2', date:'2025-02', tag:'新機能', title:'ゲームアプリ第一弾を実装', desc:'タイカゲームをはじめ、アプリタブに遊べるコンテンツが増えはじめる。'},
+  {id:'e3', date:'2025-04', tag:'新機能', title:'SicoFX（疑似トレード）公開', desc:'ポイントを使って為替トレードを体験できる新アプリが登場。'},
+  {id:'e4', date:'2025-07', tag:'拡張', title:'マルチバース機能を追加', desc:'ひとつの宇宙だったSicoXが、複数の世界とつながりはじめる。'},
+  {id:'e5', date:'2025-10', tag:'新機能', title:'ニュース／BETタブを実装', desc:'リアルタイムのデータと、月替わりのBET企画が仲間入り。'},
+  {id:'e6', date:'2026-07', tag:'今日', title:'この年表が生まれた', desc:'SicoXの歩みを星座のように辿れる、新しいページが公開された。'}
+];
+
+function rowToEvent(r){
+  return {id:r.id, date:r.date, tag:r.tag||'', title:r.title, desc:r.description||''};
+}
+
+async function loadTimelineEvents(){
+  try{
+    const {data,error}=await sb.from('timeline_events').select('*').order('date',{ascending:true});
+    if(error) throw error;
+    timelineEvents=(data||[]).map(rowToEvent);
+    usingSampleData=false;
+  }catch(err){
+    console.warn('timeline_events の読み込みに失敗したため、サンプルデータを表示しています。Supabase側のテーブル作成をご確認ください。', err);
+    timelineEvents=SAMPLE_EVENTS.map(e=>({...e}));
+    usingSampleData=true;
+  }
+  renderTimeline();
+}
+
+/* ══════════════════════════════════════
+   タイムライン描画
+   ══════════════════════════════════════ */
+let revealObserver=null;
+
+function fmtDate(ym){
+  const [y,m]=ym.split('-');
+  return y+'.'+m;
+}
+
+function renderTimeline(){
+  timelineEvents.sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0);
+  const list=document.getElementById('eventList');
+
+  if(timelineEvents.length===0){
+    list.innerHTML='<div class="empty-state">まだ出来事が記録されていません。<br>管理者ツールから最初の1件を追加してください。</div>';
+  }else{
+    list.innerHTML=timelineEvents.map(ev=>`
+      <article class="event" data-id="${ev.id}">
+        <div class="event-node"></div>
+        <button class="event-del" onclick="deleteEvent('${ev.id}')" title="削除" type="button">✕</button>
+        <span class="event-date">${fmtDate(ev.date)}</span>
+        <div class="event-card">
+          ${ev.tag?`<span class="event-tag">${escapeHtml(ev.tag)}</span>`:''}
+          <h3>${escapeHtml(ev.title)}</h3>
+          ${ev.desc?`<p>${escapeHtml(ev.desc)}</p>`:''}
+        </div>
+      </article>
+    `).join('');
+  }
+
+  setupReveal();
+  renderAdminList();
+}
+
+function escapeHtml(str){
+  const d=document.createElement('div');
+  d.textContent=str;
+  return d.innerHTML;
+}
+
+function setupReveal(){
+  if(revealObserver) revealObserver.disconnect();
+  const reduceMotion=(typeof window.matchMedia==='function') && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const items=document.querySelectorAll('.event');
+  if(reduceMotion || typeof IntersectionObserver==='undefined'){
+    items.forEach(el=>el.classList.add('in-view'));
+    return;
+  }
+  revealObserver=new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  },{threshold:0.22, rootMargin:'0px 0px -8% 0px'});
+  items.forEach(el=>revealObserver.observe(el));
+}
+
+/* ══════════════════════════════════════
+   管理者パネル（パスワード制）
+   ══════════════════════════════════════ */
+const ADMIN_PASSWORD='199333';
+let adminUnlocked=false;
+
+// 全角数字（１２３…）や前後の空白でも通るように正規化する
+function normalizePass(s){
+  return String(s||'')
+    .replace(/[\uFF10-\uFF19]/g, ch => String.fromCharCode(ch.charCodeAt(0)-0xFEE0))
+    .replace(/\s+/g,'');
+}
+
+function openAdmin(){
+  document.getElementById('adminOverlay').classList.add('open');
+  document.getElementById('formMsg').textContent='';
+  if(adminUnlocked){
+    showAdminPanel();
+  }else{
+    showAdminGate();
+  }
+}
+function closeAdmin(){
+  document.getElementById('adminOverlay').classList.remove('open');
+}
+document.getElementById('adminOverlay').addEventListener('click',(e)=>{
+  if(e.target.id==='adminOverlay') closeAdmin();
+});
+
+function showAdminGate(){
+  document.getElementById('adminGate').style.display='block';
+  document.getElementById('adminPanel').style.display='none';
+  const pass=document.getElementById('fPass');
+  pass.value='';
+  document.getElementById('gateMsg').textContent='';
+  setTimeout(()=>pass.focus(),50);
+}
+function showAdminPanel(){
+  document.getElementById('adminGate').style.display='none';
+  document.getElementById('adminPanel').style.display='block';
+  renderAdminList();
+}
+
+document.getElementById('gateForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  const input=document.getElementById('fPass');
+  const msg=document.getElementById('gateMsg');
+  if(normalizePass(input.value)===ADMIN_PASSWORD){
+    adminUnlocked=true;
+    showAdminPanel();
+  }else{
+    msg.style.color='var(--danger)';
+    msg.textContent='パスワードが違います。';
+    input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
+    input.value='';
+    input.focus();
+  }
+});
+
+document.getElementById('eventForm').addEventListener('submit',async function(e){
+  e.preventDefault();
+  const date=document.getElementById('fDate').value;
+  const title=document.getElementById('fTitle').value.trim();
+  const tag=document.getElementById('fTag').value.trim();
+  const desc=document.getElementById('fDesc').value.trim();
+  const msg=document.getElementById('formMsg');
+
+  if(!date||!title){
+    msg.style.color='var(--danger)';
+    msg.textContent='年月と題名は必須です。';
+    return;
+  }
+
+  const submitBtn=this.querySelector('.submit-btn');
+  submitBtn.disabled=true; submitBtn.textContent='追加中…';
+  msg.style.color='var(--mist)';
+  msg.textContent='';
+
+  const row={
+    id:'ev'+Date.now()+Math.random().toString(36).slice(2,6),
+    date, title, description:desc||null, tag:tag||null,
+    created_at:new Date().toISOString()
+  };
+  const {error}=await sb.from('timeline_events').insert(row);
+
+  submitBtn.disabled=false; submitBtn.textContent='タイムラインに追加する';
+
+  if(error){
+    console.error('timeline_events insert error', error);
+    msg.style.color='var(--danger)';
+    msg.textContent='追加に失敗しました。Supabaseにtimeline_eventsテーブルがあるかご確認ください。';
+    return;
+  }
+
+  await loadTimelineEvents();
+  this.reset();
+  msg.style.color='var(--nebula-2)';
+  msg.textContent='タイムラインに追加しました。';
+});
+
+function renderAdminList(){
+  const wrap=document.getElementById('adminList');
+  if(!wrap)return;
+  let notice='';
+  if(usingSampleData){
+    notice='<div class="admin-empty" style="color:var(--star);">⚠ Supabaseのtimeline_eventsテーブルに接続できていないため、サンプルを表示中です（追加・削除はテーブル作成後に反映されます）。</div>';
+  }
+  if(timelineEvents.length===0){
+    wrap.innerHTML=notice+'<div class="admin-empty">まだ登録がありません。</div>';
+    return;
+  }
+  const sorted=[...timelineEvents].sort((a,b)=> a.date<b.date?-1:a.date>b.date?1:0);
+  wrap.innerHTML=notice+sorted.map(ev=>`
+    <div class="admin-row">
+      <span class="adate">${fmtDate(ev.date)}</span>
+      <span class="atitle">${escapeHtml(ev.title)}</span>
+      <button class="arm" type="button" onclick="deleteEvent('${ev.id}')" title="削除">✕</button>
+    </div>
+  `).join('');
+}
+
+async function deleteEvent(id){
+  const {error}=await sb.from('timeline_events').delete().eq('id',id);
+  if(error){
+    console.error('timeline_events delete error', error);
+    alert('削除に失敗しました。');
+    return;
+  }
+  await loadTimelineEvents();
+}
+
+loadTimelineEvents();
+
+</script>
+
+</body>
+</html>

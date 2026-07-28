@@ -74,18 +74,15 @@ export default {
         });
       }
     }
-    // 暗号資産プロキシ（CoinGecko）— 429/CORS対策・60秒キャッシュ
+    // 暗号資産プロキシ（CoinGecko）— 429/CORS対策・キャッシュ
     // 例: /cg-proxy/coins/bitcoin/market_chart?vs_currency=usd&days=120
-    // 無料Demoキーがある場合：Cloudflareの環境変数 COINGECKO_DEMO_KEY に登録すると
-    //   専用ドメイン(pro-api)＋キー送信になり、レート上限が大きく上がる。
-    //   未設定なら従来どおり公開ドメインにフォールバック（低レート）。
+    // 無料Demoキー：公開ドメイン(api.coingecko.com)＋ヘッダ x-cg-demo-api-key で送る。
+    //   （pro-api.coingecko.com は有料Pro専用。Demoキーで使うと401になる）
     if (url.pathname.startsWith('/cg-proxy/') && request.method === 'GET') {
       try {
         const rest = url.pathname.replace(/^\/cg-proxy/, '') + url.search;
         const key = env.COINGECKO_DEMO_KEY;
-        const upstream = key
-          ? 'https://pro-api.coingecko.com/api/v3' + rest
-          : 'https://api.coingecko.com/api/v3' + rest;
+        const upstream = 'https://api.coingecko.com/api/v3' + rest;
         const cache = caches.default;
         const cacheKey = new Request('https://cg-cache' + url.pathname + url.search, { method: 'GET' });
         const cached = await cache.match(cacheKey);

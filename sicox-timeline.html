@@ -305,10 +305,14 @@
             <label for="fDate">年月</label>
             <input type="month" id="fDate" required>
           </div>
-          <div class="field">
-            <label for="fTag">タグ（任意）</label>
-            <input type="text" id="fTag" placeholder="例：新機能" maxlength="16">
+          <div class="field" style="max-width:120px;">
+            <label for="fDay">日（任意）</label>
+            <input type="number" id="fDay" min="1" max="31" placeholder="—" inputmode="numeric" autocomplete="off">
           </div>
+        </div>
+        <div class="field">
+          <label for="fTag">タグ（任意）</label>
+          <input type="text" id="fTag" placeholder="例：新機能" maxlength="16">
         </div>
         <div class="field">
           <label for="fTitle">題名</label>
@@ -496,9 +500,10 @@ async function loadTimelineEvents(){
    ══════════════════════════════════════ */
 let revealObserver=null;
 
-function fmtDate(ym){
-  const [y,m]=ym.split('-');
-  return y+'.'+m;
+function fmtDate(s){
+  const p=String(s||'').split('-');
+  if(p.length>=3) return p[0]+'.'+p[1]+'.'+p[2];
+  return p[0]+'.'+(p[1]||'');
 }
 
 function renderTimeline(){
@@ -612,13 +617,19 @@ document.getElementById('gateForm').addEventListener('submit',function(e){
 
 document.getElementById('eventForm').addEventListener('submit',async function(e){
   e.preventDefault();
-  const date=document.getElementById('fDate').value;
+  const ym=document.getElementById('fDate').value;
+  const dayRaw=document.getElementById('fDay').value;
+  let date=ym;
+  if(ym && dayRaw!==''){
+    const d=Math.floor(Number(dayRaw));
+    if(d>=1 && d<=31) date=ym+'-'+String(d).padStart(2,'0');
+  }
   const title=document.getElementById('fTitle').value.trim();
   const tag=document.getElementById('fTag').value.trim();
   const desc=document.getElementById('fDesc').value.trim();
   const msg=document.getElementById('formMsg');
 
-  if(!date||!title){
+  if(!ym||!title){
     msg.style.color='var(--danger)';
     msg.textContent='年月と題名は必須です。';
     return;

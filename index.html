@@ -11838,7 +11838,7 @@ const CRYPTO_DATA_COINS = [
   {id:'dogecoin',sym:'DOGE',ja:'ドージコイン'},{id:'tron',sym:'TRX',ja:'トロン'},
   {id:'chainlink',sym:'LINK',ja:'チェーンリンク'},{id:'avalanche-2',sym:'AVAX',ja:'アバランチ'},
 ];
-const CRYPTO_CG_BASE = 'https://api.coingecko.com/api/v3'; // 例: 'https://sicox.eekunmaras.workers.dev/cg-proxy'
+const CRYPTO_CG_BASE = 'https://sicox.eekunmaras.workers.dev/cg-proxy'; // 直叩き: 'https://api.coingecko.com/api/v3'
 let cryptoDataLoadedAt = 0;
 
 function cryptoUtcDateStr(ts){ return new Date(ts).toISOString().slice(0,10); }

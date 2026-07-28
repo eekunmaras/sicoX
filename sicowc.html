@@ -550,10 +550,10 @@ function buildRounds(){
   const rounds=[];
   for(const c of COINS){
     const bnd = G.boundaries[c.id]; if(!bnd) continue;
-    // 受付中(T+1)・当日(T)・過去7日を生成
+    // 受付中(T+1)・当日(T)・過去30日を生成（精算対象を広めに取り、数日の停止でも取りこぼさない）
     const days=[];
     days.push(addDaysStr(T,1)); // 受付中
-    for(let k=0;k<=7;k++) days.push(addDaysStr(T,-k)); // 当日〜過去
+    for(let k=0;k<=30;k++) days.push(addDaysStr(T,-k)); // 当日〜過去
     days.forEach(Di=>{
       const Dn = addDaysStr(Di,1);
       const openStart = bnd[Di];      // Di の始値

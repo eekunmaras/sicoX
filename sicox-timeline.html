@@ -519,7 +519,7 @@ function renderTimeline(){
         <button class="event-del" onclick="deleteEvent('${ev.id}')" title="削除" type="button">✕</button>
         <span class="event-date">${fmtDate(ev.date)}</span>
         <div class="event-card">
-          ${ev.tag?`<span class="event-tag">${escapeHtml(ev.tag)}</span>`:''}
+          ${ev.tag?`<span class="event-tag" style="${tagStyle(ev.tag)}">${escapeHtml(ev.tag)}</span>`:''}
           <h3>${escapeHtml(ev.title)}</h3>
           ${ev.desc?`<p>${escapeHtml(ev.desc)}</p>`:''}
         </div>
@@ -535,6 +535,25 @@ function escapeHtml(str){
   const d=document.createElement('div');
   d.textContent=str;
   return d.innerHTML;
+}
+
+/* タグごとの色。よく使うタグは下の TAG_HUES で色相を固定でき、
+   それ以外はタグ名から自動で色相を決める（同じタグは常に同じ色）。 */
+const TAG_HUES={
+  'ローンチ':160, '新機能':210, '拡張':265, '今日':40,
+  'アップデート':190, 'イベント':330, '修正':0, 'バグ':0
+};
+function tagHue(tag){
+  if(Object.prototype.hasOwnProperty.call(TAG_HUES, tag)) return TAG_HUES[tag];
+  let h=0;
+  for(let i=0;i<tag.length;i++){ h=(h*31 + tag.charCodeAt(i))>>>0; }
+  return h % 360;
+}
+function tagStyle(tag){
+  const h=tagHue(String(tag||''));
+  return 'color:hsl('+h+' 78% 74%);'+
+    'background:hsl('+h+' 70% 55% / .14);'+
+    'border-color:hsl('+h+' 70% 60% / .34);';
 }
 
 function setupReveal(){

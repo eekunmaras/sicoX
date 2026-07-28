@@ -74,6 +74,47 @@ export default {
         });
       }
     }
+    // 暗号資産プロキシ（CoinGecko）— 429/CORS対策・60秒キャッシュ
+    // 例: /cg-proxy/coins/bitcoin/market_chart?vs_currency=usd&days=120
+    if (url.pathname.startsWith('/cg-proxy/') && request.method === 'GET') {
+      try {
+        const upstream = 'https://api.coingecko.com/api/v3' + url.pathname.replace(/^\/cg-proxy/, '') + url.search;
+        const cache = caches.default;
+        const cacheKey = new Request(upstream, { method: 'GET' });
+        const cached = await cache.match(cacheKey);
+        if (cached) {
+          const hit = new Response(cached.body, cached);
+          hit.headers.set('Access-Control-Allow-Origin', '*');
+          return hit;
+        }
+        const response = await fetch(upstream, {
+          headers: {
+            'accept': 'application/json',
+            // Demoキーがあれば上限UP（任意）:
+            // 'x-cg-demo-api-key': env.COINGECKO_DEMO_KEY,
+          },
+        });
+        const data = await response.text();
+        const res = new Response(data, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': response.ok ? 'public, max-age=60' : 'no-store',
+          },
+          status: response.status,
+        });
+        if (response.ok) ctx.waitUntil(cache.put(cacheKey, res.clone()));
+        return res;
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+          status: 500,
+        });
+      }
+    }
     // それ以外はHTMLなどの静的ファイルを返す
     return env.ASSETS.fetch(request);
   }

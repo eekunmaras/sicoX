@@ -39,6 +39,8 @@ img.av{display:block;}
 .nm{font-size:14px;font-weight:800;}
 .hn,.tm{font-size:13px;color:var(--text2);}
 .tx{font-size:14.5px;line-height:1.55;margin-top:3px;white-space:pre-wrap;word-break:break-word;}
+.tw-img{display:block;width:100%;max-width:380px;max-height:280px;object-fit:cover;border-radius:14px;border:1px solid var(--border);margin-top:9px;background:var(--bg3);}
+.parent .tw-img{max-width:100%;max-height:420px;margin-top:14px;}
 .re{font-size:11px;color:var(--text2);margin-bottom:3px;}
 .re b{color:var(--accent);font-weight:400;}
 .acts{display:flex;gap:36px;margin-top:9px;}
@@ -517,6 +519,7 @@ function card(p){
         <span class="tm">· ${ago(p.ts)}</span>
       </div>
       <div class="tx">${esc(p.text)}</div>
+      ${p.image_url ? `<img class="tw-img" src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}
       <div class="acts">
         <button class="act" onclick="event.stopPropagation();openThread('${p.id}')">${I_RE}<span>${rc || ''}</span></button>
       </div>
@@ -627,6 +630,7 @@ function renderThread(){
         </div>
       </div>
       <div class="tx">${esc(p.text)}</div>
+      ${p.image_url ? `<img class="tw-img" src="${esc(p.image_url)}" alt="" loading="lazy">` : ''}
       <div class="tm-full">${new Date(p.ts).toLocaleString('ja-JP')}</div>
       <div class="stats"><span><b>${rc}</b> 返信</span></div>
     </div>

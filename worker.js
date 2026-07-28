@@ -90,6 +90,7 @@ export default {
         const response = await fetch(upstream, {
           headers: {
             'accept': 'application/json',
+            'User-Agent': 'SicoX/1.0 (+https://sicox.eekunmaras.workers.dev)',
             // Demoキーがあれば上限UP（任意）:
             // 'x-cg-demo-api-key': env.COINGECKO_DEMO_KEY,
           },

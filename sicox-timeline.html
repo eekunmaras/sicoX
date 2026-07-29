@@ -171,6 +171,18 @@
   .admin-fab:hover{border-color:var(--nebula-1);transform:translateY(-2px);}
   .admin-fab .dot{width:7px;height:7px;border-radius:50%;background:var(--nebula-2);box-shadow:0 0 8px var(--nebula-2);}
 
+  .music-btn{
+    position:fixed;left:20px;top:20px;z-index:21;
+    width:44px;height:44px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--panel);border:1px solid var(--hairline);color:var(--ink);
+    cursor:pointer;box-shadow:0 8px 30px rgba(0,0,0,.5);
+    transition:border-color .2s, transform .2s, color .2s;
+  }
+  .music-btn:hover{border-color:var(--nebula-1);transform:translateY(-2px);}
+  .music-btn svg{width:20px;height:20px;}
+  .music-btn.on{border-color:var(--star);color:var(--star);box-shadow:0 0 18px rgba(245,197,108,.25);}
+
   /* ── Admin modal ── */
   .modal-overlay{
     position:fixed;inset:0;z-index:50;display:none;
@@ -278,6 +290,14 @@
 </div>
 
 <button class="admin-fab" onclick="openAdmin()"><span class="dot"></span>管理者ツール</button>
+
+<audio id="bgm" src="schoolsong.mp3" loop preload="none"></audio>
+<button class="music-btn" id="musicBtn" onclick="toggleMusic()" aria-label="音楽オン・オフ" title="音楽">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+    <line id="musicSlash" x1="3" y1="3" x2="21" y2="21"/>
+  </svg>
+</button>
 
 <div class="modal-overlay" id="adminOverlay">
   <div class="admin-modal">
@@ -535,6 +555,25 @@ function escapeHtml(str){
   const d=document.createElement('div');
   d.textContent=str;
   return d.innerHTML;
+}
+
+// 背景音楽（初期はオフ）
+function toggleMusic(){
+  const a=document.getElementById('bgm');
+  const btn=document.getElementById('musicBtn');
+  const slash=document.getElementById('musicSlash');
+  if(!a) return;
+  if(a.paused){
+    a.volume=0.6;
+    a.play().then(()=>{
+      btn.classList.add('on');
+      if(slash) slash.style.display='none';
+    }).catch(()=>{ /* schoolsong.mp3 が無い/再生不可のときは何もしない */ });
+  } else {
+    a.pause();
+    btn.classList.remove('on');
+    if(slash) slash.style.display='';
+  }
 }
 
 /* タグごとの色。よく使うタグは下の TAG_HUES で色相を固定でき、

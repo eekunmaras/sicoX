@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>おえかき</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:linear-gradient(180deg,#f5f3ff,#ffffff);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;color:#1e293b;}
+  #root{min-height:100vh;}
+  .wrap{max-width:420px;margin:0 auto;padding:14px;}
+  button{font-family:inherit;cursor:pointer;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;}
+  .topbar-left{display:flex;align-items:center;gap:8px;min-width:0;}
+  .back-btn{padding:8px;border-radius:12px;border:2px solid #e2e8f0;background:#fff;line-height:0;}
+  .logo{width:36px;height:36px;border-radius:14px;background:linear-gradient(135deg,#8b5cf6,#d946ef);display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0;}
+  .title{font-weight:800;font-size:18px;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pt-badge{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700;background:linear-gradient(90deg,#fcd34d,#fbbf24);color:#78350f;padding:6px 10px;border-radius:999px;flex-shrink:0;}
+  .toast{margin-bottom:12px;text-align:center;padding:10px;border-radius:16px;background:#1e293b;color:#fff;font-weight:600;font-size:14px;}
+  .nav-card{width:100%;text-align:left;border-radius:22px;border:2px solid #ede9fe;background:#fff;padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .nav-card:active{transform:scale(.97);}
+  .nav-icon{width:48px;height:48px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;flex-shrink:0;box-shadow:0 4px 10px rgba(139,92,246,.25);}
+  .nav-icon.tile{background:linear-gradient(135deg,#8b5cf6,#d946ef);}
+  .nav-icon.chain{background:linear-gradient(135deg,#fb923c,#fb7185);}
+  .nav-title{font-weight:800;color:#1e293b;}
+  .nav-sub{font-size:12px;color:#64748b;margin-top:2px;}
+  .board-card{border-radius:22px;border:2px solid #fef3c7;background:#fff;padding:12px;}
+  .board-hd{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#d97706;margin-bottom:8px;}
+  .rank-row{display:flex;justify-content:space-between;font-size:14px;padding:3px 0;}
+  .rank-row.me{font-weight:800;color:#1e293b;}
+  .rank-row:not(.me){color:#64748b;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  .tile-empty{aspect-ratio:1;border-radius:22px;border:2px dashed #ddd6fe;background:#f5f3ff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#a78bfa;font-weight:700;font-size:13px;}
+  .tile-card{border-radius:22px;overflow:hidden;border:2px solid #e2e8f0;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .tile-card.pending{border-color:#fcd34d;}
+  .tile-card.solved{border-color:#6ee7b7;}
+  .tile-card.revealed{border-color:#cbd5e1;}
+  .tile-img-wrap{position:relative;}
+  .tile-img{width:100%;aspect-ratio:1;object-fit:cover;display:block;}
+  .tile-tag{position:absolute;top:6px;left:6px;font-size:10px;font-weight:800;background:#fbbf24;color:#78350f;padding:2px 8px;border-radius:999px;}
+  .tile-body{padding:8px;}
+  .tile-title{font-size:12px;font-weight:800;color:#334155;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tile-meta{font-size:11px;color:#94a3b8;margin-top:2px;}
+  .row-between{display:flex;align-items:center;justify-content:space-between;}
+  .diff-badge{font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;}
+  .diff-easy{background:#d1fae5;color:#047857;}
+  .diff-normal{background:#fef3c7;color:#b45309;}
+  .diff-hard{background:#fee2e2;color:#be123c;}
+  .diff-extreme{background:linear-gradient(90deg,#d946ef,#9333ea);color:#fff;}
+  .hint-row{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  .hint-boxes{display:flex;gap:2px;}
+  .hint-box{width:12px;height:12px;border-radius:3px;background:#e2e8f0;}
+  .hint-count{font-size:10px;color:#94a3b8;}
+  .section-label{font-size:11px;font-weight:800;color:#94a3b8;margin:6px 0 8px;}
+  .big-btn{width:100%;padding:13px;border-radius:18px;border:none;font-weight:800;font-size:15px;color:#fff;background:linear-gradient(90deg,#8b5cf6,#d946ef);box-shadow:0 6px 16px rgba(139,92,246,.28);}
+  .big-btn:active{transform:scale(.97);}
+  .big-btn.secondary{background:#fff;color:#475569;border:2px solid #e2e8f0;box-shadow:none;}
+  .big-btn.disabled{background:#e2e8f0;color:#94a3b8;box-shadow:none;}
+  .row-btns{display:flex;gap:8px;}
+  .row-btns .big-btn{flex:1;}
+  .input-lg{width:100%;border:2px solid #e2e8f0;border-radius:18px;padding:13px 14px;font-size:15px;margin-bottom:10px;}
+  .input-lg:focus{outline:none;border-color:#c4b5fd;}
+  .prompt-card{border-radius:18px;background:linear-gradient(90deg,#8b5cf6,#d946ef);padding:12px 14px;color:#fff;margin-bottom:10px;}
+  .prompt-label{font-size:11px;color:#ede9fe;}
+  .prompt-text{font-size:20px;font-weight:800;margin-top:2px;}
+  .ref-card{border-radius:18px;border:2px solid #e2e8f0;background:#f8fafc;padding:10px;margin-bottom:10px;}
+  .ref-label{font-size:11px;color:#64748b;font-weight:700;margin-bottom:6px;}
+  .ref-img{width:100%;border-radius:12px;border:1px solid #e2e8f0;}
+  canvas{width:100%;border-radius:18px;border:2px solid #cbd5e1;background:#fff;touch-action:none;display:block;}
+  .tool-row{display:flex;align-items:center;justify-content:space-between;margin:10px 0;}
+  .swatches{display:flex;gap:6px;}
+  .swatch{width:26px;height:26px;border-radius:999px;border:3px solid #fff;box-shadow:0 0 0 1px #e2e8f0;}
+  .swatch.on{box-shadow:0 0 0 2px #1e293b;}
+  .sizes{display:flex;gap:6px;}
+  .size-btn{width:30px;height:30px;border-radius:999px;border:1px solid #cbd5e1;background:#fff;display:flex;align-items:center;justify-content:center;}
+  .size-btn.on{background:#1e293b;border-color:#1e293b;}
+  .size-dot{border-radius:999px;background:#64748b;}
+  .size-btn.on .size-dot{background:#fff;}
+  .clear-btn{padding:8px;border-radius:12px;border:1px solid #cbd5e1;background:#fff;color:#64748b;}
+  .reward-banner{border-radius:16px;background:linear-gradient(90deg,#fcd34d,#fbbf24);color:#78350f;text-align:center;font-weight:800;font-size:13px;padding:9px;margin-bottom:10px;}
+  .warn-banner{border-radius:16px;background:#fff1f2;border:2px solid #fecdd3;color:#e11d48;text-align:center;font-weight:700;font-size:12px;padding:9px;margin-bottom:10px;}
+  .chain-card{border-radius:22px;border:2px solid #ede9fe;background:#fff;padding:12px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  .chain-dots{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+  .dot{width:24px;height:24px;border-radius:999px;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;color:#94a3b8;background:#f1f5f9;}
+  .dot.on{background:linear-gradient(135deg,#8b5cf6,#d946ef);color:#fff;}
+  .dot.ok{background:#10b981;color:#fff;}
+  .dot.ng{background:#fb7185;color:#fff;}
+  .dot-meta{font-size:11px;color:#94a3b8;margin-left:auto;}
+  .archived-card{display:block;width:100%;text-align:left;border-radius:16px;border:2px solid #e2e8f0;background:#fff;padding:10px 12px;margin-bottom:8px;}
+  .archived-card.ok{border-color:#6ee7b7;background:#ecfdf5;}
+  .archived-card.ng{border-color:#fda4af;background:#fff1f2;}
+  .step-card{border-radius:16px;border:2px solid #e2e8f0;background:#fff;padding:8px;margin-bottom:8px;}
+  .step-label{font-size:11px;color:#64748b;font-weight:700;margin-bottom:4px;}
+  .step-img{width:100%;border-radius:12px;}
+  .overlay-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;padding:24px;z-index:40;}
+  .overlay-card{background:#fff;border-radius:22px;padding:20px;max-width:320px;width:100%;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,.2);}
+  .center-note{text-align:center;color:#94a3b8;font-size:13px;padding:24px 0;}
+  .spin{width:26px;height:26px;border-radius:999px;border:3px solid #ede9fe;border-top-color:#8b5cf6;margin:0 auto 10px;animation:sp .8s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+  @keyframes confettiFall{0%{transform:translateY(-24px) rotate(0);opacity:1;}100%{transform:translateY(320px) rotate(360deg);opacity:0;}}
+  @keyframes popIn{0%{transform:scale(.4);opacity:0;}60%{transform:scale(1.12);opacity:1;}100%{transform:scale(1);opacity:1;}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ─────────────────────────────────────────────
+   親(sicoX本体)との通信ブリッジ
+   ポイント残高・タイル一覧・伝言一覧はすべて親(Supabase)が真実の値を持つ。
+   このページはpostMessageで依頼を送り、結果を待つだけ。
+   ───────────────────────────────────────────── */
+const EMBEDDED = window.parent && window.parent !== window;
+const PENDING = new Map();
+function bridge(type, payload = {}, timeout = 8000) {
+  if (!EMBEDDED) return Promise.resolve({ ok: false, error: 'sicoX内から起動してください' });
+  const reqId = 'oe' + Date.now() + Math.random().toString(36).slice(2, 8);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => { PENDING.delete(reqId); resolve({ ok: false, error: '通信がタイムアウトしました' }); }, timeout);
+    PENDING.set(reqId, { resolve, timer });
+    window.parent.postMessage(Object.assign({ type, reqId }, payload), '*');
+  });
+}
+window.addEventListener('message', (e) => {
+  const msg = e.data || {};
+  if (msg.type === 'oekaki:response' && PENDING.has(msg.reqId)) {
+    const req = PENDING.get(msg.reqId);
+    clearTimeout(req.timer);
+    PENDING.delete(msg.reqId);
+    req.resolve(msg);
+  }
+});
+
+/* ─────────────────────────────────────────────
+   お題生成
+   ・かんたん/ふつう/むずかしい は、本体SNSがすでに持っている
+     /groq-proxy（@grok Botと同じCloudflare Pages Function）を
+     そのまま流用して Groq が生成する（同一オリジンなので相対パスでOK）
+   ・バッチでまとめて取得しプールに貯め、クリックのたびには呼ばない
+   ・超絶オニムズ（出現率1%）は当たりを固定で保証したいのでローカル固定
+   ・/groq-proxy に繋がらない時は FALLBACK_TOPICS でゲームを止めない
+   ───────────────────────────────────────────── */
+const GROQ_PROXY_URL = '/groq-proxy'; // 本体と同じエンドポイント。oekaki.htmlが別ドメインで動く場合はフルURLに変更
+const OEKAKI_GROQ_MODEL = 'openai/gpt-oss-20b'; // 本体の@grok Botとは別モデルでOK（軽いテキスト生成なのでこれで十分）
+
+const EXTREME_TOPICS = [
+  { text: 'えんとつからおちそうなサンタ', answers: ['えんとつからおちそうなさんた', 'サンタがえんとつからおちる', 'えんとつでつまったさんた'] },
+  { text: 'じかくのないうちゅうひこうし', answers: ['じかくのないうちゅうひこうし', 'まいごのうちゅうひこうし'] },
+];
+const FALLBACK_TOPICS = {
+  easy: [
+    { text: 'りんご', answers: ['りんご'] },
+    { text: 'ねこ', answers: ['ねこ'] },
+    { text: 'にじ', answers: ['にじ'] },
+    { text: 'かさ', answers: ['かさ'] },
+  ],
+  normal: [
+    { text: 'かさをさす人', answers: ['かさをさすひと', 'かさをさしているひと', 'あめのひのひと'] },
+    { text: 'ねているねこ', answers: ['ねているねこ', 'ねこがねている', 'すいみんちゅうのねこ'] },
+  ],
+  hard: [
+    { text: 'てんめつするらいと', answers: ['てんめつするらいと', 'らいとがてんめつする', 'てんめつしているらいと', 'ぴかぴかするらいと'] },
+    { text: 'おばけやしき', answers: ['おばけやしき', 'おばけのいえ', 'おばけがでるいえ'] },
+  ],
+};
+const POINTS_BY_DIFFICULTY = { easy: 100000, normal: 500000, hard: 1000000, extreme: 10000000 };
+const DIFF_LABEL = { easy: 'かんたん', normal: 'ふつう', hard: 'むずかしい', extreme: '超絶オニムズ' };
+const DIFF_CLASS = { easy: 'diff-easy', normal: 'diff-normal', hard: 'diff-hard', extreme: 'diff-extreme' };
+
+function normalize(s) { return String(s || '').replace(/\s/g, '').trim(); }
+
+// /groq-proxy から取得した easy/normal/hard のお題を貯めておくプール
+let topicPool = [];
+let refillInFlight = null;
+async function refillTopicPool(n = 20) {
+  if (refillInFlight) return refillInFlight; // 同時に何度も叩かないようにする
+  refillInFlight = (async () => {
+    try {
+      const systemPrompt =
+        'あなたはお絵描き当てゲームのお題作成係です。日本語で、絵に描けそうな具体的なお題を作ってください。' +
+        '各お題には、正解として許容すべき言い回しのバリエーション（語順違い・活用違い・助詞違いなど）を5〜8個付けてください。' +
+        '難易度は easy(単語のみ)・normal(短いフレーズ)・hard(状況や動作を含む文) をバランスよく混ぜてください。' +
+        '出力は次のJSON形式のみで、説明文やマークダウンのコードブロック記法は一切付けないでください: ' +
+        '{"topics":[{"text":"てんめつするらいと","difficulty":"normal","answers":["てんめつするらいと","らいとがてんめつする","てんめつしているらいと"]}]}';
+
+      const res = await fetch(GROQ_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: OEKAKI_GROQ_MODEL,
+          max_tokens: 1500,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `お題を${n}個作ってください。` },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const raw = (data.choices?.[0]?.message?.content || '{}').trim().replace(/^```json\s*|```$/g, '');
+      const parsed = JSON.parse(raw);
+      const valid = (Array.isArray(parsed.topics) ? parsed.topics : []).filter(
+        (t) => t && typeof t.text === 'string' && ['easy', 'normal', 'hard'].includes(t.difficulty) && Array.isArray(t.answers) && t.answers.length > 0
+      );
+      topicPool.push(...valid.map((t) => ({ text: t.text, difficulty: t.difficulty, answers: t.answers })));
+    } catch (e) {
+      console.warn('/groq-proxy 経由のお題生成に失敗、フォールバックを使います', e);
+    } finally {
+      refillInFlight = null;
+    }
+  })();
+  return refillInFlight;
+}
+async function pickTopicAsync() {
+  // 1%で超絶オニムズを確定当選させる
+  if (Math.random() < 0.01) {
+    const base = EXTREME_TOPICS[Math.floor(Math.random() * EXTREME_TOPICS.length)];
+    return { ...base, difficulty: 'extreme' };
+  }
+  if (topicPool.length < 3) await refillTopicPool(20);
+  if (topicPool.length > 0) return topicPool.shift();
+  // ワーカーに一度も繋がらなかった場合の最終フォールバック
+  const tiers = ['easy', 'normal', 'hard'];
+  const tier = tiers[Math.floor(Math.random() * tiers.length)];
+  const list = FALLBACK_TOPICS[tier];
+  const base = list[Math.floor(Math.random() * list.length)];
+  return { ...base, difficulty: tier };
+}
+function formatPt(n) {
+  if (!n) return '0';
+  if (n >= 10000) return `${Math.round(n / 10000).toLocaleString('ja-JP')}万`;
+  return n.toLocaleString('ja-JP');
+}
+function daysLeft(iso, span) {
+  if (!iso) return span;
+  const passed = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return Math.max(0, span - passed);
+}
+
+function DiffBadge({ difficulty }) {
+  return <span className={`diff-badge ${DIFF_CLASS[difficulty]}`}>{DIFF_LABEL[difficulty]}</span>;
+}
+function CharHint({ count }) {
+  const shown = Math.min(count || 0, 10);
+  return (
+    <div className="hint-row">
+      <div className="hint-boxes">{Array.from({ length: shown }).map((_, i) => <span key={i} className="hint-box" />)}</div>
+      <span className="hint-count">{count}もじ</span>
+    </div>
+  );
+}
+
+/* ── お絵かきキャンバス ── */
+function DrawingCanvas({ referenceImage, promptTopic, onCancel, onSubmit }) {
+  const canvasRef = useRef(null);
+  const drawing = useRef(false);
+  const [color, setColor] = useState('#1f2937');
+  const [size, setSize] = useState(4);
+
+  useEffect(() => {
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 300, 300);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }, []);
+
+  const getPos = (e) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    const cy = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: ((cx - rect.left) / rect.width) * 300, y: ((cy - rect.top) / rect.height) * 300 };
+  };
+  const start = (e) => { e.preventDefault(); drawing.current = true; const ctx = canvasRef.current.getContext('2d'); const { x, y } = getPos(e); ctx.beginPath(); ctx.moveTo(x, y); };
+  const move = (e) => { if (!drawing.current) return; e.preventDefault(); const ctx = canvasRef.current.getContext('2d'); ctx.strokeStyle = color; ctx.lineWidth = size; const { x, y } = getPos(e); ctx.lineTo(x, y); ctx.stroke(); };
+  const end = () => { drawing.current = false; };
+  const clear = () => { const ctx = canvasRef.current.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 300, 300); };
+
+  const colors = ['#1f2937', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b'];
+
+  return (
+    <div>
+      {referenceImage && (
+        <div className="ref-card">
+          <div className="ref-label">前の人が描いた絵</div>
+          <img src={referenceImage} alt="前の絵" className="ref-img" />
+        </div>
+      )}
+      {promptTopic && (
+        <div className="prompt-card">
+          <div className="row-between">
+            <span className="prompt-label">おだい</span>
+            <DiffBadge difficulty={promptTopic.difficulty} />
+          </div>
+          <div className="prompt-text">{promptTopic.text}</div>
+        </div>
+      )}
+      <canvas ref={canvasRef} width={300} height={300}
+        onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end} />
+      <div className="tool-row">
+        <div className="swatches">
+          {colors.map((c) => (
+            <span key={c} onClick={() => setColor(c)} className={`swatch ${color === c ? 'on' : ''}`} style={{ background: c }} />
+          ))}
+        </div>
+        <div className="sizes">
+          <button className={`size-btn ${size === 3 ? 'on' : ''}`} onClick={() => setSize(3)}><span className="size-dot" style={{ width: 6, height: 6 }} /></button>
+          <button className={`size-btn ${size === 8 ? 'on' : ''}`} onClick={() => setSize(8)}><span className="size-dot" style={{ width: 12, height: 12 }} /></button>
+        </div>
+        <button className="clear-btn" onClick={clear}>消す</button>
+      </div>
+      <div className="row-btns">
+        <button className="big-btn secondary" onClick={onCancel}>やめる</button>
+        <button className="big-btn" onClick={() => onSubmit(canvasRef.current.toDataURL('image/png'))}>描き終わった</button>
+      </div>
+    </div>
+  );
+}
+
+function TopBar({ title, onBack, points }) {
+  return (
+    <div className="topbar">
+      <div className="topbar-left">
+        {onBack ? <button className="back-btn" onClick={onBack}>←</button> : <div className="logo">✨</div>}
+        <div className="title">{title}</div>
+      </div>
+      <span className="pt-badge">💎 {formatPt(points)}pt</span>
+    </div>
+  );
+}
+function Toast({ message }) { if (!message) return null; return <div className="toast">{message}</div>; }
+
+function makeConfetti() {
+  const colors = ['#a78bfa', '#f472b6', '#fbbf24', '#34d399', '#60a5fa'];
+  return Array.from({ length: 16 }, (_, i) => ({ id: i, left: Math.random() * 100, delay: Math.random() * 0.4, color: colors[i % colors.length] }));
+}
+function CelebrationOverlay({ data, onClose }) {
+  if (!data) return null;
+  return (
+    <div className="overlay-bg" onClick={onClose} style={{ overflow: 'hidden' }}>
+      {data.confetti.map((c) => (
+        <span key={c.id} style={{ position: 'absolute', top: 0, left: `${c.left}%`, width: 10, height: 10, borderRadius: 3, background: c.color, animation: `confettiFall 1.4s ease-in ${c.delay}s both` }} />
+      ))}
+      <div className="overlay-card" style={{ animation: 'popIn .5s ease-out both' }}>
+        <div style={{ fontSize: 30, marginBottom: 6 }}>✨</div>
+        <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>せいかい！</div>
+        <div style={{ marginBottom: 8 }}><DiffBadge difficulty={data.difficulty} /></div>
+        <div style={{ fontSize: 28, fontWeight: 800, background: 'linear-gradient(90deg,#8b5cf6,#d946ef)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>+{formatPt(data.points)}pt</div>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 8 }}>タップで閉じる</div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  const [me, setMe] = useState(null);       // {handle,name,avatar}
+  const [points, setPoints] = useState(0);
+  const [ready, setReady] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [view, setView] = useState('menu');
+  const [toast, setToast] = useState('');
+  const [celebration, setCelebration] = useState(null);
+
+  const [tiles, setTiles] = useState([]);
+  const [tilesLoading, setTilesLoading] = useState(false);
+  const [activeTile, setActiveTile] = useState(null);
+  const [ephemeralTopic, setEphemeralTopic] = useState(null);
+  const [guessDraft, setGuessDraft] = useState('');
+  const [showRevealConfirm, setShowRevealConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const [chains, setChains] = useState([]);
+  const [chainsLoading, setChainsLoading] = useState(false);
+  const [activeChain, setActiveChain] = useState(null);
+  const [chainTopicDraft, setChainTopicDraft] = useState(null); // 新規チェーンの初回だけローカルに保持
+
+  const flash = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2200); };
+  const triggerCelebration = (pts, difficulty) => {
+    setCelebration({ points: pts, difficulty, confetti: makeConfetti() });
+    setTimeout(() => setCelebration(null), 2400);
+  };
+
+  // 起動時: 自分が誰か＋所持ポイントを取得
+  useEffect(() => {
+    (async () => {
+      const res = await bridge('oekaki:points:init:request');
+      if (res.ok) {
+        setMe(res.user);
+        setPoints(res.balance || 0);
+        setReady(true);
+        refillTopicPool(20); // 先読みしておくと「描く」を押した瞬間の待ち時間が減る
+      } else {
+        setAuthError(res.error || 'sicoX内から起動してください');
+      }
+    })();
+  }, []);
+
+  const refreshTiles = useCallback(async () => {
+    setTilesLoading(true);
+    const res = await bridge('oekaki:tiles:list:request');
+    if (res.ok) setTiles(res.tiles || []);
+    setTilesLoading(false);
+  }, []);
+  const refreshChains = useCallback(async () => {
+    setChainsLoading(true);
+    const res = await bridge('oekaki:chains:list:request');
+    if (res.ok) setChains(res.chains || []);
+    setChainsLoading(false);
+  }, []);
+
+  // 一覧画面にいる間はゆるくポーリング（他の人の投稿・回答を拾う）
+  useEffect(() => {
+    if (!ready) return;
+    if (view === 'tiles') { refreshTiles(); const t = setInterval(refreshTiles, 12000); return () => clearInterval(t); }
+    if (view === 'chains') { refreshChains(); const t = setInterval(refreshChains, 12000); return () => clearInterval(t); }
+  }, [view, ready, refreshTiles, refreshChains]);
+
+  const goMenu = () => { setView('menu'); setToast(''); };
+
+  /* ── タイル ── */
+  const [topicLoading, setTopicLoading] = useState(false);
+  const openTile = async (tile) => {
+    if (tile.status === 'empty_placeholder') {
+      setTopicLoading(true);
+      const topic = await pickTopicAsync();
+      setTopicLoading(false);
+      setEphemeralTopic(topic);
+      setActiveTile(tile);
+      setView('tileDraw');
+      return;
+    }
+    if (tile.status === 'pending') {
+      if (tile.drawer_handle === me.handle) { setActiveTile(tile); setShowRevealConfirm(true); }
+      else { setActiveTile(tile); setGuessDraft(''); setView('tileGuess'); }
+    }
+  };
+  const submitTileDrawing = async (dataUrl) => {
+    setBusy(true);
+    const res = await bridge('oekaki:tiles:create', {
+      topic: ephemeralTopic.text, difficulty: ephemeralTopic.difficulty, answers: ephemeralTopic.answers, image: dataUrl,
+    });
+    setBusy(false);
+    if (!res.ok) { flash(res.error || '投稿に失敗しました'); return; }
+    setEphemeralTopic(null);
+    setView('tiles');
+    flash('絵を投稿しました');
+    refreshTiles();
+  };
+  const submitTileGuess = async () => {
+    setBusy(true);
+    const res = await bridge('oekaki:tiles:guess', { tileId: activeTile.id, guessText: guessDraft });
+    setBusy(false);
+    if (!res.ok) { flash(res.error || '通信に失敗しました'); return; }
+    if (!res.correct) { flash('ざんねん、もう一度'); return; }
+    setPoints(res.balance);
+    setView('tiles');
+    triggerCelebration(res.points, activeTile.difficulty);
+    refreshTiles();
+  };
+  const confirmReveal = async () => {
+    setBusy(true);
+    const res = await bridge('oekaki:tiles:reveal', { tileId: activeTile.id });
+    setBusy(false);
+    setShowRevealConfirm(false);
+    if (!res.ok) { flash(res.error || '更新に失敗しました'); return; }
+    flash('こたえを表示しました（ポイントの還付はありません）');
+    refreshTiles();
+  };
+
+  /* ── 伝言おえかき ── */
+  const startNewChain = async () => {
+    setTopicLoading(true);
+    const topic = await pickTopicAsync();
+    setTopicLoading(false);
+    setChainTopicDraft(topic);
+    setActiveChain(null);
+    setView('chainDraw');
+  };
+  const joinChain = (chain) => {
+    if (me && (chain.participants || []).includes(me.handle)) { flash('このお題にはもう参加済みです'); return; }
+    setActiveChain(chain);
+    setChainTopicDraft(null);
+    if ((chain.steps || []).length < 4) setView('chainDraw');
+    else { setGuessDraft(''); setView('chainGuess'); }
+  };
+  const submitChainDrawing = async (dataUrl) => {
+    setBusy(true);
+    if (!activeChain) {
+      // 新規チェーンの1人目: 作成と同時に最初のステップも入れる
+      const res = await bridge('oekaki:chains:create', {
+        topic: chainTopicDraft.text, difficulty: chainTopicDraft.difficulty, answers: chainTopicDraft.answers,
+        firstStep: { handle: me.handle, name: me.name, image: dataUrl },
+      });
+      setBusy(false);
+      if (!res.ok) { flash(res.error || '作成に失敗しました'); return; }
+    } else {
+      const res = await bridge('oekaki:chains:draw', { chainId: activeChain.id, image: dataUrl });
+      setBusy(false);
+      if (!res.ok) { flash(res.error || '更新に失敗しました'); return; }
+    }
+    setChainTopicDraft(null);
+    setActiveChain(null);
+    setView('chains');
+    flash('次の人にバトンタッチ');
+    refreshChains();
+  };
+  const submitChainGuess = async () => {
+    setBusy(true);
+    const res = await bridge('oekaki:chains:guess', { chainId: activeChain.id, guessText: guessDraft });
+    setBusy(false);
+    if (!res.ok) { flash(res.error || '通信に失敗しました'); return; }
+    if (res.correct) { setPoints(res.balance); triggerCelebration(res.points, res.chain.difficulty); }
+    setActiveChain(res.chain);
+    setView('chainReveal');
+    refreshChains();
+  };
+  const openFinishedChain = (chain) => { setActiveChain(chain); setView('chainReveal'); };
+
+  const currentPoints = points;
+
+  // 固定4枠の「描く」プレースホルダー（DBには存在しない、UI上のみの入口）
+  const emptySlots = [0, 1, 2, 3].map((i) => ({ id: 'empty-' + i, status: 'empty_placeholder' }));
+  const pendingTiles = tiles.filter((t) => t.status === 'pending');
+  const archivedTiles = tiles.filter((t) => t.status === 'solved' || t.status === 'revealed');
+  const activeChains = chains.filter((c) => !c.guess);
+  const finishedChains = chains.filter((c) => c.guess);
+
+  if (!ready) {
+    return (
+      <div className="wrap">
+        <TopBar title="おえかき" points={0} />
+        <div className="center-note">
+          <div className="spin" />
+          {authError ? authError : '読み込み中...'}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wrap">
+      <Toast message={toast} />
+      <CelebrationOverlay data={celebration} onClose={() => setCelebration(null)} />
+
+      {view === 'menu' && (
+        <div>
+          <TopBar title="おえかき" points={currentPoints} />
+          <button className="nav-card" onClick={() => setView('tiles')}>
+            <div className="nav-icon tile">🖌️</div>
+            <div>
+              <div className="nav-title">お題当てタイル</div>
+              <div className="nav-sub">好きなお題を選んで描く、または答える</div>
+            </div>
+          </button>
+          <button className="nav-card" onClick={() => setView('chains')}>
+            <div className="nav-icon chain">👥</div>
+            <div>
+              <div className="nav-title">伝言おえかき</div>
+              <div className="nav-sub">5人でつないで最後に当てる・一発勝負</div>
+            </div>
+          </button>
+          <div className="board-card">
+            <div className="board-hd">🏆 みんなのポイント</div>
+            <div className="rank-row me"><span>{me.name}（あなた）</span><span>{formatPt(currentPoints)}pt</span></div>
+            <div className="rank-row"><span style={{ fontSize: 11 }}>※ランキングは本体sicoXのプロフィール一覧などから確認できます</span></div>
+          </div>
+        </div>
+      )}
+
+      {view === 'tiles' && (
+        <div>
+          <TopBar title="お題当てタイル" onBack={goMenu} points={currentPoints} />
+          <div className="grid2">
+            {emptySlots.map((slot) => (
+              <button key={slot.id} onClick={() => openTile(slot)} disabled={topicLoading} className="tile-empty" style={{ border: 'none', padding: 0, opacity: topicLoading ? 0.5 : 1 }}>
+                {topicLoading ? 'お題を考え中...' : '🖌️ 描く'}
+              </button>
+            ))}
+          </div>
+          {tilesLoading && pendingTiles.length === 0 ? (
+            <div className="center-note">読み込み中...</div>
+          ) : (
+            <div className="grid2">
+              {pendingTiles.map((tile) => (
+                <button key={tile.id} onClick={() => openTile(tile)} style={{ border: 'none', padding: 0, background: 'none', textAlign: 'left' }}>
+                  <div className="tile-card pending">
+                    <div className="tile-img-wrap">
+                      <img src={tile.image} alt="回答受付中" className="tile-img" style={{ filter: 'blur(9px)' }} />
+                      <span className="tile-tag">{tile.drawer_handle === me.handle ? '自分の絵' : '回答受付中'}</span>
+                    </div>
+                    <div className="tile-body">
+                      <div className="row-between">
+                        <DiffBadge difficulty={tile.difficulty} />
+                        <span style={{ fontSize: 10, color: '#94a3b8' }}>⏱{daysLeft(tile.created_at, 7)}日</span>
+                      </div>
+                      <div style={{ marginTop: 4 }}><CharHint count={tile.char_hint} /></div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {archivedTiles.length > 0 && (
+            <div>
+              <div className="section-label">終了したお題・1か月で自動削除</div>
+              <div className="grid2">
+                {archivedTiles.map((tile) => (
+                  <div key={tile.id} className={`tile-card ${tile.status}`}>
+                    <img src={tile.image} alt={tile.topic} className="tile-img" />
+                    <div className="tile-body">
+                      <div className="tile-title">{tile.topic}</div>
+                      <div className="tile-meta" style={{ color: tile.status === 'solved' ? '#059669' : '#94a3b8' }}>
+                        {tile.status === 'solved' ? '正解ずみ' : 'こたえ表示ずみ'}
+                      </div>
+                      <div className="tile-meta">あと{daysLeft(tile.archived_at, 30)}日で削除</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showRevealConfirm && activeTile && (
+            <div className="overlay-bg">
+              <div className="overlay-card">
+                <div style={{ fontSize: 26, marginBottom: 6 }}>👁️</div>
+                <div style={{ fontWeight: 800, marginBottom: 4 }}>こたえを表示しますか？</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>ポイントの還付はありません。あとで誰かに当ててもらうことはできなくなります。</div>
+                <div className="row-btns">
+                  <button className="big-btn secondary" onClick={() => setShowRevealConfirm(false)}>やめる</button>
+                  <button className="big-btn" style={{ background: '#1e293b' }} onClick={confirmReveal} disabled={busy}>はい</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {view === 'tileDraw' && (
+        <div>
+          <TopBar title="絵を描く" onBack={() => setView('tiles')} points={currentPoints} />
+          <DrawingCanvas promptTopic={ephemeralTopic} onCancel={() => setView('tiles')} onSubmit={submitTileDrawing} />
+        </div>
+      )}
+
+      {view === 'tileGuess' && activeTile && (
+        <div>
+          <TopBar title="お題を当てる" onBack={() => setView('tiles')} points={currentPoints} />
+          <img src={activeTile.image} alt="回答対象の絵" style={{ width: '100%', borderRadius: 18, border: '2px solid #ddd6fe', marginBottom: 10 }} />
+          <div className="row-between" style={{ marginBottom: 10 }}>
+            <DiffBadge difficulty={activeTile.difficulty} />
+            <CharHint count={activeTile.char_hint} />
+          </div>
+          <div className="reward-banner">正解でお互いに {formatPt(POINTS_BY_DIFFICULTY[activeTile.difficulty])}pt 獲得！</div>
+          <input className="input-lg" value={guessDraft} onChange={(e) => setGuessDraft(e.target.value)} placeholder="ひらがなで答えてね" />
+          <button className="big-btn" onClick={submitTileGuess} disabled={busy}>✓ 回答する</button>
+        </div>
+      )}
+
+      {view === 'chains' && (
+        <div>
+          <TopBar title="伝言おえかき" onBack={goMenu} points={currentPoints} />
+          {chainsLoading && chains.length === 0 && <div className="center-note">読み込み中...</div>}
+          {activeChains.map((chain) => {
+            const joined = me && (chain.participants || []).includes(me.handle);
+            const stepCount = (chain.steps || []).length;
+            return (
+              <div key={chain.id} className="chain-card">
+                <div className="chain-dots">
+                  {[0, 1, 2, 3].map((i) => <span key={i} className={`dot ${stepCount > i ? 'on' : ''}`}>{i + 1}</span>)}
+                  <span className="dot">5</span>
+                  <span className="dot-meta">{stepCount}/4人</span>
+                </div>
+                <button className={`big-btn ${joined ? 'disabled' : ''}`} onClick={() => joinChain(chain)} disabled={joined}>
+                  {joined ? '🔒 参加済み' : stepCount < 4 ? '絵を描いて参加する' : '最後の絵を見て当てる'}
+                </button>
+              </div>
+            );
+          })}
+          <button className="big-btn secondary" onClick={startNewChain} disabled={topicLoading} style={{ marginBottom: 16 }}>{topicLoading ? 'お題を考え中...' : '＋ 新しい伝言を始める'}</button>
+
+          {finishedChains.length > 0 && (
+            <div>
+              <div className="section-label">終了した伝言・1か月で自動削除</div>
+              {finishedChains.map((chain) => (
+                <button key={chain.id} onClick={() => openFinishedChain(chain)} className={`archived-card ${chain.guess.correct ? 'ok' : 'ng'}`}>
+                  <div className="row-between">
+                    <span style={{ fontWeight: 800, color: chain.guess.correct ? '#047857' : '#be123c' }}>{chain.topic}</span>
+                    <span>{chain.guess.correct ? '✓' : '✕'}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>あと{daysLeft(chain.finished_at, 30)}日で削除</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {view === 'chainDraw' && (
+        <div>
+          <TopBar title={`${activeChain ? (activeChain.steps || []).length + 1 : 1}人目`} onBack={() => setView('chains')} points={currentPoints} />
+          <DrawingCanvas
+            promptTopic={!activeChain ? chainTopicDraft : null}
+            referenceImage={activeChain ? activeChain.steps[activeChain.steps.length - 1].image : null}
+            onCancel={() => { setActiveChain(null); setChainTopicDraft(null); setView('chains'); }}
+            onSubmit={submitChainDrawing}
+          />
+        </div>
+      )}
+
+      {view === 'chainGuess' && activeChain && (
+        <div>
+          <TopBar title="5人目：一発勝負" onBack={() => setView('chains')} points={currentPoints} />
+          <img src={activeChain.steps[3].image} alt="最終的な絵" style={{ width: '100%', borderRadius: 18, border: '2px solid #ddd6fe', marginBottom: 10 }} />
+          <div className="warn-banner">回答は1回だけ。外れたらこの場でおだいが発表されます</div>
+          <input className="input-lg" value={guessDraft} onChange={(e) => setGuessDraft(e.target.value)} placeholder="最初のおだいは何だと思う？" />
+          <button className="big-btn" onClick={submitChainGuess} disabled={busy}>✓ 回答する（一発勝負）</button>
+        </div>
+      )}
+
+      {view === 'chainReveal' && activeChain && activeChain.guess && (
+        <div>
+          <TopBar title="結果発表" onBack={() => setView('chains')} points={currentPoints} />
+          <div className="prompt-card">
+            <div className="row-between">
+              <span className="prompt-label">最初のおだい</span>
+              <DiffBadge difficulty={activeChain.difficulty} />
+            </div>
+            <div className="prompt-text">{activeChain.topic}</div>
+          </div>
+          {(activeChain.steps || []).map((s, i) => (
+            <div key={i} className="step-card">
+              <div className="step-label">{i + 1}人目：{s.name}</div>
+              <img src={s.image} alt={`${i + 1}人目の絵`} className="step-img" />
+            </div>
+          ))}
+          <div className={`archived-card ${activeChain.guess.correct ? 'ok' : 'ng'}`} style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, marginBottom: 2 }}>5人目：{activeChain.guess.name}の回答</div>
+            <div style={{ fontWeight: 800, color: activeChain.guess.correct ? '#047857' : '#be123c' }}>
+              {activeChain.guess.text}　{activeChain.guess.correct ? '正解' : '不正解'}
+            </div>
+          </div>
+          {activeChain.guess.correct && (
+            <div className="board-card">
+              <div style={{ color: '#b45309', fontWeight: 800, marginBottom: 4 }}>参加した全員に +{formatPt(POINTS_BY_DIFFICULTY[activeChain.difficulty])}pt</div>
+              <div style={{ fontSize: 11, color: '#94a3b8' }}>{(activeChain.participants || []).map((h) => {
+                const step = (activeChain.steps || []).find((s) => s.handle === h);
+                return step ? step.name : (activeChain.guess.handle === h ? activeChain.guess.name : h);
+              }).join('、')}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

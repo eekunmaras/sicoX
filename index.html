@@ -5156,6 +5156,140 @@ async function dbApplyPointTransaction(handle,delta,reason,refId){
 
 
 
+// ── おえかき: タイル ──
+const OEKAKI_POINTS={easy:100000,normal:500000,hard:1000000,extreme:10000000};
+
+async function dbFetchOekakiTiles(){
+  try{
+    const {data,error}=await sb.from('oekaki_tiles').select('*').order('created_at',{ascending:false}).limit(60);
+    if(error){ console.error('oekaki tiles fetch error',error); return null; }
+    // pending中はtopic/answersを送らない（子フレーム側で答えが見えてしまうため）。文字数だけヒントとして渡す。
+    return (data||[]).map(t=>{
+      if(t.status==='pending'){
+        const {topic,answers,...rest}=t;
+        return {...rest, char_hint:(topic||'').replace(/\s/g,'').length};
+      }
+      return t;
+    });
+  }catch(e){ console.error('oekaki tiles fetch error',e); return null; }
+}
+async function dbCreateOekakiTile(handle,name,topic,difficulty,answers,image){
+  try{
+    const {data,error}=await sb.from('oekaki_tiles').insert({
+      drawer_handle:handle, drawer_name:name, topic, difficulty, answers, image, status:'pending'
+    }).select().single();
+    if(error){ console.error('oekaki tile create error',error); return null; }
+    return data;
+  }catch(e){ console.error('oekaki tile create error',e); return null; }
+}
+async function dbUpdateOekakiTile(tileId,patch){
+  try{
+    const {data,error}=await sb.from('oekaki_tiles').update(patch).eq('id',tileId).select().single();
+    if(error){ console.error('oekaki tile update error',error); return null; }
+    return data;
+  }catch(e){ console.error('oekaki tile update error',e); return null; }
+}
+// 自分の絵の答えを表示（ポイント還付なし）
+async function dbRevealOekakiTile(handle,tileId){
+  try{
+    const {data:tile,error:fe}=await sb.from('oekaki_tiles').select('*').eq('id',tileId).single();
+    if(fe||!tile) return {ok:false,error:'タイルが見つかりません'};
+    if(tile.drawer_handle!==handle) return {ok:false,error:'自分の絵のみ表示できます'};
+    if(tile.status!=='pending') return {ok:false,error:'すでに終了しています'};
+    const updated=await dbUpdateOekakiTile(tileId,{status:'revealed',archived_at:new Date().toISOString()});
+    return updated?{ok:true,tile:updated}:{ok:false,error:'更新に失敗しました'};
+  }catch(e){ return {ok:false,error:'更新に失敗しました'}; }
+}
+// 回答チェック（answersはここでしか読まない）＋正解時はここでポイント付与まで行う
+async function dbGuessOekakiTile(handle,name,tileId,guessText){
+  try{
+    const {data:tile,error:fe}=await sb.from('oekaki_tiles').select('*').eq('id',tileId).single();
+    if(fe||!tile) return {ok:false,error:'タイルが見つかりません'};
+    if(tile.status!=='pending') return {ok:false,error:'すでに終了しています'};
+    if(tile.drawer_handle===handle) return {ok:false,error:'自分の絵には回答できません'};
+    const norm=s=>String(s||'').replace(/\s/g,'').trim();
+    const correct=(tile.answers||[]).some(a=>norm(a)===norm(guessText));
+    if(!correct) return {ok:true,correct:false};
+    const pts=OEKAKI_POINTS[tile.difficulty]||0;
+    const guesserRes=await dbApplyPointTransaction(handle,pts,'おえかき正解:'+tile.topic,'oekaki-guess-'+tile.id+'-'+Date.now());
+    await dbApplyPointTransaction(tile.drawer_handle,pts,'おえかき正解(描き手):'+tile.topic,'oekaki-draw-'+tile.id+'-'+Date.now());
+    const updated=await dbUpdateOekakiTile(tile.id,{status:'solved',guesser_handle:handle,guesser_name:name,guess_text:guessText,archived_at:new Date().toISOString()});
+    return {ok:true,correct:true,points:pts,balance:guesserRes.balance,tile:updated};
+  }catch(e){ return {ok:false,error:'判定に失敗しました'}; }
+}
+
+// ── おえかき: 伝言チェーン ──
+async function dbFetchOekakiChains(){
+  try{
+    const {data,error}=await sb.from('oekaki_chains').select('*').order('created_at',{ascending:false}).limit(30);
+    if(error){ console.error('oekaki chains fetch error',error); return null; }
+    // 完成していない伝言はtopic/answersを送らない（5人目の答えが見えてしまうため）
+    return (data||[]).map(c=>{
+      if(!c.guess){
+        const {topic,answers,...rest}=c;
+        return rest;
+      }
+      return c;
+    });
+  }catch(e){ console.error('oekaki chains fetch error',e); return null; }
+}
+async function dbCreateOekakiChain(topic,difficulty,answers,firstStep,handle){
+  try{
+    const {data,error}=await sb.from('oekaki_chains').insert({
+      topic, difficulty, answers, steps:[firstStep], participants:[handle], guess:null
+    }).select().single();
+    if(error){ console.error('oekaki chain create error',error); return null; }
+    return data;
+  }catch(e){ console.error('oekaki chain create error',e); return null; }
+}
+async function dbUpdateOekakiChain(chainId,patch){
+  try{
+    const {data,error}=await sb.from('oekaki_chains').update(patch).eq('id',chainId).select().single();
+    if(error){ console.error('oekaki chain update error',error); return null; }
+    return data;
+  }catch(e){ console.error('oekaki chain update error',e); return null; }
+}
+// 2〜4人目の描画を追加
+async function dbDrawOekakiChain(handle,name,chainId,image){
+  try{
+    const {data:chain,error:fe}=await sb.from('oekaki_chains').select('*').eq('id',chainId).single();
+    if(fe||!chain) return {ok:false,error:'伝言が見つかりません'};
+    if((chain.participants||[]).includes(handle)) return {ok:false,error:'すでに参加済みです'};
+    if((chain.steps||[]).length>=4) return {ok:false,error:'すでに4人揃っています'};
+    const steps=[...(chain.steps||[]),{handle,name,image}];
+    const participants=[...(chain.participants||[]),handle];
+    const updated=await dbUpdateOekakiChain(chainId,{steps,participants});
+    return updated?{ok:true,chain:updated}:{ok:false,error:'更新に失敗しました'};
+  }catch(e){ return {ok:false,error:'更新に失敗しました'}; }
+}
+// 5人目の最終回答（answersはここでしか読まない）＋正解時は全員にポイント付与
+async function dbGuessOekakiChain(handle,name,chainId,guessText){
+  try{
+    const {data:chain,error:fe}=await sb.from('oekaki_chains').select('*').eq('id',chainId).single();
+    if(fe||!chain) return {ok:false,error:'伝言が見つかりません'};
+    if(chain.guess) return {ok:false,error:'すでに終了しています'};
+    if((chain.steps||[]).length<4) return {ok:false,error:'まだ4人揃っていません'};
+    const norm=s=>String(s||'').replace(/\s/g,'').trim();
+    const correct=(chain.answers||[]).some(a=>norm(a)===norm(guessText));
+    const participants=[...(chain.participants||[]),handle];
+    let pts=0;
+    let myBalance=null;
+    if(correct){
+      pts=OEKAKI_POINTS[chain.difficulty]||0;
+      for(const h of participants){
+        const r=await dbApplyPointTransaction(h,pts,'おえかき伝言正解:'+chain.topic,'oekaki-chain-'+chain.id+'-'+h+'-'+Date.now());
+        if(h===handle) myBalance=r.balance;
+      }
+    }
+    const updated=await dbUpdateOekakiChain(chainId,{
+      guess:{handle,name,text:guessText,correct},
+      participants,
+      finished_at:new Date().toISOString()
+    });
+    return {ok:true,correct,points:pts,balance:myBalance,chain:updated};
+  }catch(e){ return {ok:false,error:'判定に失敗しました'}; }
+}
+
 // ── バッジ購入済み一覧 ──
 
 async function dbFetchOwnedBadges(handle){
@@ -7664,6 +7798,16 @@ const GAMES={
     icon:'quest.png',
 
     src:'https://sicoliaonanispark.onrender.com/'
+
+  },
+
+  oekaki:{
+
+    title:'おえかき',
+
+    icon:'oekaki.png',
+
+    src:'oekaki.html'
 
   },
 
@@ -10843,6 +10987,12 @@ function sendDonjaraResponse(reqId,payload){
 
 }
 
+function sendOekakiResponse(reqId,payload){
+
+  sendToGameFrame(Object.assign({type:'oekaki:response',reqId},payload||{}));
+
+}
+
 function postDonjaraResultTweet(text){
 
   if(!currentUser){ openProfileModal(); return false; }
@@ -11167,6 +11317,94 @@ window.addEventListener('message',async e=>{
 
   }
 
+  // ── おえかき postMessage ブリッジ ──
+
+  if(msg.type==='oekaki:points:init:request'){
+
+    if(!currentUser){ sendOekakiResponse(msg.reqId,{ok:false,balance:0,error:'プロフィールを設定してください'}); return; }
+
+    const balance=await dbFetchAvailablePoints(currentUser.handle);
+
+    sendOekakiResponse(msg.reqId,{ok:true,balance,user:{handle:currentUser.handle,name:currentUser.name,avatar:currentUser.avatarUrl||null}});
+
+  }
+
+  if(msg.type==='oekaki:tiles:list:request'){
+
+    const tiles=await dbFetchOekakiTiles();
+
+    sendOekakiResponse(msg.reqId, tiles?{ok:true,tiles}:{ok:false,tiles:[],error:'タイルの取得に失敗しました'});
+
+  }
+
+  if(msg.type==='oekaki:tiles:create'){
+
+    if(!currentUser){ sendOekakiResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+
+    const tile=await dbCreateOekakiTile(currentUser.handle,currentUser.name,msg.topic,msg.difficulty,msg.answers,msg.image);
+
+    sendOekakiResponse(msg.reqId, tile?{ok:true,tile}:{ok:false,error:'投稿に失敗しました'});
+
+  }
+
+  if(msg.type==='oekaki:tiles:reveal'){
+
+    if(!currentUser){ sendOekakiResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+
+    const result=await dbRevealOekakiTile(currentUser.handle,msg.tileId);
+
+    sendOekakiResponse(msg.reqId,result);
+
+  }
+
+  if(msg.type==='oekaki:tiles:guess'){
+
+    if(!currentUser){ sendOekakiResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+
+    const result=await dbGuessOekakiTile(currentUser.handle,currentUser.name,msg.tileId,msg.guessText);
+
+    sendOekakiResponse(msg.reqId,result);
+
+  }
+
+  if(msg.type==='oekaki:chains:list:request'){
+
+    const chains=await dbFetchOekakiChains();
+
+    sendOekakiResponse(msg.reqId, chains?{ok:true,chains}:{ok:false,chains:[],error:'伝言の取得に失敗しました'});
+
+  }
+
+  if(msg.type==='oekaki:chains:create'){
+
+    if(!currentUser){ sendOekakiResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+
+    const chain=await dbCreateOekakiChain(msg.topic,msg.difficulty,msg.answers,msg.firstStep,currentUser.handle);
+
+    sendOekakiResponse(msg.reqId, chain?{ok:true,chain}:{ok:false,error:'作成に失敗しました'});
+
+  }
+
+  if(msg.type==='oekaki:chains:draw'){
+
+    if(!currentUser){ sendOekakiResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+
+    const result=await dbDrawOekakiChain(currentUser.handle,currentUser.name,msg.chainId,msg.image);
+
+    sendOekakiResponse(msg.reqId,result);
+
+  }
+
+  if(msg.type==='oekaki:chains:guess'){
+
+    if(!currentUser){ sendOekakiResponse(msg.reqId,{ok:false,error:'プロフィールを設定してください'}); return; }
+
+    const result=await dbGuessOekakiChain(currentUser.handle,currentUser.name,msg.chainId,msg.guessText);
+
+    sendOekakiResponse(msg.reqId,result);
+
+  }
+
 });
 
 // ══ TOTO（ワールドカップ予想）: #toto-frame は #game-frame とは別の、News内に常設されたiframeのため専用リスナーを使う ══
@@ -11294,7 +11532,7 @@ window.adminSettleTotoChampion=adminSettleTotoChampion;
 
 function openGame(gameId){
 
-  if((gameId==='sicofx'||gameId==='crane'||gameId==='donjara')&&!currentUser){showToast((gameId==='crane'?'クレーンゲーム':gameId==='donjara'?'ドンジャラ':'SicoFX')+'はプロフィール設定後に遊べます');openProfileModal();return;}
+  if((gameId==='sicofx'||gameId==='crane'||gameId==='donjara'||gameId==='oekaki')&&!currentUser){showToast((gameId==='crane'?'クレーンゲーム':gameId==='donjara'?'ドンジャラ':gameId==='oekaki'?'おえかき':'SicoFX')+'はプロフィール設定後に遊べます');openProfileModal();return;}
 
   closeGameSelect();
 
@@ -12274,6 +12512,13 @@ function tweetWcMatchFromBtn(btn){
 
         <img src="quest.png" alt="クエスト" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\'font-size:48px;line-height:60px;display:block;text-align:center;\'>🗺️</span>')">
         <span class="game-tile-label">クエスト</span>
+
+      </div>
+
+      <div class="game-icon-btn game-icon-btn-img" onclick="openGame('oekaki')">
+
+        <img src="oekaki.png" alt="おえかき" class="game-app-icon" onerror="this.style.display='none';this.parentNode.insertAdjacentHTML('afterbegin','<span style=\'font-size:48px;line-height:60px;display:block;text-align:center;\'>🎨</span>')">
+        <span class="game-tile-label">おえかき</span>
 
       </div>
 

@@ -145,7 +145,7 @@ window.addEventListener('message', (e) => {
    ・/groq-proxy に繋がらない時は FALLBACK_TOPICS でゲームを止めない
    ───────────────────────────────────────────── */
 const GROQ_PROXY_URL = '/groq-proxy'; // 本体と同じエンドポイント。oekaki.htmlが別ドメインで動く場合はフルURLに変更
-const OEKAKI_GROQ_MODEL = 'openai/gpt-oss-20b'; // 本体の@grok Botとは別モデルでOK（軽いテキスト生成なのでこれで十分）
+const OEKAKI_GROQ_MODEL = 'llama-3.3-70b-versatile'; // @grok Botと同じモデル。このproxy経由で動作確認済みのため合わせている
 
 const EXTREME_TOPICS = [
   { text: 'えんとつからおちそうなサンタ', answers: ['えんとつからおちそうなさんた', 'サンタがえんとつからおちる', 'えんとつでつまったさんた'] },
@@ -195,16 +195,18 @@ async function refillTopicPool(n = 20) {
         body: JSON.stringify({
           model: OEKAKI_GROQ_MODEL,
           max_tokens: 1500,
-          response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `お題を${n}個作ってください。ひらがな以外は絶対に使わないでください。` },
+            { role: 'user', content: `お題を${n}個、JSON形式で作ってください。ひらがな以外は絶対に使わないでください。` },
           ],
         }),
       });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 300)}`);
+      }
       const data = await res.json();
-      const raw = (data.choices?.[0]?.message?.content || '{}').trim().replace(/^```json\s*|```$/g, '');
+      const raw = (data.choices?.[0]?.message?.content || '{}').trim().replace(/^```json\s*|```$/g, '').replace(/```$/g, '').trim();
       const parsed = JSON.parse(raw);
       // Groqが指示を無視して漢字/カタカナを混ぜてくることがあるので、ここで機械的に弾く
       // （ひらがなで回答する前提のゲームなので、漢字が1文字でも混ざると正解不能になる）

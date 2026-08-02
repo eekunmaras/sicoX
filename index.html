@@ -5159,10 +5159,17 @@ async function dbApplyPointTransaction(handle,delta,reason,refId){
 // ── おえかき: タイル ──
 const OEKAKI_POINTS={easy:100000,normal:500000,hard:1000000,extreme:10000000};
 
+// insert/updateが失敗した時、原因を子フレームまで届けてトーストで見えるようにするための保管場所
+let OEKAKI_LAST_ERROR='';
+function oekakiErr(where,e){
+  OEKAKI_LAST_ERROR=where+': '+((e&&(e.message||e.hint||e.details))||String(e));
+  console.error('[oekaki]',OEKAKI_LAST_ERROR,e);
+}
+
 async function dbFetchOekakiTiles(){
   try{
     const {data,error}=await sb.from('oekaki_tiles').select('*').order('created_at',{ascending:false}).limit(60);
-    if(error){ console.error('oekaki tiles fetch error',error); return null; }
+    if(error){ oekakiErr('tiles fetch',error); return null; }
     // pending中はtopic/answersを送らない（子フレーム側で答えが見えてしまうため）。文字数だけヒントとして渡す。
     return (data||[]).map(t=>{
       if(t.status==='pending'){
@@ -5171,40 +5178,42 @@ async function dbFetchOekakiTiles(){
       }
       return t;
     });
-  }catch(e){ console.error('oekaki tiles fetch error',e); return null; }
+  }catch(e){ oekakiErr('tiles fetch',e); return null; }
 }
 async function dbCreateOekakiTile(handle,name,topic,difficulty,answers,image){
   try{
     const {data,error}=await sb.from('oekaki_tiles').insert({
       drawer_handle:handle, drawer_name:name, topic, difficulty, answers, image, status:'pending'
     }).select().single();
-    if(error){ console.error('oekaki tile create error',error); return null; }
+    if(error){ oekakiErr('tile create',error); return null; }
     return data;
-  }catch(e){ console.error('oekaki tile create error',e); return null; }
+  }catch(e){ oekakiErr('tile create',e); return null; }
 }
 async function dbUpdateOekakiTile(tileId,patch){
   try{
     const {data,error}=await sb.from('oekaki_tiles').update(patch).eq('id',tileId).select().single();
-    if(error){ console.error('oekaki tile update error',error); return null; }
+    if(error){ oekakiErr('tile update',error); return null; }
     return data;
-  }catch(e){ console.error('oekaki tile update error',e); return null; }
+  }catch(e){ oekakiErr('tile update',e); return null; }
 }
 // 自分の絵の答えを表示（ポイント還付なし）
 async function dbRevealOekakiTile(handle,tileId){
   try{
     const {data:tile,error:fe}=await sb.from('oekaki_tiles').select('*').eq('id',tileId).single();
-    if(fe||!tile) return {ok:false,error:'タイルが見つかりません'};
+    if(fe){ oekakiErr('tile reveal:fetch',fe); return {ok:false,error:OEKAKI_LAST_ERROR}; }
+    if(!tile) return {ok:false,error:'タイルが見つかりません'};
     if(tile.drawer_handle!==handle) return {ok:false,error:'自分の絵のみ表示できます'};
     if(tile.status!=='pending') return {ok:false,error:'すでに終了しています'};
     const updated=await dbUpdateOekakiTile(tileId,{status:'revealed',archived_at:new Date().toISOString()});
-    return updated?{ok:true,tile:updated}:{ok:false,error:'更新に失敗しました'};
-  }catch(e){ return {ok:false,error:'更新に失敗しました'}; }
+    return updated?{ok:true,tile:updated}:{ok:false,error:OEKAKI_LAST_ERROR||'更新に失敗しました'};
+  }catch(e){ oekakiErr('tile reveal',e); return {ok:false,error:OEKAKI_LAST_ERROR}; }
 }
-// 回答チェック（answersはここでしか読まない）＋正解時はここでポイント付与まで行う
+// 回答チェック（answersはここでしか読まない）＋正解時はここでポイント付与とランキング加算まで行う
 async function dbGuessOekakiTile(handle,name,tileId,guessText){
   try{
     const {data:tile,error:fe}=await sb.from('oekaki_tiles').select('*').eq('id',tileId).single();
-    if(fe||!tile) return {ok:false,error:'タイルが見つかりません'};
+    if(fe){ oekakiErr('tile guess:fetch',fe); return {ok:false,error:OEKAKI_LAST_ERROR}; }
+    if(!tile) return {ok:false,error:'タイルが見つかりません'};
     if(tile.status!=='pending') return {ok:false,error:'すでに終了しています'};
     if(tile.drawer_handle===handle) return {ok:false,error:'自分の絵には回答できません'};
     const norm=s=>String(s||'').replace(/\s/g,'').trim();
@@ -5213,16 +5222,18 @@ async function dbGuessOekakiTile(handle,name,tileId,guessText){
     const pts=OEKAKI_POINTS[tile.difficulty]||0;
     const guesserRes=await dbApplyPointTransaction(handle,pts,'おえかき正解:'+tile.topic,'oekaki-guess-'+tile.id+'-'+Date.now());
     await dbApplyPointTransaction(tile.drawer_handle,pts,'おえかき正解(描き手):'+tile.topic,'oekaki-draw-'+tile.id+'-'+Date.now());
+    await dbBumpOekakiLeaderboard(handle,name,pts);
+    await dbBumpOekakiLeaderboard(tile.drawer_handle,tile.drawer_name,pts);
     const updated=await dbUpdateOekakiTile(tile.id,{status:'solved',guesser_handle:handle,guesser_name:name,guess_text:guessText,archived_at:new Date().toISOString()});
     return {ok:true,correct:true,points:pts,balance:guesserRes.balance,tile:updated};
-  }catch(e){ return {ok:false,error:'判定に失敗しました'}; }
+  }catch(e){ oekakiErr('tile guess',e); return {ok:false,error:OEKAKI_LAST_ERROR}; }
 }
 
 // ── おえかき: 伝言チェーン ──
 async function dbFetchOekakiChains(){
   try{
     const {data,error}=await sb.from('oekaki_chains').select('*').order('created_at',{ascending:false}).limit(30);
-    if(error){ console.error('oekaki chains fetch error',error); return null; }
+    if(error){ oekakiErr('chains fetch',error); return null; }
     // 完成していない伝言はtopic/answersを送らない（5人目の答えが見えてしまうため）
     return (data||[]).map(c=>{
       if(!c.guess){
@@ -5231,42 +5242,44 @@ async function dbFetchOekakiChains(){
       }
       return c;
     });
-  }catch(e){ console.error('oekaki chains fetch error',e); return null; }
+  }catch(e){ oekakiErr('chains fetch',e); return null; }
 }
 async function dbCreateOekakiChain(topic,difficulty,answers,firstStep,handle){
   try{
     const {data,error}=await sb.from('oekaki_chains').insert({
       topic, difficulty, answers, steps:[firstStep], participants:[handle], guess:null
     }).select().single();
-    if(error){ console.error('oekaki chain create error',error); return null; }
+    if(error){ oekakiErr('chain create',error); return null; }
     return data;
-  }catch(e){ console.error('oekaki chain create error',e); return null; }
+  }catch(e){ oekakiErr('chain create',e); return null; }
 }
 async function dbUpdateOekakiChain(chainId,patch){
   try{
     const {data,error}=await sb.from('oekaki_chains').update(patch).eq('id',chainId).select().single();
-    if(error){ console.error('oekaki chain update error',error); return null; }
+    if(error){ oekakiErr('chain update',error); return null; }
     return data;
-  }catch(e){ console.error('oekaki chain update error',e); return null; }
+  }catch(e){ oekakiErr('chain update',e); return null; }
 }
 // 2〜4人目の描画を追加
 async function dbDrawOekakiChain(handle,name,chainId,image){
   try{
     const {data:chain,error:fe}=await sb.from('oekaki_chains').select('*').eq('id',chainId).single();
-    if(fe||!chain) return {ok:false,error:'伝言が見つかりません'};
+    if(fe){ oekakiErr('chain draw:fetch',fe); return {ok:false,error:OEKAKI_LAST_ERROR}; }
+    if(!chain) return {ok:false,error:'伝言が見つかりません'};
     if((chain.participants||[]).includes(handle)) return {ok:false,error:'すでに参加済みです'};
     if((chain.steps||[]).length>=4) return {ok:false,error:'すでに4人揃っています'};
     const steps=[...(chain.steps||[]),{handle,name,image}];
     const participants=[...(chain.participants||[]),handle];
     const updated=await dbUpdateOekakiChain(chainId,{steps,participants});
-    return updated?{ok:true,chain:updated}:{ok:false,error:'更新に失敗しました'};
-  }catch(e){ return {ok:false,error:'更新に失敗しました'}; }
+    return updated?{ok:true,chain:updated}:{ok:false,error:OEKAKI_LAST_ERROR||'更新に失敗しました'};
+  }catch(e){ oekakiErr('chain draw',e); return {ok:false,error:OEKAKI_LAST_ERROR}; }
 }
-// 5人目の最終回答（answersはここでしか読まない）＋正解時は全員にポイント付与
+// 5人目の最終回答（answersはここでしか読まない）＋正解時は全員にポイントとランキング加算
 async function dbGuessOekakiChain(handle,name,chainId,guessText){
   try{
     const {data:chain,error:fe}=await sb.from('oekaki_chains').select('*').eq('id',chainId).single();
-    if(fe||!chain) return {ok:false,error:'伝言が見つかりません'};
+    if(fe){ oekakiErr('chain guess:fetch',fe); return {ok:false,error:OEKAKI_LAST_ERROR}; }
+    if(!chain) return {ok:false,error:'伝言が見つかりません'};
     if(chain.guess) return {ok:false,error:'すでに終了しています'};
     if((chain.steps||[]).length<4) return {ok:false,error:'まだ4人揃っていません'};
     const norm=s=>String(s||'').replace(/\s/g,'').trim();
@@ -5277,7 +5290,10 @@ async function dbGuessOekakiChain(handle,name,chainId,guessText){
     if(correct){
       pts=OEKAKI_POINTS[chain.difficulty]||0;
       for(const h of participants){
+        const step=(chain.steps||[]).find(s=>s.handle===h);
+        const pName=step?step.name:name;
         const r=await dbApplyPointTransaction(h,pts,'おえかき伝言正解:'+chain.topic,'oekaki-chain-'+chain.id+'-'+h+'-'+Date.now());
+        await dbBumpOekakiLeaderboard(h,pName,pts);
         if(h===handle) myBalance=r.balance;
       }
     }
@@ -5287,7 +5303,27 @@ async function dbGuessOekakiChain(handle,name,chainId,guessText){
       finished_at:new Date().toISOString()
     });
     return {ok:true,correct,points:pts,balance:myBalance,chain:updated};
-  }catch(e){ return {ok:false,error:'判定に失敗しました'}; }
+  }catch(e){ oekakiErr('chain guess',e); return {ok:false,error:OEKAKI_LAST_ERROR}; }
+}
+
+// ── おえかき: ゲーム内ランキング（point_transactionsを毎回集計すると重くなるので、
+//    正解が出た瞬間だけ小さな集計テーブルを1行増分更新する方式。読み取りは常に軽い）
+async function dbBumpOekakiLeaderboard(handle,name,delta){
+  try{
+    const {data:row}=await sb.from('oekaki_leaderboard').select('total_points').eq('user_handle',handle).maybeSingle();
+    const newTotal=(row?.total_points||0)+delta;
+    const {error}=await sb.from('oekaki_leaderboard').upsert({
+      user_handle:handle, user_name:name, total_points:newTotal, updated_at:new Date().toISOString()
+    });
+    if(error) oekakiErr('leaderboard bump',error);
+  }catch(e){ oekakiErr('leaderboard bump',e); }
+}
+async function dbFetchOekakiLeaderboard(){
+  try{
+    const {data,error}=await sb.from('oekaki_leaderboard').select('*').order('total_points',{ascending:false}).limit(15);
+    if(error){ oekakiErr('leaderboard fetch',error); return null; }
+    return data;
+  }catch(e){ oekakiErr('leaderboard fetch',e); return null; }
 }
 
 // ── バッジ購入済み一覧 ──
@@ -11333,7 +11369,7 @@ window.addEventListener('message',async e=>{
 
     const tiles=await dbFetchOekakiTiles();
 
-    sendOekakiResponse(msg.reqId, tiles?{ok:true,tiles}:{ok:false,tiles:[],error:'タイルの取得に失敗しました'});
+    sendOekakiResponse(msg.reqId, tiles?{ok:true,tiles}:{ok:false,tiles:[],error:OEKAKI_LAST_ERROR||'タイルの取得に失敗しました'});
 
   }
 
@@ -11343,7 +11379,15 @@ window.addEventListener('message',async e=>{
 
     const tile=await dbCreateOekakiTile(currentUser.handle,currentUser.name,msg.topic,msg.difficulty,msg.answers,msg.image);
 
-    sendOekakiResponse(msg.reqId, tile?{ok:true,tile}:{ok:false,error:'投稿に失敗しました'});
+    sendOekakiResponse(msg.reqId, tile?{ok:true,tile}:{ok:false,error:OEKAKI_LAST_ERROR||'投稿に失敗しました'});
+
+  }
+
+  if(msg.type==='oekaki:leaderboard:request'){
+
+    const board=await dbFetchOekakiLeaderboard();
+
+    sendOekakiResponse(msg.reqId, board?{ok:true,board}:{ok:false,board:[],error:OEKAKI_LAST_ERROR||'ランキングの取得に失敗しました'});
 
   }
 
@@ -11371,7 +11415,7 @@ window.addEventListener('message',async e=>{
 
     const chains=await dbFetchOekakiChains();
 
-    sendOekakiResponse(msg.reqId, chains?{ok:true,chains}:{ok:false,chains:[],error:'伝言の取得に失敗しました'});
+    sendOekakiResponse(msg.reqId, chains?{ok:true,chains}:{ok:false,chains:[],error:OEKAKI_LAST_ERROR||'伝言の取得に失敗しました'});
 
   }
 
@@ -11381,7 +11425,7 @@ window.addEventListener('message',async e=>{
 
     const chain=await dbCreateOekakiChain(msg.topic,msg.difficulty,msg.answers,msg.firstStep,currentUser.handle);
 
-    sendOekakiResponse(msg.reqId, chain?{ok:true,chain}:{ok:false,error:'作成に失敗しました'});
+    sendOekakiResponse(msg.reqId, chain?{ok:true,chain}:{ok:false,error:OEKAKI_LAST_ERROR||'作成に失敗しました'});
 
   }
 

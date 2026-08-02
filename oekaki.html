@@ -181,9 +181,11 @@ async function refillTopicPool(n = 20) {
   refillInFlight = (async () => {
     try {
       const systemPrompt =
-        'あなたはお絵描き当てゲームのお題作成係です。日本語で、絵に描けそうな具体的なお題を作ってください。' +
-        '各お題には、正解として許容すべき言い回しのバリエーション（語順違い・活用違い・助詞違いなど）を5〜8個付けてください。' +
-        '難易度は easy(単語のみ)・normal(短いフレーズ)・hard(状況や動作を含む文) をバランスよく混ぜてください。' +
+        'あなたはお絵描き当てゲームのお題作成係です。絵に描けそうな具体的なお題を作ってください。' +
+        '【最重要】text・answersに入れる文字列は、必ず「ひらがなのみ」にしてください。漢字・カタカナ・英数字・記号は1文字たりとも使わないでください。' +
+        '例えばOK: "てんめつするらいと"。NG: "点滅するライト"、"テレビ"（カタカナも禁止。"てれび"のようにひらがなで書くこと）。' +
+        '各お題には、正解として許容すべき言い回しのバリエーション（語順違い・活用違い・助詞違いなど、すべてひらがな）を5〜8個付けてください。' +
+        '難易度は easy(1〜2語の簡単な単語)・normal(短いフレーズ)・hard(状況や動作を含む文) をバランスよく混ぜてください。' +
         '出力は次のJSON形式のみで、説明文やマークダウンのコードブロック記法は一切付けないでください: ' +
         '{"topics":[{"text":"てんめつするらいと","difficulty":"normal","answers":["てんめつするらいと","らいとがてんめつする","てんめつしているらいと"]}]}';
 
@@ -196,7 +198,7 @@ async function refillTopicPool(n = 20) {
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `お題を${n}個作ってください。` },
+            { role: 'user', content: `お題を${n}個作ってください。ひらがな以外は絶対に使わないでください。` },
           ],
         }),
       });
@@ -204,8 +206,18 @@ async function refillTopicPool(n = 20) {
       const data = await res.json();
       const raw = (data.choices?.[0]?.message?.content || '{}').trim().replace(/^```json\s*|```$/g, '');
       const parsed = JSON.parse(raw);
+      // Groqが指示を無視して漢字/カタカナを混ぜてくることがあるので、ここで機械的に弾く
+      // （ひらがなで回答する前提のゲームなので、漢字が1文字でも混ざると正解不能になる）
+      const isPureHiragana = (s) => /^[\u3040-\u309Fー\s]*$/.test(String(s || ''));
       const valid = (Array.isArray(parsed.topics) ? parsed.topics : []).filter(
-        (t) => t && typeof t.text === 'string' && ['easy', 'normal', 'hard'].includes(t.difficulty) && Array.isArray(t.answers) && t.answers.length > 0
+        (t) =>
+          t &&
+          typeof t.text === 'string' &&
+          ['easy', 'normal', 'hard'].includes(t.difficulty) &&
+          Array.isArray(t.answers) &&
+          t.answers.length > 0 &&
+          isPureHiragana(t.text) &&
+          t.answers.every((a) => typeof a === 'string' && isPureHiragana(a))
       );
       topicPool.push(...valid.map((t) => ({ text: t.text, difficulty: t.difficulty, answers: t.answers })));
     } catch (e) {
@@ -412,13 +424,22 @@ function App() {
     if (res.ok) setChains(res.chains || []);
     setChainsLoading(false);
   }, []);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const refreshLeaderboard = useCallback(async () => {
+    setLeaderboardLoading(true);
+    const res = await bridge('oekaki:leaderboard:request');
+    if (res.ok) setLeaderboard(res.board || []);
+    setLeaderboardLoading(false);
+  }, []);
 
   // 一覧画面にいる間はゆるくポーリング（他の人の投稿・回答を拾う）
   useEffect(() => {
     if (!ready) return;
+    if (view === 'menu') { refreshLeaderboard(); const t = setInterval(refreshLeaderboard, 20000); return () => clearInterval(t); }
     if (view === 'tiles') { refreshTiles(); const t = setInterval(refreshTiles, 12000); return () => clearInterval(t); }
     if (view === 'chains') { refreshChains(); const t = setInterval(refreshChains, 12000); return () => clearInterval(t); }
-  }, [view, ready, refreshTiles, refreshChains]);
+  }, [view, ready, refreshTiles, refreshChains, refreshLeaderboard]);
 
   const goMenu = () => { setView('menu'); setToast(''); };
 
@@ -565,9 +586,20 @@ function App() {
             </div>
           </button>
           <div className="board-card">
-            <div className="board-hd">🏆 みんなのポイント</div>
-            <div className="rank-row me"><span>{me.name}（あなた）</span><span>{formatPt(currentPoints)}pt</span></div>
-            <div className="rank-row"><span style={{ fontSize: 11 }}>※ランキングは本体sicoXのプロフィール一覧などから確認できます</span></div>
+            <div className="board-hd">🏆 おえかきで稼いだポイント ランキング</div>
+            {leaderboardLoading && leaderboard.length === 0 ? (
+              <div style={{ fontSize: 12, color: '#94a3b8', padding: '4px 0' }}>読み込み中...</div>
+            ) : leaderboard.length === 0 ? (
+              <div style={{ fontSize: 12, color: '#94a3b8', padding: '4px 0' }}>まだ誰も正解していません。最初の1人になろう！</div>
+            ) : (
+              leaderboard.map((row, i) => (
+                <div key={row.user_handle} className={`rank-row ${row.user_handle === me.handle ? 'me' : ''}`}>
+                  <span>{i + 1}位　{row.user_name}{row.user_handle === me.handle ? '（あなた）' : ''}</span>
+                  <span>{formatPt(row.total_points)}pt</span>
+                </div>
+              ))
+            )}
+            <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 6 }}>※このゲームで正解した分だけの獲得ポイントです（sicoX全体の所持ポイントとは別集計）</div>
           </div>
         </div>
       )}

@@ -5168,7 +5168,7 @@ function oekakiErr(where,e){
 
 async function dbFetchOekakiTiles(){
   try{
-    const {data,error}=await sb.from('oekaki_tiles').select('*').order('created_at',{ascending:false}).limit(60);
+    const {data,error}=await sb.from('oekaki_tiles').select('*').order('created_at',{ascending:false}).limit(200);
     if(error){ oekakiErr('tiles fetch',error); return null; }
     // pending中はtopic/answersを送らない（子フレーム側で答えが見えてしまうため）。文字数だけヒントとして渡す。
     return (data||[]).map(t=>{

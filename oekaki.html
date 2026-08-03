@@ -53,6 +53,7 @@
   .hint-row{display:flex;align-items:center;gap:6px;margin-top:4px;}
   .hint-boxes{display:flex;gap:2px;}
   .hint-box{width:12px;height:12px;border-radius:3px;background:#e2e8f0;}
+  .hint-box-filled{width:auto;min-width:14px;height:16px;border-radius:3px;background:#ddd6fe;color:#6d28d9;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 3px;margin-top:-2px;}
   .hint-count{font-size:10px;color:#94a3b8;}
   .section-label{font-size:11px;font-weight:800;color:#94a3b8;margin:6px 0 8px;}
   .big-btn{width:100%;padding:13px;border-radius:18px;border:none;font-weight:800;font-size:15px;color:#fff;background:linear-gradient(90deg,#8b5cf6,#d946ef);box-shadow:0 6px 16px rgba(139,92,246,.28);}
@@ -71,7 +72,7 @@
   .ref-img{width:100%;border-radius:12px;border:1px solid #e2e8f0;}
   canvas{width:100%;border-radius:18px;border:2px solid #cbd5e1;background:#fff;touch-action:none;display:block;}
   .tool-row{display:flex;align-items:center;justify-content:space-between;margin:10px 0;}
-  .swatches{display:flex;gap:6px;}
+  .swatches{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;}
   .swatch{width:26px;height:26px;border-radius:999px;border:3px solid #fff;box-shadow:0 0 0 1px #e2e8f0;}
   .swatch.on{box-shadow:0 0 0 2px #1e293b;}
   .sizes{display:flex;gap:6px;}
@@ -263,11 +264,40 @@ function daysLeft(iso, span) {
 function DiffBadge({ difficulty }) {
   return <span className={`diff-badge ${DIFF_CLASS[difficulty]}`}>{DIFF_LABEL[difficulty]}</span>;
 }
-function CharHint({ count }) {
+function GuessList({ loading, guesses, title, emptyText }) {
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div className="section-label">{title}</div>
+      {loading ? (
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>読み込み中...</div>
+      ) : guesses.length === 0 ? (
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>{emptyText || 'まだ誰も答えていません。'}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {guesses.map((g, i) => (
+            <div key={i} style={{ fontSize: 13, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '6px 10px' }}>
+              <span style={{ color: '#94a3b8', marginRight: 6 }}>{g.name}:</span>
+              <span style={{ color: '#64748b', textDecoration: 'line-through' }}>{g.guess_text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+function CharHint({ count, firstChar }) {
   const shown = Math.min(count || 0, 10);
   return (
     <div className="hint-row">
-      <div className="hint-boxes">{Array.from({ length: shown }).map((_, i) => <span key={i} className="hint-box" />)}</div>
+      <div className="hint-boxes">
+        {Array.from({ length: shown }).map((_, i) =>
+          i === 0 && firstChar ? (
+            <span key={i} className="hint-box hint-box-filled">{firstChar}</span>
+          ) : (
+            <span key={i} className="hint-box" />
+          )
+        )}
+      </div>
       <span className="hint-count">{count}もじ</span>
     </div>
   );
@@ -299,7 +329,7 @@ function DrawingCanvas({ referenceImage, promptTopic, onCancel, onSubmit }) {
   const end = () => { drawing.current = false; };
   const clear = () => { const ctx = canvasRef.current.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 300, 300); };
 
-  const colors = ['#1f2937', '#ef4444', '#3b82f6', '#22c55e', '#f59e0b'];
+  const colors = ['#1f2937', '#ffffff', '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#78350f'];
 
   return (
     <div>
@@ -320,12 +350,12 @@ function DrawingCanvas({ referenceImage, promptTopic, onCancel, onSubmit }) {
       )}
       <canvas ref={canvasRef} width={300} height={300}
         onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end} />
+      <div className="swatches">
+        {colors.map((c) => (
+          <span key={c} onClick={() => setColor(c)} className={`swatch ${color === c ? 'on' : ''}`} style={{ background: c }} />
+        ))}
+      </div>
       <div className="tool-row">
-        <div className="swatches">
-          {colors.map((c) => (
-            <span key={c} onClick={() => setColor(c)} className={`swatch ${color === c ? 'on' : ''}`} style={{ background: c }} />
-          ))}
-        </div>
         <div className="sizes">
           <button className={`size-btn ${size === 3 ? 'on' : ''}`} onClick={() => setSize(3)}><span className="size-dot" style={{ width: 6, height: 6 }} /></button>
           <button className={`size-btn ${size === 8 ? 'on' : ''}`} onClick={() => setSize(8)}><span className="size-dot" style={{ width: 12, height: 12 }} /></button>
@@ -390,6 +420,8 @@ function App() {
   const [ephemeralTopic, setEphemeralTopic] = useState(null);
   const [guessDraft, setGuessDraft] = useState('');
   const [showRevealConfirm, setShowRevealConfirm] = useState(false);
+  const [tileGuesses, setTileGuesses] = useState([]);
+  const [tileGuessesLoading, setTileGuessesLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const [chains, setChains] = useState([]);
@@ -451,6 +483,14 @@ function App() {
 
   /* ── タイル ── */
   const [topicLoading, setTopicLoading] = useState(false);
+  const fetchTileGuesses = (tileId) => {
+    setTileGuesses([]);
+    setTileGuessesLoading(true);
+    bridge('oekaki:tiles:guesses:request', { tileId }).then((res) => {
+      setTileGuessesLoading(false);
+      if (res.ok) setTileGuesses(res.guesses || []);
+    });
+  };
   const openTile = async (tile) => {
     if (tile.status === 'empty_placeholder') {
       setTopicLoading(true);
@@ -462,8 +502,16 @@ function App() {
       return;
     }
     if (tile.status === 'pending') {
-      if (tile.drawer_handle === me.handle) { setActiveTile(tile); setShowRevealConfirm(true); }
-      else { setActiveTile(tile); setGuessDraft(''); setView('tileGuess'); }
+      if (tile.drawer_handle === me.handle) {
+        setActiveTile(tile);
+        setView('tileOwn');
+        fetchTileGuesses(tile.id);
+      } else {
+        setActiveTile(tile);
+        setGuessDraft('');
+        setView('tileGuess');
+        fetchTileGuesses(tile.id);
+      }
     }
   };
   const submitTileDrawing = async (dataUrl) => {
@@ -483,7 +531,12 @@ function App() {
     const res = await bridge('oekaki:tiles:guess', { tileId: activeTile.id, guessText: guessDraft });
     setBusy(false);
     if (!res.ok) { flash(res.error || '通信に失敗しました'); return; }
-    if (!res.correct) { flash('ざんねん、もう一度'); return; }
+    if (!res.correct) {
+      flash('ざんねん、もう一度');
+      setTileGuesses((prev) => [...prev, { name: me.name, guess_text: guessDraft, correct: false }]);
+      setGuessDraft('');
+      return;
+    }
     setPoints(res.balance);
     setView('tiles');
     triggerCelebration(res.points, activeTile.difficulty);
@@ -496,6 +549,7 @@ function App() {
     setShowRevealConfirm(false);
     if (!res.ok) { flash(res.error || '更新に失敗しました'); return; }
     flash('こたえを表示しました（ポイントの還付はありません）');
+    setView('tiles');
     refreshTiles();
   };
 
@@ -573,6 +627,19 @@ function App() {
     <div className="wrap">
       <Toast message={toast} />
       <CelebrationOverlay data={celebration} onClose={() => setCelebration(null)} />
+      {showRevealConfirm && activeTile && (
+        <div className="overlay-bg">
+          <div className="overlay-card">
+            <div style={{ fontSize: 26, marginBottom: 6 }}>👁️</div>
+            <div style={{ fontWeight: 800, marginBottom: 4 }}>こたえを表示しますか？</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>ポイントの還付はありません。あとで誰かに当ててもらうことはできなくなります。</div>
+            <div className="row-btns">
+              <button className="big-btn secondary" onClick={() => setShowRevealConfirm(false)}>やめる</button>
+              <button className="big-btn" style={{ background: '#1e293b' }} onClick={confirmReveal} disabled={busy}>はい</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {view === 'menu' && (
         <div>
@@ -636,7 +703,7 @@ function App() {
                         <DiffBadge difficulty={tile.difficulty} />
                         <span style={{ fontSize: 10, color: '#94a3b8' }}>⏱{daysLeft(tile.created_at, 7)}日</span>
                       </div>
-                      <div style={{ marginTop: 4 }}><CharHint count={tile.char_hint} /></div>
+                      <div style={{ marginTop: 4 }}><CharHint count={tile.char_hint} firstChar={tile.first_char_hint} /></div>
                     </div>
                   </div>
                 </button>
@@ -664,19 +731,6 @@ function App() {
             </div>
           )}
 
-          {showRevealConfirm && activeTile && (
-            <div className="overlay-bg">
-              <div className="overlay-card">
-                <div style={{ fontSize: 26, marginBottom: 6 }}>👁️</div>
-                <div style={{ fontWeight: 800, marginBottom: 4 }}>こたえを表示しますか？</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>ポイントの還付はありません。あとで誰かに当ててもらうことはできなくなります。</div>
-                <div className="row-btns">
-                  <button className="big-btn secondary" onClick={() => setShowRevealConfirm(false)}>やめる</button>
-                  <button className="big-btn" style={{ background: '#1e293b' }} onClick={confirmReveal} disabled={busy}>はい</button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -693,11 +747,25 @@ function App() {
           <img src={activeTile.image} alt="回答対象の絵" style={{ width: '100%', borderRadius: 18, border: '2px solid #ddd6fe', marginBottom: 10 }} />
           <div className="row-between" style={{ marginBottom: 10 }}>
             <DiffBadge difficulty={activeTile.difficulty} />
-            <CharHint count={activeTile.char_hint} />
+            <CharHint count={activeTile.char_hint} firstChar={activeTile.first_char_hint} />
           </div>
           <div className="reward-banner">正解でお互いに {formatPt(POINTS_BY_DIFFICULTY[activeTile.difficulty])}pt 獲得！</div>
           <input className="input-lg" value={guessDraft} onChange={(e) => setGuessDraft(e.target.value)} placeholder="ひらがなで答えてね" />
           <button className="big-btn" onClick={submitTileGuess} disabled={busy}>✓ 回答する</button>
+          <GuessList loading={tileGuessesLoading} guesses={tileGuesses} title="みんなの回答（まだ正解なし）" emptyText="まだ誰も答えていません。一番乗りになろう！" />
+        </div>
+      )}
+
+      {view === 'tileOwn' && activeTile && (
+        <div>
+          <TopBar title="自分の絵" onBack={() => setView('tiles')} points={currentPoints} />
+          <img src={activeTile.image} alt="自分が描いた絵" style={{ width: '100%', borderRadius: 18, border: '2px solid #ddd6fe', marginBottom: 10 }} />
+          <div className="row-between" style={{ marginBottom: 10 }}>
+            <DiffBadge difficulty={activeTile.difficulty} />
+            <CharHint count={activeTile.char_hint} firstChar={activeTile.first_char_hint} />
+          </div>
+          <button className="big-btn secondary" onClick={() => setShowRevealConfirm(true)}>👁️ こたえを表示する</button>
+          <GuessList loading={tileGuessesLoading} guesses={tileGuesses} title="みんなの回答（まだ正解なし・ヒントにどうぞ）" />
         </div>
       )}
 

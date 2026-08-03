@@ -5170,11 +5170,12 @@ async function dbFetchOekakiTiles(){
   try{
     const {data,error}=await sb.from('oekaki_tiles').select('*').order('created_at',{ascending:false}).limit(200);
     if(error){ oekakiErr('tiles fetch',error); return null; }
-    // pending中はtopic/answersを送らない（子フレーム側で答えが見えてしまうため）。文字数だけヒントとして渡す。
+    // pending中はtopic/answersを送らない（子フレーム側で答えが見えてしまうため）。文字数と、5文字以上なら最初の1文字だけヒントとして渡す。
     return (data||[]).map(t=>{
       if(t.status==='pending'){
         const {topic,answers,...rest}=t;
-        return {...rest, char_hint:(topic||'').replace(/\s/g,'').length};
+        const clean=(topic||'').replace(/\s/g,'');
+        return {...rest, char_hint:clean.length, first_char_hint: clean.length>=5 ? clean[0] : null};
       }
       return t;
     });
@@ -5218,6 +5219,7 @@ async function dbGuessOekakiTile(handle,name,tileId,guessText){
     if(tile.drawer_handle===handle) return {ok:false,error:'自分の絵には回答できません'};
     const norm=s=>String(s||'').replace(/\s/g,'').trim();
     const correct=(tile.answers||[]).some(a=>norm(a)===norm(guessText));
+    dbLogOekakiGuessAttempt(tileId,handle,name,guessText,correct); // 正誤問わず記録（awaitしない=結果を待たせない）
     if(!correct) return {ok:true,correct:false};
     const pts=OEKAKI_POINTS[tile.difficulty]||0;
     const guesserRes=await dbApplyPointTransaction(handle,pts,'おえかき正解:'+tile.topic,'oekaki-guess-'+tile.id+'-'+Date.now());
@@ -5227,6 +5229,20 @@ async function dbGuessOekakiTile(handle,name,tileId,guessText){
     const updated=await dbUpdateOekakiTile(tile.id,{status:'solved',guesser_handle:handle,guesser_name:name,guess_text:guessText,archived_at:new Date().toISOString()});
     return {ok:true,correct:true,points:pts,balance:guesserRes.balance,tile:updated};
   }catch(e){ oekakiErr('tile guess',e); return {ok:false,error:OEKAKI_LAST_ERROR}; }
+}
+// 回答履歴を記録（正誤問わず）。ヒント兼「面白い間違い」共有用
+async function dbLogOekakiGuessAttempt(tileId,handle,name,guessText,correct){
+  try{
+    const {error}=await sb.from('oekaki_tile_guesses').insert({tile_id:tileId,handle,name,guess_text:guessText,correct});
+    if(error) oekakiErr('guess attempt log',error);
+  }catch(e){ oekakiErr('guess attempt log',e); }
+}
+async function dbFetchOekakiTileGuesses(tileId){
+  try{
+    const {data,error}=await sb.from('oekaki_tile_guesses').select('name,guess_text,correct,created_at').eq('tile_id',tileId).order('created_at',{ascending:true}).limit(100);
+    if(error){ oekakiErr('guesses fetch',error); return null; }
+    return data;
+  }catch(e){ oekakiErr('guesses fetch',e); return null; }
 }
 
 // ── おえかき: 伝言チェーン ──
@@ -11408,6 +11424,14 @@ window.addEventListener('message',async e=>{
     const result=await dbGuessOekakiTile(currentUser.handle,currentUser.name,msg.tileId,msg.guessText);
 
     sendOekakiResponse(msg.reqId,result);
+
+  }
+
+  if(msg.type==='oekaki:tiles:guesses:request'){
+
+    const guesses=await dbFetchOekakiTileGuesses(msg.tileId);
+
+    sendOekakiResponse(msg.reqId, guesses?{ok:true,guesses}:{ok:false,guesses:[],error:OEKAKI_LAST_ERROR||'取得に失敗しました'});
 
   }
 

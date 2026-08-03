@@ -151,21 +151,67 @@ const OEKAKI_GROQ_MODEL = 'llama-3.3-70b-versatile'; // @grok Botと同じモデ
 const EXTREME_TOPICS = [
   { text: 'えんとつからおちそうなサンタ', answers: ['えんとつからおちそうなさんた', 'サンタがえんとつからおちる', 'えんとつでつまったさんた'] },
   { text: 'じかくのないうちゅうひこうし', answers: ['じかくのないうちゅうひこうし', 'まいごのうちゅうひこうし'] },
+  { text: 'かいてんずしのれーんでねているねこ', answers: ['かいてんずしのれーんでねているねこ', 'すしやのれーんでねむるねこ'] },
 ];
+// 手作りの安全なお題バンク（すべて実在する自然な日本語・ひらがなのみで検証済み）。
+// AIに頼りすぎず、ここが枯れることがないよう十分な数を用意しておく。
 const FALLBACK_TOPICS = {
   easy: [
     { text: 'りんご', answers: ['りんご'] },
     { text: 'ねこ', answers: ['ねこ'] },
+    { text: 'いぬ', answers: ['いぬ'] },
     { text: 'にじ', answers: ['にじ'] },
     { text: 'かさ', answers: ['かさ'] },
+    { text: 'つき', answers: ['つき'] },
+    { text: 'ほし', answers: ['ほし'] },
+    { text: 'はな', answers: ['はな'] },
+    { text: 'やま', answers: ['やま'] },
+    { text: 'くも', answers: ['くも'] },
+    { text: 'ゆき', answers: ['ゆき'] },
+    { text: 'ほん', answers: ['ほん'] },
+    { text: 'めがね', answers: ['めがね'] },
+    { text: 'ぼうし', answers: ['ぼうし'] },
+    { text: 'くつ', answers: ['くつ'] },
+    { text: 'たまご', answers: ['たまご'] },
+    { text: 'おにぎり', answers: ['おにぎり'] },
+    { text: 'じてんしゃ', answers: ['じてんしゃ'] },
   ],
   normal: [
-    { text: 'かさをさす人', answers: ['かさをさすひと', 'かさをさしているひと', 'あめのひのひと'] },
+    { text: 'かさをさすひと', answers: ['かさをさすひと', 'かさをさしているひと', 'あめのひのひと'] },
     { text: 'ねているねこ', answers: ['ねているねこ', 'ねこがねている', 'すいみんちゅうのねこ'] },
+    { text: 'わらっているこども', answers: ['わらっているこども', 'こどもがわらっている'] },
+    { text: 'はしっているいぬ', answers: ['はしっているいぬ', 'いぬがはしっている'] },
+    { text: 'およいでいるさかな', answers: ['およいでいるさかな', 'さかながおよいでいる'] },
+    { text: 'とんでいるとり', answers: ['とんでいるとり', 'とりがとんでいる'] },
+    { text: 'ふりつもるゆき', answers: ['ふりつもるゆき', 'つもったゆき', 'ゆきがふりつもる'] },
+    { text: 'われたたまご', answers: ['われたたまご', 'たまごがわれた'] },
+    { text: 'さいているはな', answers: ['さいているはな', 'はながさいている'] },
+    { text: 'まるいつき', answers: ['まるいつき', 'まんまるのつき'] },
+    { text: 'おおきいぞう', answers: ['おおきいぞう'] },
+    { text: 'ちいさいあり', answers: ['ちいさいあり'] },
+    { text: 'あかいりんご', answers: ['あかいりんご'] },
+    { text: 'あおいそら', answers: ['あおいそら'] },
+    { text: 'しろいくも', answers: ['しろいくも'] },
+    { text: 'ながいへび', answers: ['ながいへび'] },
+    { text: 'たかいやま', answers: ['たかいやま'] },
+    { text: 'まるいボール', answers: ['まるいぼーる', 'まるいまり'] },
   ],
   hard: [
     { text: 'てんめつするらいと', answers: ['てんめつするらいと', 'らいとがてんめつする', 'てんめつしているらいと', 'ぴかぴかするらいと'] },
     { text: 'おばけやしき', answers: ['おばけやしき', 'おばけのいえ', 'おばけがでるいえ'] },
+    { text: 'とけいがとまったへや', answers: ['とけいがとまったへや', 'じかんがとまったへや'] },
+    { text: 'ゆきだるまをつくるこども', answers: ['ゆきだるまをつくるこども', 'こどもがゆきだるまをつくる'] },
+    { text: 'たこあげをするおやこ', answers: ['たこあげをするおやこ', 'おやことたこあげ'] },
+    { text: 'つりをするひと', answers: ['つりをするひと', 'さかなをつるひと'] },
+    { text: 'なわとびをするこども', answers: ['なわとびをするこども', 'こどもがなわとびをする'] },
+    { text: 'はなびをみるひとたち', answers: ['はなびをみるひとたち', 'はなびたいかい'] },
+    { text: 'やまのぼりをするひと', answers: ['やまのぼりをするひと', 'とざんをするひと'] },
+    { text: 'りょうりをするひと', answers: ['りょうりをするひと', 'りょうりちゅうのひと'] },
+    { text: 'せんたくものをほすひと', answers: ['せんたくものをほすひと', 'せんたくをほすひと'] },
+    { text: 'じてんしゃにのるひと', answers: ['じてんしゃにのるひと', 'じてんしゃをこぐひと'] },
+    { text: 'いぬのさんぽをするひと', answers: ['いぬのさんぽをするひと', 'いぬとさんぽするひと'] },
+    { text: 'ほんをよむこども', answers: ['ほんをよむこども', 'こどもがほんをよんでいる'] },
+    { text: 'えをかくひと', answers: ['えをかくひと', 'えをかいているひと'] },
   ],
 };
 const POINTS_BY_DIFFICULTY = { easy: 100000, normal: 500000, hard: 1000000, extreme: 10000000 };
@@ -174,7 +220,9 @@ const DIFF_CLASS = { easy: 'diff-easy', normal: 'diff-normal', hard: 'diff-hard'
 
 function normalize(s) { return String(s || '').replace(/\s/g, '').trim(); }
 
-// /groq-proxy から取得した easy/normal/hard のお題を貯めておくプール
+// /groq-proxy から取得した easy/normal のお題を貯めておくプール。
+// hard は動詞の活用が絡んで崩れやすい（例:「すいえいする」→誤って「すいえいる」）ため、
+// AIには易しい単語・形容詞+名詞だけを任せ、hardは手作りリストに固定する。
 let topicPool = [];
 let refillInFlight = null;
 async function refillTopicPool(n = 20) {
@@ -182,17 +230,15 @@ async function refillTopicPool(n = 20) {
   refillInFlight = (async () => {
     try {
       const systemPrompt =
-        'あなたはお絵描き当てゲームのお題作成係です。実在する具体的なもの・生き物・食べ物・場所・状況・動作など、誰が見ても「ああ、これのことか」とわかり、かつ絵として実際に描けるお題だけを作ってください。' +
-        '【意味の通らないお題は禁止】形容詞や様子を表す言葉と名詞を、意味を確認せずに機械的に組み合わせるのは禁止です。' +
-        '例えば「こわいむらさき」「つやのあるみず」のように、色や物質に唐突な形容詞を付けただけの、実在しない・イメージが湧かない組み合わせは絶対に作らないでください。' +
-        '形容詞を使う場合は、それが付くことで自然で具体的な情景が思い浮かぶ組み合わせにしてください（例:「ふりつもるゆき」「われたたまご」「ねむっているねこ」）。' +
-        '迷ったら、形容詞なしの単純な具体物（例:「ひまわり」「しょうぼうしゃ」「おにぎり」）にしてください。そちらの方が安全です。' +
-        '【最重要】text・answersに入れる文字列は、必ず「ひらがなのみ」にしてください。漢字・カタカナ・英数字・記号は1文字たりとも使わないでください。' +
-        '例えばOK: "てんめつするらいと"。NG: "点滅するライト"、"テレビ"（カタカナも禁止。"てれび"のようにひらがなで書くこと）。' +
-        '各お題には、正解として許容すべき言い回しのバリエーション（語順違い・活用違い・助詞違いなど、すべてひらがな）を5〜8個付けてください。' +
-        '難易度は easy(1〜2語の簡単な単語)・normal(短いフレーズ)・hard(状況や動作を含む文) をバランスよく混ぜてください。' +
+        'あなたはお絵描き当てゲームのお題作成係です。実在する具体的なもの・生き物・食べ物・場所など、誰が見ても「ああ、これのことか」とわかり、かつ絵として実際に描けるお題だけを作ってください。' +
+        '出すのは easy(単語1つだけ) と normal(形容詞や状態を表す短い言葉＋名詞、2〜3語程度) の2種類だけです。動詞の活用が入る複雑な文は絶対に作らないでください。' +
+        '【意味の通らないお題・存在しない言葉は絶対禁止】文字を適当に並べただけの言葉や、活用を誤った言葉（正しくない言い回し）は絶対に作らないでください。迷ったら簡単な単語1つだけにしてください。' +
+        '良い例(easy): "りんご" "ねこ" "やま" "つき"。良い例(normal): "あかいりんご" "たかいやま" "まるいつき" "ふりつもるゆき" "われたたまご"。' +
+        '悪い例（意味不明・存在しない言葉なので絶対に作らないこと）: "おにんぎり" "おうさまでつながる" "くじらがすいえいる" "おおぜのひとはだす"。' +
+        '【最重要】text・answersに入れる文字列は、必ず「ひらがなのみ」にしてください。漢字・カタカナ・英数字・記号は1文字たりとも使わないでください（例: "テレビ"はNG、"てれび"と書くこと）。' +
+        '各お題には、正解として許容すべき言い回しのバリエーション（語順違い・助詞違いなど、すべてひらがな）を3〜5個付けてください。' +
         '出力は次のJSON形式のみで、説明文やマークダウンのコードブロック記法は一切付けないでください: ' +
-        '{"topics":[{"text":"てんめつするらいと","difficulty":"normal","answers":["てんめつするらいと","らいとがてんめつする","てんめつしているらいと"]}]}';
+        '{"topics":[{"text":"あかいりんご","difficulty":"normal","answers":["あかいりんご","りんごがあかい"]}]}';
 
       const res = await fetch(GROQ_PROXY_URL, {
         method: 'POST',
@@ -202,7 +248,7 @@ async function refillTopicPool(n = 20) {
           max_tokens: 1500,
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `お題を${n}個、JSON形式で作ってください。ひらがな以外は絶対に使わないでください。意味が通じて、実際に絵に描ける具体的なお題だけにしてください。` },
+            { role: 'user', content: `お題を${n}個、JSON形式で作ってください。ひらがな以外は絶対に使わないでください。実在する自然な言葉だけにしてください。` },
           ],
         }),
       });
@@ -213,14 +259,13 @@ async function refillTopicPool(n = 20) {
       const data = await res.json();
       const raw = (data.choices?.[0]?.message?.content || '{}').trim().replace(/^```json\s*|```$/g, '').replace(/```$/g, '').trim();
       const parsed = JSON.parse(raw);
-      // Groqが指示を無視して漢字/カタカナを混ぜてくることがあるので、ここで機械的に弾く
-      // （ひらがなで回答する前提のゲームなので、漢字が1文字でも混ざると正解不能になる）
+      // Groqが指示を無視して漢字/カタカナを混ぜたり、不自然な言葉を作ってくることがあるので機械的に弾く
       const isPureHiragana = (s) => /^[\u3040-\u309Fー\s]*$/.test(String(s || ''));
       const valid = (Array.isArray(parsed.topics) ? parsed.topics : []).filter(
         (t) =>
           t &&
           typeof t.text === 'string' &&
-          ['easy', 'normal', 'hard'].includes(t.difficulty) &&
+          ['easy', 'normal'].includes(t.difficulty) &&
           Array.isArray(t.answers) &&
           t.answers.length > 0 &&
           isPureHiragana(t.text) &&
@@ -241,11 +286,21 @@ async function pickTopicAsync() {
     const base = EXTREME_TOPICS[Math.floor(Math.random() * EXTREME_TOPICS.length)];
     return { ...base, difficulty: 'extreme' };
   }
-  if (topicPool.length < 3) await refillTopicPool(20);
-  if (topicPool.length > 0) return topicPool.shift();
-  // ワーカーに一度も繋がらなかった場合の最終フォールバック
   const tiers = ['easy', 'normal', 'hard'];
   const tier = tiers[Math.floor(Math.random() * tiers.length)];
+  // hardは活用崩れを避けるため常に手作りリストから選ぶ（AIには任せない）
+  if (tier === 'hard') {
+    const list = FALLBACK_TOPICS.hard;
+    const base = list[Math.floor(Math.random() * list.length)];
+    return { ...base, difficulty: 'hard' };
+  }
+  if (topicPool.length < 3) await refillTopicPool(20);
+  const fromPool = topicPool.find((t) => t.difficulty === tier);
+  if (fromPool) {
+    topicPool.splice(topicPool.indexOf(fromPool), 1);
+    return fromPool;
+  }
+  // AIプールが空、または欲しい難易度が無かった場合は手作りリストから
   const list = FALLBACK_TOPICS[tier];
   const base = list[Math.floor(Math.random() * list.length)];
   return { ...base, difficulty: tier };

@@ -5166,6 +5166,23 @@ function oekakiErr(where,e){
   console.error('[oekaki]',OEKAKI_LAST_ERROR,e);
 }
 
+// 過去に一度でも使われたお題（タイル・伝言どちらも）を返す。
+// これをクライアント側でお題選択時の除外リストに使うことで、
+// 「わからなかった問題がそのまま別の場所に再出題されてネタバレになる」事故を防ぐ。
+async function dbFetchOekakiUsedTopics(){
+  try{
+    const [{data:tileRows,error:te},{data:chainRows,error:ce}]=await Promise.all([
+      sb.from('oekaki_tiles').select('topic'),
+      sb.from('oekaki_chains').select('topic')
+    ]);
+    if(te) oekakiErr('used topics(tiles)',te);
+    if(ce) oekakiErr('used topics(chains)',ce);
+    const set=new Set();
+    (tileRows||[]).forEach(r=>{ if(r.topic) set.add(r.topic); });
+    (chainRows||[]).forEach(r=>{ if(r.topic) set.add(r.topic); });
+    return [...set];
+  }catch(e){ oekakiErr('used topics',e); return []; }
+}
 async function dbFetchOekakiTiles(){
   try{
     const {data,error}=await sb.from('oekaki_tiles').select('*').order('created_at',{ascending:false}).limit(200);
@@ -11378,6 +11395,14 @@ window.addEventListener('message',async e=>{
     const balance=await dbFetchAvailablePoints(currentUser.handle);
 
     sendOekakiResponse(msg.reqId,{ok:true,balance,user:{handle:currentUser.handle,name:currentUser.name,avatar:currentUser.avatarUrl||null}});
+
+  }
+
+  if(msg.type==='oekaki:topics:used:request'){
+
+    const used=await dbFetchOekakiUsedTopics();
+
+    sendOekakiResponse(msg.reqId,{ok:true,used});
 
   }
 
